@@ -1,0 +1,74 @@
+/* Chat Styles */
+
+.chat-container {
+  position: fixed;
+  bottom: 10px;
+  left: 10px;
+  z-index: 2000;
+  width: 500px;
+  max-width: 90%;
+  font-family: 'VT323', monospace;
+  font-size: 20px;
+  pointer-events: none;
+}
+
+.chat-container.open {
+  pointer-events: auto;
+}
+
+.chat-messages {
+  background-color: transparent;
+  padding: 5px;
+  border-radius: 4px;
+  margin-bottom: 5px;
+  max-height: 300px;
+  overflow-y: hidden;
+  transition: background-color 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.chat-container.open .chat-messages {
+  background-color: rgba(0, 0, 0, 0.5);
+  overflow-y: auto;
+}
+
+.chat-messages::-webkit-scrollbar {
+  display: none;
+}
+
+.chat-message {
+  text-shadow: 1px 1px 0 #000;
+  transition: opacity 0.5s;
+}
+
+.chat-message.error {
+  color: #ff5555;
+}
+
+.chat-message.info {
+  color: #ffff55;
+}
+
+.chat-message.success {
+  color: #55ff55;
+}
+
+.chat-message.default {
+  color: white;
+}
+
+.chat-input {
+  width: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  border: 1px solid #aaa;
+  color: white;
+  padding: 8px;
+  font-family: inherit;
+  font-size: inherit;
+  outline: none;
+  border-radius: 2px;
+}

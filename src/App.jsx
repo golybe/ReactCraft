@@ -1,7 +1,7 @@
 // Главный компонент приложения с меню
 import React, { useState, useEffect, useCallback } from 'react';
 import Game from './components/Game';
-import MainMenu from './components/MainMenu';
+import MainMenu from './components/ui/MainMenu';
 import { getSavedWorlds, createWorld, loadWorldData, saveWorldData } from './utils/worldManager';
 import { setWorldSeed } from './utils/noise';
 

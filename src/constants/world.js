@@ -50,7 +50,14 @@ export const PLAYER_SPEED = 0.12;
 export const PLAYER_JUMP_FORCE = 0.25;
 export const PLAYER_HEIGHT = 1.8;
 export const PLAYER_WIDTH = 0.6;
-export const GRAVITY = 0.012;
+export const GRAVITY = 0.012; // Старое значение (для совместимости)
+
+// Физические константы для Player класса
+export const MOVE_SPEED = 4.3; // блоков в секунду (как в Minecraft)
+export const JUMP_VELOCITY = 8.5; // начальная скорость прыжка
+export const PHYSICS_GRAVITY = 28; // ускорение падения
+export const MAX_FALL_SPEED = 50; // максимальная скорость падения
+export const GROUND_CHECK_DIST = 0.05; // расстояние проверки земли
 
 // Дальность взаимодействия (в блоках)
 export const REACH_DISTANCE = 5;
@@ -73,5 +80,10 @@ export default {
   PLAYER_HEIGHT,
   PLAYER_WIDTH,
   GRAVITY,
+  MOVE_SPEED,
+  JUMP_VELOCITY,
+  PHYSICS_GRAVITY,
+  MAX_FALL_SPEED,
+  GROUND_CHECK_DIST,
   REACH_DISTANCE
 };

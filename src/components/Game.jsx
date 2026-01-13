@@ -1,229 +1,21 @@
 // Главный игровой компонент с улучшенной системой теней и освещения
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Canvas, useThree, useFrame } from '@react-three/fiber';
-import { Sky } from '@react-three/drei';
-import * as THREE from 'three';
 import { BLOCK_TYPES, HOTBAR_BLOCKS, isSolid, getBlockProperties, BlockRegistry } from '../constants/blocks';
 import { SEA_LEVEL, REACH_DISTANCE, CHUNK_SIZE, CHUNK_HEIGHT, PLAYER_WIDTH, PLAYER_HEIGHT } from '../constants/world';
 import { GAME_MODES, GAME_MODE_NAMES, getGameModeDefaults, isCreativeMode as isCreative } from '../constants/gameMode';
-import World from './World';
-import Player from './Player';
-import Crosshair from './Crosshair';
-import Hotbar from './Hotbar';
-import BlockHighlight from './BlockHighlight';
-import HeldItem from './HeldItem';
-import Debris from './Debris';
-import Chat from './Chat';
-import Inventory from './Inventory';
-import BlockBreakOverlay from './BlockBreakOverlay';
-import { DroppedItemsManager } from './DroppedItem';
-import { ChunkManager } from '../utils/chunkManager';
+import Crosshair from './ui/Crosshair';
+import Hotbar from './ui/Hotbar';
+import Chat from './ui/Chat';
+import Inventory from './inventory/Inventory';
+import { World } from '../core/world/World';
 import { getBlock } from '../utils/noise';
-import { LiquidSimulator } from '../core/physics/LiquidSimulator';
-import { PerformanceMetrics } from '../utils/performance';
 import { BlockMiningManager } from '../core/physics/BlockMining';
-import { addToFullInventory, removeFromSlot, getBlockType, getSlot, TOTAL_INVENTORY_SIZE, HOTBAR_SIZE } from '../utils/inventory';
+import { Inventory as InventoryClass } from '../core/inventory/Inventory';
+import { TOTAL_INVENTORY_SIZE, HOTBAR_SIZE } from '../utils/inventory';
+import { GameCanvas } from './game/GameCanvas';
+import { LoadingScreen, PauseMenu, SaveMessage, DebugInfo } from './game/GameUI';
 
-// --- КОМПОНЕНТ ФИЗИКИ ---
-const PhysicsLoop = ({ simulator, onChanges }) => {
-  useFrame(() => {
-    PerformanceMetrics.startFrame();
-    
-    PerformanceMetrics.measure('physics', () => {
-        if (simulator && simulator.update()) {
-           PerformanceMetrics.measure('chunkUpdate', onChanges);
-        }
-    });
-    
-    PerformanceMetrics.endFrame();
-  });
-  return null;
-};
-
-// --- КОМПОНЕНТ ДОБЫЧИ БЛОКОВ (Survival) ---
-const MiningLoop = ({ miningManager, isMouseDown }) => {
-  const lastTimeRef = useRef(performance.now());
-  
-  useFrame(() => {
-    if (!miningManager) return;
-    
-    const now = performance.now();
-    const delta = (now - lastTimeRef.current) / 1000;
-    lastTimeRef.current = now;
-    
-    if (isMouseDown && miningManager.currentTarget) {
-      miningManager.update(delta);
-    }
-  });
-  
-  return null;
-};
-
-// --- КОМПОНЕНТ ОСВЕЩЕНИЯ (MINECRAFT-STYLE) ---
-// В настоящем Minecraft НЕТ realtime-теней!
-// Вся глубина и объём достигаются через:
-// 1. Статическое затемнение граней (faceShade в ChunkMesher)
-// 2. Воксельный skylight (пещеры/навесы темнее)
-// 3. Мягкий AO в углах
-//
-// Мы используем MeshBasicMaterial с vertexColors — никакого внешнего света не нужно.
-// Только Sky для красивого неба.
-const GameLights = () => {
-  return (
-    <>
-      <Sky
-        sunPosition={[100, 60, 100]}
-        turbidity={0.8}
-        rayleigh={0.5}
-        mieCoefficient={0.005}
-        mieDirectionalG={0.8}
-      />
-      {/* Внешний свет НЕ нужен — всё через vertex colors */}
-    </>
-  );
-};
-
-// Компонент для raycasting кликов
-const BlockInteraction = ({ 
-  chunks, 
-  onBlockDestroy, 
-  onBlockPlace, 
-  selectedBlock, 
-  onPunch,
-  onMouseStateChange,
-  onStopMining,
-  onLookingAtBlock, // NEW: callback when looking at a block while mining
-  isMouseDown // NEW: current mouse state
-}) => {
-  const { camera, scene } = useThree();
-  const raycaster = useRef(new THREE.Raycaster());
-  const lastLookTarget = useRef(null);
-
-  useEffect(() => {
-    raycaster.current.far = REACH_DISTANCE;
-  }, []);
-
-  // Raycast helper function
-  const doRaycast = useCallback(() => {
-    raycaster.current.setFromCamera(new THREE.Vector2(0, 0), camera);
-    const intersects = raycaster.current.intersectObjects(scene.children, true);
-
-    for (const hit of intersects) {
-      if (hit.distance > REACH_DISTANCE) continue;
-      if (hit.object.name !== 'block-mesh' && !hit.object.isInstancedMesh) continue;
-      if (hit.object.userData?.isLiquid) continue;
-
-      const point = hit.point;
-      const normal = hit.face?.normal;
-
-      if (!normal) continue;
-
-      return {
-        breakPos: {
-          x: Math.floor(point.x - normal.x * 0.5),
-          y: Math.floor(point.y - normal.y * 0.5),
-          z: Math.floor(point.z - normal.z * 0.5)
-        },
-        placePos: {
-          x: Math.floor(point.x + normal.x * 0.5),
-          y: Math.floor(point.y + normal.y * 0.5),
-          z: Math.floor(point.z + normal.z * 0.5)
-        }
-      };
-    }
-    return null;
-  }, [camera, scene]);
-
-  // Continuous raycast while mining (useFrame)
-  useFrame(() => {
-    if (!isMouseDown) {
-      lastLookTarget.current = null;
-      return;
-    }
-    
-    if (document.pointerLockElement !== document.body) return;
-
-    const target = doRaycast();
-    
-    if (target) {
-      const { breakPos } = target;
-      const key = `${breakPos.x},${breakPos.y},${breakPos.z}`;
-      
-      // If looking at a different block, notify
-      if (lastLookTarget.current !== key) {
-        lastLookTarget.current = key;
-        if (onLookingAtBlock) {
-          onLookingAtBlock(breakPos.x, breakPos.y, breakPos.z);
-        }
-      }
-    } else {
-      // Looking at nothing
-      if (lastLookTarget.current !== null) {
-        lastLookTarget.current = null;
-        if (onStopMining) onStopMining();
-      }
-    }
-  });
-
-  useEffect(() => {
-    const handleMouseDown = (e) => {
-      if (document.pointerLockElement !== document.body) return;
-
-      if (e.button === 0) {
-          if (onPunch) onPunch();
-          if (onMouseStateChange) onMouseStateChange(true);
-          
-          // Initial raycast on mousedown
-          const target = doRaycast();
-          if (target) {
-            onBlockDestroy(target.breakPos.x, target.breakPos.y, target.breakPos.z);
-          }
-      } else if (e.button === 2) {
-          const target = doRaycast();
-          if (target) {
-            onBlockPlace(target.placePos.x, target.placePos.y, target.placePos.z);
-          }
-      }
-    };
-
-    const handleMouseUp = (e) => {
-      if (e.button === 0) {
-        if (onMouseStateChange) onMouseStateChange(false);
-        if (onStopMining) onStopMining();
-        lastLookTarget.current = null;
-      }
-    };
-
-    const handleContextMenu = (e) => {
-      if (document.pointerLockElement === document.body) {
-        e.preventDefault();
-      }
-    };
-
-    document.addEventListener('mousedown', handleMouseDown);
-    document.addEventListener('mouseup', handleMouseUp);
-    document.addEventListener('contextmenu', handleContextMenu);
-
-    return () => {
-      document.removeEventListener('mousedown', handleMouseDown);
-      document.removeEventListener('mouseup', handleMouseUp);
-      document.removeEventListener('contextmenu', handleContextMenu);
-    };
-  }, [camera, scene, onBlockDestroy, onBlockPlace, onMouseStateChange, onStopMining, doRaycast, onPunch]);
-
-  return null;
-};
-
-// Компонент кнопки в стиле Minecraft
-const MCButton = ({ children, onClick, style, className }) => (
-  <button
-    className={`mc-button ${className || ''}`}
-    onClick={onClick}
-    style={style}
-  >
-    {children}
-  </button>
-);
+// Компоненты PhysicsLoop, MiningLoop, GameLights и BlockInteraction теперь в GameCanvas.jsx
 
 const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitToMenu }) => {
   const [chunks, setChunks] = useState({});
@@ -234,26 +26,35 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
   const gameModeDefaults = getGameModeDefaults(gameMode);
   
   // === FULL INVENTORY (36 slots: 0-8 hotbar, 9-35 main inventory) ===
+  const inventoryRef = useRef(null);
   const [inventory, setInventory] = useState(() => {
-    // Загружаем из сохранения или создаем пустой
+    // Создаем Inventory класс из сохранения или пустой
     if (worldInfo?.inventory) {
-      // Migrate old 9-slot inventory to 36-slot
-      if (worldInfo.inventory.length === 9) {
-        const newInv = Array(TOTAL_INVENTORY_SIZE).fill(null);
-        for (let i = 0; i < 9; i++) {
-          newInv[i] = worldInfo.inventory[i];
-        }
-        return newInv;
-      }
-      return worldInfo.inventory;
+      inventoryRef.current = InventoryClass.deserialize(worldInfo.inventory, TOTAL_INVENTORY_SIZE);
+    } else {
+      inventoryRef.current = new InventoryClass(TOTAL_INVENTORY_SIZE);
     }
-    return Array(TOTAL_INVENTORY_SIZE).fill(null);
+    return inventoryRef.current.getSlots();
   });
+
+  // Синхронизируем inventoryRef с React state
+  useEffect(() => {
+    if (inventoryRef.current) {
+      inventoryRef.current.setSlots(inventory);
+    }
+  }, [inventory]);
 
   // Hotbar is slots 0-8 of inventory
   const hotbar = inventory.slice(0, HOTBAR_SIZE);
   
   const [selectedSlot, setSelectedSlot] = useState(0);
+  
+  // Синхронизируем selectedSlot с Inventory классом
+  useEffect(() => {
+    if (inventoryRef.current) {
+      inventoryRef.current.setSelectedSlot(selectedSlot);
+    }
+  }, [selectedSlot]);
   const [playerPos, setPlayerPos] = useState(initialPlayerPos || { x: 0, y: SEA_LEVEL + 10, z: 0 });
   const [playerYaw, setPlayerYaw] = useState(0);
   const [playerPitch, setPlayerPitch] = useState(0);
@@ -292,8 +93,7 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
   
   const frameTimesRef = useRef([]);
   const lastFrameTimeRef = useRef(performance.now());
-  const chunkManagerRef = useRef(null);
-  const liquidSimulatorRef = useRef(null);
+  const worldRef = useRef(null);
   const isChatOpenRef = useRef(isChatOpen);
   const isInventoryOpenRef = useRef(isInventoryOpen);
 
@@ -326,19 +126,14 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
   }, [gameMode]);
 
   useEffect(() => {
-    if (!chunkManagerRef.current && worldInfo) {
-      // console.log('[Game] Creating ChunkManager with seed:', worldInfo.seed);
-      
-      // Создаем ChunkManager (воркеры инициализируются автоматически)
-      chunkManagerRef.current = new ChunkManager(worldInfo.seed, initialChunks || {});
-      // console.log('[Game] ChunkManager created:', chunkManagerRef.current);
-      
-      liquidSimulatorRef.current = new LiquidSimulator(chunkManagerRef.current);
+    if (!worldRef.current && worldInfo) {
+      // Создаем World (включает ChunkManager и LiquidSimulator)
+      worldRef.current = new World(worldInfo.seed, initialChunks || {});
       
       // Устанавливаем коллбек для обновления React при загрузке чанков
-      chunkManagerRef.current.setOnChunksUpdated(() => {
-        const chunksCount = Object.keys(chunkManagerRef.current.chunks).length;
-        setChunks({ ...chunkManagerRef.current.chunks });
+      worldRef.current.setOnChunksUpdate((updatedChunks) => {
+        const chunksCount = Object.keys(updatedChunks).length;
+        setChunks(updatedChunks);
         setDebugInfo(prev => ({ 
           ...prev, 
           chunksCount
@@ -362,8 +157,7 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
       });
       
       // Запускаем первую загрузку
-      // console.log('[Game] Starting initial chunk load at:', playerPos);
-      chunkManagerRef.current.update(playerPos);
+      worldRef.current.update(playerPos);
       
       // Fallback: через 15 секунд снимаем экран загрузки в любом случае (если что-то зависло)
       setTimeout(() => {
@@ -377,18 +171,18 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
     
     // Cleanup при размонтировании
     return () => {
-      if (chunkManagerRef.current) {
-        chunkManagerRef.current.terminate();
+      if (worldRef.current) {
+        worldRef.current.destroy();
       }
     };
   }, [worldInfo, initialChunks]);
 
   useEffect(() => {
     const checkChunks = () => {
-      if (!chunkManagerRef.current) return;
+      if (!worldRef.current) return;
       // update возвращает hasChanges только если чанки были удалены (выгружены)
       // или если были добавлены новые через update loop (не через async)
-      const { hasChanges, activeChunks } = chunkManagerRef.current.update(playerPos);
+      const { hasChanges, activeChunks } = worldRef.current.update(playerPos);
       if (hasChanges) {
         setChunks(activeChunks);
         setDebugInfo(prev => ({ 
@@ -404,8 +198,8 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
 
   useEffect(() => {
     const updateBiome = () => {
-      if (!playerPos || !chunkManagerRef.current) return;
-      const biome = chunkManagerRef.current.getBiome(
+      if (!playerPos || !worldRef.current) return;
+      const biome = worldRef.current.getBiome(
         Math.floor(playerPos.x), 
         Math.floor(playerPos.z)
       );
@@ -442,21 +236,23 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
   }, []);
 
   const handleSaveGame = useCallback(async () => {
-    if (chunkManagerRef.current && onSaveWorld) {
+    if (worldRef.current && onSaveWorld) {
       setSaveMessage('Сохранение...');
-      const modifiedData = chunkManagerRef.current.getSaveData();
+      const modifiedData = worldRef.current.getSaveData();
       // Сохраняем gameMode и inventory
-      await onSaveWorld(modifiedData, playerPos, { gameMode, inventory: inventory });
+      const inventoryData = inventoryRef.current ? inventoryRef.current.serialize() : inventory;
+      await onSaveWorld(modifiedData, playerPos, { gameMode, inventory: inventoryData });
       setSaveMessage('Мир сохранён!');
       setTimeout(() => setSaveMessage(''), 2000);
     }
   }, [playerPos, onSaveWorld, gameMode, inventory]);
 
   const handleSaveAndExit = useCallback(async () => {
-      if (chunkManagerRef.current && onSaveWorld) {
+      if (worldRef.current && onSaveWorld) {
           setSaveMessage('Сохранение...');
-          const modifiedData = chunkManagerRef.current.getSaveData();
-          await onSaveWorld(modifiedData, playerPos, { gameMode, inventory: inventory });
+          const modifiedData = worldRef.current.getSaveData();
+          const inventoryData = inventoryRef.current ? inventoryRef.current.serialize() : inventory;
+          await onSaveWorld(modifiedData, playerPos, { gameMode, inventory: inventoryData });
 
           if (onExitToMenu) {
               onExitToMenu();
@@ -466,18 +262,17 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
 
   // Фактическое разрушение блока (вызывается мгновенно в Creative или после добычи в Survival)
   const destroyBlock = useCallback((x, y, z, blockId) => {
-    if (!chunkManagerRef.current) return;
+    if (!worldRef.current) return;
     
     const block = BlockRegistry.get(blockId);
     
-    const success = chunkManagerRef.current.setBlock(x, y, z, BLOCK_TYPES.AIR);
+    const success = worldRef.current.setBlock(x, y, z, BLOCK_TYPES.AIR);
     if (success) {
-       setChunks({ ...chunkManagerRef.current.chunks });
-       liquidSimulatorRef.current?.onBlockUpdate(x, y, z);
+       setChunks({ ...worldRef.current.getChunks() });
        
        // Частицы разрушения
        if (blockId) {
-            const lightLevel = chunkManagerRef.current.getLightLevel(x, y, z);
+            const lightLevel = worldRef.current.getLightLevel(x, y, z);
             const id = Date.now() + Math.random();
             setDebrisList(prev => [...prev, { id, x, y, z, blockType: blockId, lightLevel }]);
             setTimeout(() => {
@@ -523,7 +318,7 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
   }, [gameMode]);
 
   const handleBlockDestroy = useCallback((x, y, z) => {
-    if (!chunkManagerRef.current) return;
+    if (!worldRef.current) return;
     if (y < 0 || y >= CHUNK_HEIGHT) return;
 
     const dx = x + 0.5 - playerPos.x;
@@ -532,18 +327,8 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
     const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
     if (distance > REACH_DISTANCE) return;
 
-    // Получаем blockId
-    const cx = Math.floor(x / CHUNK_SIZE);
-    const cz = Math.floor(z / CHUNK_SIZE);
-    const key = `${cx},${cz}`;
-    const chunk = chunkManagerRef.current.chunks[key];
-    
-    let blockId = null;
-    if (chunk) {
-        const lx = ((x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
-        const lz = ((z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
-        blockId = chunk.getBlock(lx, y, lz);
-    }
+    // Получаем blockId через World API
+    const blockId = worldRef.current.getBlock(x, y, z);
 
     if (!blockId || blockId === BLOCK_TYPES.AIR) return;
     
@@ -570,12 +355,11 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
   }, [playerPos, gameMode, destroyBlock]);
 
   const handleBlockPlace = useCallback((x, y, z) => {
-    if (!chunkManagerRef.current) return;
+    if (!worldRef.current) return;
     if (y < 0 || y >= CHUNK_HEIGHT) return;
 
     // Получаем блок из хотбара (поддерживаем оба формата)
-    const slot = inventory[selectedSlot];
-    const blockType = getBlockType(inventory, selectedSlot);
+    const blockType = inventoryRef.current?.getBlockType(selectedSlot) || null;
     
     if (!blockType) return; // Нельзя ставить "ничего"
 
@@ -604,15 +388,14 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
       }
     }
 
-    const success = chunkManagerRef.current.setBlock(x, y, z, blockType);
+    const success = worldRef.current.setBlock(x, y, z, blockType);
     if (success) {
-       setChunks({ ...chunkManagerRef.current.chunks });
-       liquidSimulatorRef.current?.onBlockUpdate(x, y, z);
+       setChunks({ ...worldRef.current.getChunks() });
        
        // В Survival режиме расходуем блок из инвентаря
-       if (gameMode === GAME_MODES.SURVIVAL) {
-         const { inventory: newInventory } = removeFromSlot(inventory, selectedSlot, 1);
-         setInventory(newInventory);
+       if (gameMode === GAME_MODES.SURVIVAL && inventoryRef.current) {
+         inventoryRef.current.removeFromSlot(selectedSlot, 1);
+         setInventory(inventoryRef.current.getSlots());
        }
     }
 
@@ -633,8 +416,20 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
     }
 
     // Добавляем в инвентарь (36 слотов, приоритет хотбару)
-    const { inventory: newInventory, remaining } = addToFullInventory(inventory, blockType, count);
-    setInventory(newInventory);
+    if (inventoryRef.current) {
+      const { remaining } = inventoryRef.current.addToFullInventory(blockType, count);
+      setInventory(inventoryRef.current.getSlots());
+
+      // Если все подобрали - удаляем
+      if (remaining === 0) {
+        setDroppedItems(prev => prev.filter(item => item.id !== itemId));
+      } else {
+        // Остались лишние - обновляем количество
+        setDroppedItems(prev => prev.map(item =>
+          item.id === itemId ? { ...item, count: remaining } : item
+        ));
+      }
+    }
 
     // Если все подобрали - удаляем
     if (remaining === 0) {
@@ -649,8 +444,8 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
 
   // Функция getBlock для DroppedItem (коллизии)
   const getBlockAt = useCallback((x, y, z) => {
-    if (!chunkManagerRef.current) return BLOCK_TYPES.AIR;
-    return chunkManagerRef.current.getBlock(x, y, z);
+    if (!worldRef.current) return BLOCK_TYPES.AIR;
+    return worldRef.current.getBlock(x, y, z);
   }, []);
 
   // Остановка добычи (когда отпустили кнопку мыши или отвели взгляд)
@@ -671,20 +466,10 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
   // Обработчик для отслеживания блока при зажатом ЛКМ (Survival)
   const handleLookingAtBlock = useCallback((x, y, z) => {
     if (gameMode !== GAME_MODES.SURVIVAL) return;
-    if (!chunkManagerRef.current) return;
+    if (!worldRef.current) return;
     
-    // Получаем blockId
-    const cx = Math.floor(x / CHUNK_SIZE);
-    const cz = Math.floor(z / CHUNK_SIZE);
-    const key = `${cx},${cz}`;
-    const chunk = chunkManagerRef.current.chunks[key];
-    
-    let blockId = null;
-    if (chunk) {
-        const lx = ((x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
-        const lz = ((z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
-        blockId = chunk.getBlock(lx, y, lz);
-    }
+    // Получаем blockId через World API
+    const blockId = worldRef.current.getBlock(x, y, z);
     
     if (!blockId || blockId === BLOCK_TYPES.AIR) {
       handleStopMining();
@@ -817,14 +602,16 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
   const handleDropItem = useCallback(() => {
     if (isChatOpen || isInventoryOpen || isPaused) return;
 
-    const blockType = getBlockType(inventory, selectedSlot);
+    if (!inventoryRef.current) return;
+    
+    const blockType = inventoryRef.current.getBlockType(selectedSlot);
     if (!blockType) return;
 
     // Удаляем 1 предмет из слота
-    const { inventory: newInventory, removed } = removeFromSlot(inventory, selectedSlot, 1);
+    const { removed } = inventoryRef.current.removeFromSlot(selectedSlot, 1);
     if (removed === 0) return;
 
-    setInventory(newInventory);
+    setInventory(inventoryRef.current.getSlots());
 
     // Направление взгляда (используем yaw и pitch)
     const throwSpeed = 8;
@@ -990,145 +777,43 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
   };
 
   if (isLoading) {
-    return (
-      <div style={{
-        width: '100vw',
-        height: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#1a1a2e',
-        color: 'white',
-        fontFamily: "'VT323', monospace"
-      }}>
-        <h1 style={{ marginBottom: '20px', fontSize: '48px', color: '#fff', textShadow: '2px 2px 0 #000' }}>
-          {worldInfo?.name || 'Minecraft React'}
-        </h1>
-        <div style={{
-          width: '300px',
-          height: '24px',
-          border: '2px solid #fff',
-          backgroundColor: '#000',
-        }}>
-          <div style={{
-            width: `${loadingProgress}%`,
-            height: '100%',
-            backgroundColor: '#4CAF50',
-            transition: 'width 0.1s'
-          }} />
-        </div>
-        <p style={{ marginTop: '10px', fontSize: '24px' }}>Генерация чанков... {loadingProgress}%</p>
-      </div>
-    );
+    return <LoadingScreen worldName={worldInfo?.name} progress={loadingProgress} />;
   }
 
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden' }}>
-      <Canvas
-        camera={{ position: [0, SEA_LEVEL + 12, 0], fov: 75 }}
-        gl={{
-          antialias: false,
-          powerPreference: 'high-performance'
-        }}
-        onCreated={({ gl, scene }) => {
-          // Небесно-голубой фон
-          gl.setClearColor(new THREE.Color(0x87CEEB));
-
-          // Туман для глубины и скрытия границ рендера
-          scene.fog = new THREE.Fog(0x87CEEB, 80, 180);
-
-          // sRGB для правильных цветов
-          gl.outputColorSpace = THREE.SRGBColorSpace;
-
-          // Без тонмаппинга — чистые цвета как в Minecraft
-          gl.toneMapping = THREE.NoToneMapping;
-        }}
-      >
-        {/* Только небо, внешний свет не нужен — всё через vertex colors */}
-        <GameLights />
-        <PhysicsLoop 
-            simulator={liquidSimulatorRef.current} 
-            onChanges={() => setChunks({ ...chunkManagerRef.current.chunks })} 
-        />
-        
-        {/* Mining loop для Survival */}
-        {gameMode === GAME_MODES.SURVIVAL && (
-          <MiningLoop 
-            miningManager={miningManagerRef.current}
-            isMouseDown={isMouseDown}
-          />
-        )}
-
-        {chunks && (
-          <>
-            <World
-              chunks={chunks}
-              chunkManager={chunkManagerRef.current}
-              onBlocksCount={handleBlocksCount}
-            />
-            <Player
-              onMove={handlePlayerMove}
-              chunks={chunks}
-              initialPosition={initialPlayerPos}
-              noclipMode={noclipMode}
-              canFly={canFly}
-              speedMultiplier={speedMultiplier}
-              isChatOpen={isChatOpen}
-              teleportPos={teleportPos}
-            />
-            <BlockHighlight chunks={chunks} />
-            
-            {/* Анимация трещин при добыче (Survival) */}
-            {gameMode === GAME_MODES.SURVIVAL && miningState.target && (
-              <BlockBreakOverlay 
-                target={miningState.target}
-                stage={miningState.stage}
-              />
-            )}
-            
-            {/* Выпавшие предметы (Survival) */}
-            {gameMode === GAME_MODES.SURVIVAL && droppedItems.length > 0 && (
-              <DroppedItemsManager
-                items={droppedItems}
-                playerPos={playerPos}
-                onPickup={handleItemPickup}
-                getBlock={getBlockAt}
-              />
-            )}
-            
-            {/* Рендеринг эффектов разрушения */}
-            {debrisList.map(debris => (
-                <Debris key={debris.id} {...debris} />
-            ))}
-            
-            <BlockInteraction
-              chunks={chunks}
-              onBlockDestroy={handleBlockDestroy}
-              onBlockPlace={handleBlockPlace}
-              onPunch={handlePunch}
-              selectedBlock={getBlockType(inventory, selectedSlot)}
-              onMouseStateChange={handleMouseStateChange}
-              onStopMining={handleStopMining}
-              onLookingAtBlock={handleLookingAtBlock}
-              isMouseDown={isMouseDown}
-            />
-            <HeldItem 
-              selectedBlock={getBlockType(inventory, selectedSlot)}
-              isMining={gameMode === GAME_MODES.SURVIVAL && isMouseDown && miningState.target !== null} 
-              lastPunchTime={lastPunchTime}
-              isFlying={isFlying}
-              lightLevel={chunkManagerRef.current ? 
-                chunkManagerRef.current.getLightLevel(
-                  Math.floor(playerPos?.x || 0), 
-                  Math.floor(playerPos?.y || 64), 
-                  Math.floor(playerPos?.z || 0)
-                ) : 15
-              }
-            />
-          </>
-        )}
-      </Canvas>
+      <GameCanvas
+        chunks={chunks}
+        chunkManager={worldRef.current?.getChunkManager()}
+        liquidSimulator={worldRef.current?.getLiquidSimulator()}
+        miningManager={miningManagerRef.current}
+        gameMode={gameMode}
+        isMouseDown={isMouseDown}
+        miningState={miningState}
+        droppedItems={droppedItems}
+        debrisList={debrisList}
+        playerPos={playerPos}
+        selectedBlock={inventoryRef.current?.getBlockType(selectedSlot) || null}
+        isFlying={isFlying}
+        lastPunchTime={lastPunchTime}
+        initialPlayerPos={initialPlayerPos}
+        noclipMode={noclipMode}
+        canFly={canFly}
+        speedMultiplier={speedMultiplier}
+        isChatOpen={isChatOpen}
+        teleportPos={teleportPos}
+        onPlayerMove={handlePlayerMove}
+        onBlocksCount={handleBlocksCount}
+        onBlockDestroy={handleBlockDestroy}
+        onBlockPlace={handleBlockPlace}
+        onPunch={handlePunch}
+        onMouseStateChange={handleMouseStateChange}
+        onStopMining={handleStopMining}
+        onLookingAtBlock={handleLookingAtBlock}
+        onItemPickup={handleItemPickup}
+        getBlockAt={getBlockAt}
+        onChunksUpdate={setChunks}
+      />
 
       <Crosshair />
       <Hotbar 
@@ -1159,112 +844,26 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
         messages={chatMessages}
       />
 
-      {saveMessage && (
-        <div style={{
-          position: 'fixed',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          backgroundColor: 'rgba(0, 0, 0, 0.7)',
-          color: '#4CAF50',
-          padding: '15px 30px',
-          border: '2px solid #fff',
-          fontFamily: "'VT323', monospace",
-          fontSize: '24px',
-          zIndex: 1001,
-          animation: 'fadeIn 0.2s ease'
-        }}>
-          {saveMessage}
-        </div>
-      )}
+      <SaveMessage message={saveMessage} />
 
       {showInstructions && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          backgroundColor: 'rgba(0, 0, 0, 0.6)',
-          backdropFilter: 'blur(3px)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '15px',
-            alignItems: 'center',
-            width: '100%',
-            maxWidth: '350px'
-          }}>
-            <h2 style={{ 
-              marginBottom: '20px', 
-              color: '#fff', 
-              fontSize: '40px',
-              fontFamily: "'VT323', monospace",
-              textShadow: '2px 2px 0 #000'
-            }}>
-              Меню игры
-            </h2>
-
-            <MCButton onClick={resumeGame}>
-              Вернуться в игру
-            </MCButton>
-
-            <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
-              <MCButton onClick={() => alert('Достижения пока недоступны')}>
-                Достижения
-              </MCButton>
-              <MCButton onClick={() => alert('Статистика пока недоступна')}>
-                Статистика
-              </MCButton>
-            </div>
-
-            <MCButton onClick={() => alert('Настройки пока недоступны')}>
-              Настройки
-            </MCButton>
-
-            {onSaveWorld && (
-               <MCButton onClick={handleSaveAndExit}>
-                 Сохранить и выйти
-               </MCButton>
-            )}
-
-             {onExitToMenu && (
-                <MCButton onClick={handleExitToMenu} style={{ marginTop: '10px' }}>
-                  Выйти в меню
-                </MCButton>
-             )}
-          </div>
-        </div>
+        <PauseMenu
+          onResume={resumeGame}
+          onSaveAndExit={handleSaveAndExit}
+          onExitToMenu={handleExitToMenu}
+          onSaveWorld={onSaveWorld}
+        />
       )}
 
       {!showInstructions && (
-        <div style={{
-          position: 'fixed',
-          top: '10px',
-          left: '10px',
-          color: 'white',
-          fontFamily: "'VT323', monospace",
-          fontSize: '20px',
-          textShadow: '1px 1px 0 #000',
-          zIndex: 100,
-          lineHeight: '1.2'
-        }}>
-          <div>Minecraft React 1.0</div>
-          <div>{Math.round(debugInfo.fps)} fps</div>
-          <div>XYZ: {playerPos.x.toFixed(3)} / {playerPos.y.toFixed(3)} / {playerPos.z.toFixed(3)}</div>
-          <div>Chunk: {Math.floor(playerPos.x / 16)} {Math.floor(playerPos.y / 16)} {Math.floor(playerPos.z / 16)}</div>
-          <div>Chunks loaded: {debugInfo.chunksCount}</div>
-          <div>Entities: {debugInfo.blocksCount} blocks</div>
-          <div style={{ color: '#aaa' }}>Biome: {currentBiome}</div>
-          <div style={{ color: gameMode === GAME_MODES.CREATIVE ? '#6aadbd' : '#6abd6e' }}>
-            Mode: {GAME_MODE_NAMES[gameMode]}
-          </div>
-        </div>
+        <DebugInfo
+          fps={debugInfo.fps}
+          playerPos={playerPos}
+          chunksCount={debugInfo.chunksCount}
+          blocksCount={debugInfo.blocksCount}
+          biome={currentBiome}
+          gameMode={gameMode}
+        />
       )}
     </div>
   );

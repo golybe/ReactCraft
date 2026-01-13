@@ -1,0 +1,192 @@
+/* Main Menu Styles */
+
+.menu-container {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+  background-color: #333;
+}
+
+.menu-panorama {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url("data:image/svg+xml,%3Csvg width='64' height='64' viewBox='0 0 64 64' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M8 16c4.418 0 8-3.582 8-8s-3.582-8-8-8-8 3.582-8 8 3.582 8 8 8zm0-2c3.314 0 6-2.686 6-6s-2.686-6-6-6-6 2.686-6 6 2.686 6 6 6zm33.414-6l5.95-5.95L45.95.636 40 6.586 34.05.636 32.636 2.05 38.586 8l-5.95 5.95 1.414 1.414L40 9.414l5.95 5.95 1.414-1.414L41.414 8zM40 48c4.418 0 8-3.582 8-8s-3.582-8-8-8-8 3.582-8 8 3.582 8 8 8zm0-2c3.314 0 6-2.686 6-6s-2.686-6-6-6-6 2.686-6 6 2.686 6 6 6zM9.414 40l5.95-5.95-1.414-1.414L8 38.586l-5.95-5.95L.636 34.05 6.586 40l-5.95 5.95 1.414 1.414L8 41.414l5.95 5.95 1.414-1.414L9.414 40z' fill='%235d5d5d' fill-opacity='0.2' fill-rule='evenodd'/%3E%3C/svg%3E");
+  filter: blur(2px) brightness(0.6);
+  transform: scale(1.1);
+}
+
+.menu-vignette {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle, transparent 50%, rgba(0, 0, 0, 0.8) 100%);
+  pointer-events: none;
+}
+
+.menu-logo {
+  margin-bottom: 40px;
+  text-align: center;
+  z-index: 10;
+  transform: scale(1.2);
+}
+
+.menu-logo h1 {
+  font-size: 80px;
+  color: #b0b0b0;
+  font-family: 'VT323', monospace;
+  text-shadow:
+    0 4px 0 #555,
+    0 8px 0 #333,
+    4px 8px 0 #222,
+    4px 4px 0 #000;
+  margin: 0;
+  letter-spacing: -2px;
+  line-height: 1;
+}
+
+.menu-logo p {
+  font-size: 28px;
+  color: #FFFF55;
+  margin: -10px 0 0 80px;
+  transform: rotate(-10deg);
+  text-shadow: 2px 2px 0 #333;
+  font-family: 'VT323', monospace;
+  animation: pulse 1s infinite alternate;
+}
+
+.menu-content {
+  z-index: 10;
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.menu-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  width: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  padding: 20px;
+  border: 2px solid #fff;
+}
+
+.menu-form h2 {
+  color: #fff;
+  text-align: center;
+  text-shadow: 2px 2px 0 #000;
+}
+
+.menu-form label {
+  color: #a0a0a0;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.menu-world-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  padding: 20px;
+  border: 2px solid #fff;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.menu-world-item {
+  border: 2px solid #888;
+  padding: 10px;
+  background-color: rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: border-color 0.2s;
+}
+
+.menu-world-item:hover {
+  border-color: #fff;
+}
+
+.menu-world-name {
+  color: #fff;
+  font-size: 20px;
+}
+
+.menu-world-info {
+  color: #aaa;
+  font-size: 16px;
+}
+
+.menu-world-id {
+  color: #777;
+  font-size: 12px;
+}
+
+.menu-footer {
+  position: absolute;
+  bottom: 10px;
+  width: 100%;
+  text-align: center;
+  color: #fff;
+  font-size: 16px;
+  text-shadow: 1px 1px 0 #000;
+}
+
+.menu-preview-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.menu-preview-title {
+  color: #fff;
+  margin-bottom: 15px;
+}
+
+.menu-delete-button {
+  background: none;
+  border: none;
+  color: #ff5555;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 24px;
+}
+
+.menu-preview-button {
+  background-color: #555;
+  border: 2px solid #888;
+  color: #fff;
+  padding: 0 10px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.menu-description {
+  color: #888;
+  font-size: 14px;
+  margin-top: 8px;
+  text-align: center;
+}

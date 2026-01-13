@@ -1,0 +1,66 @@
+/* Common Minecraft-style UI Components */
+
+/* Minecraft Button */
+.mc-button {
+  width: 100%;
+  padding: 12px 20px;
+  background-color: #8b8b8b;
+  border: 3px solid;
+  border-color: #fff #555 #555 #fff;
+  color: #fff;
+  font-family: 'VT323', monospace;
+  font-size: 20px;
+  cursor: pointer;
+  text-shadow: 2px 2px 0 #000;
+  transition: all 0.1s;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3);
+}
+
+.mc-button:hover {
+  background-color: #9b9b9b;
+  transform: translateY(-1px);
+  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.3);
+}
+
+.mc-button:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
+}
+
+.mc-button.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mc-button.disabled:hover {
+  transform: none;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* Minecraft Input */
+.mc-input {
+  width: 100%;
+  padding: 8px;
+  background-color: #000;
+  border: 2px solid;
+  border-color: #373737 #fff #fff #373737;
+  color: #fff;
+  font-family: 'VT323', monospace;
+  font-size: 18px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.mc-input:focus {
+  border-color: #fff #555 #555 #fff;
+}
+
+/* Animations */
+@keyframes pulse {
+  0% {
+    transform: scale(1) rotate(-10deg);
+  }
+  100% {
+    transform: scale(1.1) rotate(-10deg);
+  }
+}

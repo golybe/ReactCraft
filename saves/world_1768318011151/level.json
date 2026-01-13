@@ -1,0 +1,60 @@
+{
+  "id": "world_1768318011151",
+  "name": "ывафыва",
+  "seed": 925487786,
+  "gameMode": 1,
+  "createdAt": 1768318011151,
+  "lastPlayed": 1768318052518,
+  "playerPos": {
+    "x": 15.845806789975995,
+    "y": 59.572454959972994,
+    "z": -32.12623775838784
+  },
+  "inventory": [
+    {
+      "type": 6,
+      "count": 4
+    },
+    {
+      "type": 2,
+      "count": 1
+    },
+    {
+      "type": 7,
+      "count": 64
+    },
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+  ]
+}
