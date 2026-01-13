@@ -1,0 +1,70 @@
+@import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  overflow: hidden;
+  font-family: 'VT323', monospace;
+  user-select: none;
+  background-color: #1a1a2e;
+}
+
+#root {
+  width: 100vw;
+  height: 100vh;
+}
+
+/* Minecraft Button Style */
+.mc-button {
+  position: relative;
+  display: inline-block;
+  padding: 10px 20px;
+  font-family: 'VT323', monospace;
+  font-size: 24px;
+  color: #ddd;
+  text-shadow: 2px 2px #000;
+  background-color: #777;
+  border: 2px solid;
+  border-color: #fff #555 #555 #fff;
+  cursor: pointer;
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+  text-decoration: none;
+  image-rendering: pixelated;
+}
+
+.mc-button:hover {
+  background-color: #889;
+  color: #fff;
+  border-color: #fff #666 #666 #fff;
+}
+
+.mc-button:active {
+  background-color: #556;
+  border-color: #444 #888 #888 #444;
+}
+
+.mc-button.primary {
+  /* Just a marker for logic, style is same but maybe slightly different usage */
+}
+
+/* Minecraft Input Style */
+.mc-input {
+  font-family: 'VT323', monospace;
+  font-size: 20px;
+  padding: 10px;
+  background-color: #000;
+  border: 2px solid #a0a0a0;
+  color: #fff;
+  width: 100%;
+  outline: none;
+}
+
+.mc-input:focus {
+  border-color: #fff;
+}

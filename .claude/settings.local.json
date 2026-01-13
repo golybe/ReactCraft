@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(npm create vite:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run dev:*)",
+      "Bash(timeout:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(tasklist:*)",
+      "Bash(npm run build:*)",
+      "Bash(dir:*)",
+      "WebFetch(domain:www.alanzucconi.com)",
+      "WebFetch(domain:cybrancee.com)",
+      "WebFetch(domain:nekoyue.github.io)",
+      "Bash(ls:*)",
+      "Bash(wc:*)",
+      "Bash(find:*)"
+    ]
+  }
+}
