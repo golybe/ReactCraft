@@ -191,6 +191,3 @@ export const BlockInteraction = ({
 
   return null;
 };
-
-  return null;
-};
