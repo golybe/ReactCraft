@@ -133,6 +133,22 @@ export function useBlockInteraction({
       
       miningManagerRef.current.onBlockBroken = (bx, by, bz, bid) => {
         destroyBlock(bx, by, bz, bid);
+
+        // Уменьшаем прочность инструмента
+        if (heldBlock && heldBlock.isTool && heldBlock.maxDurability > 0) {
+          const currentDurability = heldItem.durability !== undefined ? heldItem.durability : heldBlock.maxDurability;
+          const newDurability = currentDurability - 1;
+
+          if (newDurability <= 0) {
+            // Инструмент сломался
+            inventoryRef.current.setSlot(selectedSlot, null);
+            // TODO: Звук поломки
+          } else {
+            // Обновляем прочность
+            inventoryRef.current.setSlot(selectedSlot, { ...heldItem, durability: newDurability });
+          }
+          setInventory([...inventoryRef.current.getSlots()]);
+        }
       };
       miningManagerRef.current.startMining(x, y, z, blockId, toolType, toolEfficiency);
     }

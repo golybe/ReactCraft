@@ -8,6 +8,7 @@ import {
   MAIN_INVENTORY_SIZE,
   TOTAL_INVENTORY_SIZE
 } from '../../utils/inventory';
+import { BlockRegistry } from '../blocks/BlockRegistry';
 
 export class Inventory {
   constructor(size = TOTAL_INVENTORY_SIZE, initialData = null) {
@@ -17,11 +18,25 @@ export class Inventory {
       if (initialData.length === 9 && size === TOTAL_INVENTORY_SIZE) {
         this.slots = Array(TOTAL_INVENTORY_SIZE).fill(null);
         for (let i = 0; i < 9; i++) {
-          this.slots[i] = initialData[i] ? { type: initialData[i].type, count: initialData[i].count } : null;
+          const slot = initialData[i];
+          if (slot) {
+            // Восстанавливаем durability если есть
+            this.slots[i] = { 
+              type: slot.type, 
+              count: slot.count,
+              durability: slot.durability 
+            };
+          } else {
+            this.slots[i] = null;
+          }
         }
       } else {
         this.slots = initialData.map(slot => 
-          slot ? { type: slot.type || slot.t, count: slot.count || slot.c } : null
+          slot ? { 
+            type: slot.type || slot.t, 
+            count: slot.count || slot.c,
+            durability: slot.durability 
+          } : null
         );
         // Дополняем до нужного размера если нужно
         while (this.slots.length < size) {
@@ -36,11 +51,24 @@ export class Inventory {
   }
 
   /**
+   * Получить максимальный размер стака для типа
+   */
+  static getMaxStackSize(type) {
+    const block = BlockRegistry.get(type);
+    return block ? (block.maxStackSize || MAX_STACK_SIZE) : MAX_STACK_SIZE;
+  }
+
+  /**
    * Создать новый стек
    */
-  static createStack(type, count = 1) {
+  static createStack(type, count = 1, durability = undefined) {
     if (!type || type === 0 || count <= 0) return null;
-    return { type, count: Math.min(count, MAX_STACK_SIZE) };
+    const maxStack = Inventory.getMaxStackSize(type);
+    return { 
+      type, 
+      count: Math.min(count, maxStack),
+      durability: durability // Сохраняем прочность
+    };
   }
 
   /**
@@ -48,7 +76,12 @@ export class Inventory {
    */
   static canMergeStacks(stack1, stack2) {
     if (!stack1 || !stack2) return true;
-    return stack1.type === stack2.type && stack1.count < MAX_STACK_SIZE;
+    const maxStack = Inventory.getMaxStackSize(stack1.type);
+    // Предметы с прочностью (инструменты) обычно не стакаются, если у них разная прочность
+    // Но если maxStackSize = 1, то они вообще не стакаются
+    if (maxStack === 1) return false;
+    
+    return stack1.type === stack2.type && stack1.count < maxStack;
   }
 
   /**
@@ -87,24 +120,39 @@ export class Inventory {
    * Добавить предметы в конкретный слот
    * @returns {{ remaining: number }} - сколько осталось не добавлено
    */
-  addToSlot(slotIndex, type, count = 1) {
+  addToSlot(slotIndex, type, count = 1, durability = undefined) {
     if (slotIndex < 0 || slotIndex >= this.slots.length) {
       return { remaining: count };
     }
 
     const slot = this.slots[slotIndex];
+    const maxStack = Inventory.getMaxStackSize(type);
     let remaining = count;
 
     if (!slot) {
       // Пустой слот - создаем новый стек
-      const toAdd = Math.min(count, MAX_STACK_SIZE);
-      this.slots[slotIndex] = Inventory.createStack(type, toAdd);
+      // Если это инструмент, инициализируем прочность если не передана
+      let finalDurability = durability;
+      if (finalDurability === undefined) {
+        const block = BlockRegistry.get(type);
+        if (block && block.maxDurability > 0) {
+          finalDurability = block.maxDurability;
+        }
+      }
+
+      const toAdd = Math.min(count, maxStack);
+      this.slots[slotIndex] = Inventory.createStack(type, toAdd, finalDurability);
       remaining = count - toAdd;
     } else if (slot.type === type) {
-      // Тот же тип - добавляем в стек
-      const space = MAX_STACK_SIZE - slot.count;
+      // Тот же тип - добавляем в стек (если можно)
+      // Если у предметов есть прочность, они не стакаются (обычно maxStack = 1 это решает)
+      if (maxStack === 1) {
+         return { remaining: count }; // Нельзя стакать
+      }
+
+      const space = maxStack - slot.count;
       const toAdd = Math.min(count, space);
-      this.slots[slotIndex] = { type, count: slot.count + toAdd };
+      this.slots[slotIndex] = { ...slot, count: slot.count + toAdd };
       remaining = count - toAdd;
     }
     // Разный тип - не можем добавить, возвращаем все как remaining
@@ -132,7 +180,8 @@ export class Inventory {
     if (newCount <= 0) {
       this.slots[slotIndex] = null;
     } else {
-      this.slots[slotIndex] = { type: slot.type, count: newCount };
+      // Сохраняем durability
+      this.slots[slotIndex] = { ...slot, count: newCount };
     }
 
     return { removed: toRemove };
@@ -143,22 +192,26 @@ export class Inventory {
    * Приоритет: существующие стеки того же типа, затем пустые слоты
    * @returns {{ remaining: number }} - сколько осталось не добавлено
    */
-  addItem(type, count = 1) {
+  addItem(type, count = 1, durability = undefined) {
     let remaining = count;
+    const maxStack = Inventory.getMaxStackSize(type);
 
     // Первый проход: заполняем существующие стеки того же типа
-    for (let i = 0; i < this.slots.length && remaining > 0; i++) {
-      const slot = this.slots[i];
-      if (slot && slot.type === type && slot.count < MAX_STACK_SIZE) {
-        const result = this.addToSlot(i, type, remaining);
-        remaining = result.remaining;
+    // Только если предмет стакается (maxStack > 1)
+    if (maxStack > 1) {
+      for (let i = 0; i < this.slots.length && remaining > 0; i++) {
+        const slot = this.slots[i];
+        if (slot && slot.type === type && slot.count < maxStack) {
+          const result = this.addToSlot(i, type, remaining, durability);
+          remaining = result.remaining;
+        }
       }
     }
 
     // Второй проход: заполняем пустые слоты
     for (let i = 0; i < this.slots.length && remaining > 0; i++) {
       if (!this.slots[i]) {
-        const result = this.addToSlot(i, type, remaining);
+        const result = this.addToSlot(i, type, remaining, durability);
         remaining = result.remaining;
       }
     }
@@ -170,31 +223,34 @@ export class Inventory {
    * Добавить предметы в полный инвентарь (36 слотов), приоритет hotbar
    * @returns {{ remaining: number }} - сколько осталось не добавлено
    */
-  addToFullInventory(type, count = 1) {
+  addToFullInventory(type, count = 1, durability = undefined) {
     let remaining = count;
+    const maxStack = Inventory.getMaxStackSize(type);
 
     // Первый проход: заполняем существующие стеки в hotbar (0-8)
-    for (let i = 0; i < HOTBAR_SIZE && remaining > 0; i++) {
-      const slot = this.slots[i];
-      if (slot && slot.type === type && slot.count < MAX_STACK_SIZE) {
-        const result = this.addToSlot(i, type, remaining);
-        remaining = result.remaining;
+    if (maxStack > 1) {
+      for (let i = 0; i < HOTBAR_SIZE && remaining > 0; i++) {
+        const slot = this.slots[i];
+        if (slot && slot.type === type && slot.count < maxStack) {
+          const result = this.addToSlot(i, type, remaining, durability);
+          remaining = result.remaining;
+        }
       }
-    }
 
-    // Второй проход: заполняем существующие стеки в main inventory (9-35)
-    for (let i = HOTBAR_SIZE; i < TOTAL_INVENTORY_SIZE && remaining > 0; i++) {
-      const slot = this.slots[i];
-      if (slot && slot.type === type && slot.count < MAX_STACK_SIZE) {
-        const result = this.addToSlot(i, type, remaining);
-        remaining = result.remaining;
+      // Второй проход: заполняем существующие стеки в main inventory (9-35)
+      for (let i = HOTBAR_SIZE; i < TOTAL_INVENTORY_SIZE && remaining > 0; i++) {
+        const slot = this.slots[i];
+        if (slot && slot.type === type && slot.count < maxStack) {
+          const result = this.addToSlot(i, type, remaining, durability);
+          remaining = result.remaining;
+        }
       }
     }
 
     // Третий проход: заполняем пустые слоты в hotbar
     for (let i = 0; i < HOTBAR_SIZE && remaining > 0; i++) {
       if (!this.slots[i]) {
-        const result = this.addToSlot(i, type, remaining);
+        const result = this.addToSlot(i, type, remaining, durability);
         remaining = result.remaining;
       }
     }
@@ -202,7 +258,7 @@ export class Inventory {
     // Четвертый проход: заполняем пустые слоты в main inventory
     for (let i = HOTBAR_SIZE; i < TOTAL_INVENTORY_SIZE && remaining > 0; i++) {
       if (!this.slots[i]) {
-        const result = this.addToSlot(i, type, remaining);
+        const result = this.addToSlot(i, type, remaining, durability);
         remaining = result.remaining;
       }
     }
@@ -297,15 +353,7 @@ export class Inventory {
    * Сериализовать инвентарь для сохранения
    */
   serialize() {
-    return this.slots.map(slot => {
-      if (!slot) return null;
-      const data = { t: slot.type, c: slot.count };
-      // Сохраняем прочность для инструментов
-      if (slot.durability !== undefined) {
-        data.d = slot.durability;
-      }
-      return data;
-    });
+    return this.slots.map(slot => slot ? { t: slot.type, c: slot.count } : null);
   }
 
   /**
@@ -315,18 +363,7 @@ export class Inventory {
     if (!data || !Array.isArray(data)) {
       return new Inventory(size);
     }
-    const slots = data.map(item => {
-      if (!item) return null;
-      const slot = { 
-        type: item.t || item.type, 
-        count: item.c || item.count 
-      };
-      // Восстанавливаем прочность если есть
-      if (item.d !== undefined) {
-        slot.durability = item.d;
-      }
-      return slot;
-    });
+    const slots = data.map(item => item ? { type: item.t || item.type, count: item.c || item.count } : null);
     return new Inventory(size, slots);
   }
 
