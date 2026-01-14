@@ -9,8 +9,8 @@ export class LeafDecaySimulator {
   constructor(chunkManager) {
     this.chunkManager = chunkManager;
     this.decayingLeaves = new Map(); // key -> { x, y, z, timer }
-    this.CHECK_RADIUS = 5; // Радиус поиска древесины (как в Minecraft)
-    this.DECAY_TIME = 2.0; // Время до осыпания в секундах (2 секунды)
+    this.CHECK_RADIUS = 6; // Радиус поиска древесины (как в Minecraft - 6 блоков)
+    this.DECAY_TIME = 1.5; // Время до осыпания в секундах (1.5 секунды - быстрее)
     this.lastUpdateTime = performance.now();
   }
 
@@ -42,44 +42,29 @@ export class LeafDecaySimulator {
 
   /**
    * Проверить наличие древесины рядом с листвой
+   * Использует Manhattan distance (как в Minecraft)
    */
   hasNearbyWood(x, y, z) {
     const radius = this.CHECK_RADIUS;
     
-    // BFS поиск древесины в радиусе
-    const queue = [[x, y, z, 0]]; // [x, y, z, distance]
-    const visited = new Set([`${x},${y},${z}`]);
-    
-    while (queue.length > 0) {
-      const [cx, cy, cz, dist] = queue.shift();
-      
-      // Если вышли за радиус, пропускаем
-      if (dist > radius) continue;
-      
-      const blockId = this.chunkManager.getBlock(cx, cy, cz);
-      
-      // Нашли дерево!
-      if (blockId === BLOCK_TYPES.WOOD) {
-        return true;
-      }
-      
-      // Продолжаем поиск только через листву и воздух
-      if (blockId === BLOCK_TYPES.LEAVES || blockId === BLOCK_TYPES.AIR) {
-        // Проверяем соседние блоки (6 направлений)
-        const neighbors = [
-          [cx + 1, cy, cz],
-          [cx - 1, cy, cz],
-          [cx, cy + 1, cz],
-          [cx, cy - 1, cz],
-          [cx, cy, cz + 1],
-          [cx, cy, cz - 1]
-        ];
-        
-        for (const [nx, ny, nz] of neighbors) {
-          const nKey = `${nx},${ny},${nz}`;
-          if (!visited.has(nKey)) {
-            visited.add(nKey);
-            queue.push([nx, ny, nz, dist + 1]);
+    // Простая проверка в кубе вокруг листа
+    // Это быстрее и правильнее чем BFS
+    for (let dx = -radius; dx <= radius; dx++) {
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dz = -radius; dz <= radius; dz++) {
+          // Проверяем Manhattan distance (как в Minecraft)
+          const manhattanDist = Math.abs(dx) + Math.abs(dy) + Math.abs(dz);
+          if (manhattanDist > radius) continue;
+          
+          const checkX = x + dx;
+          const checkY = y + dy;
+          const checkZ = z + dz;
+          
+          const blockId = this.chunkManager.getBlock(checkX, checkY, checkZ);
+          
+          // Нашли дерево!
+          if (blockId === BLOCK_TYPES.WOOD) {
+            return true;
           }
         }
       }
@@ -93,7 +78,8 @@ export class LeafDecaySimulator {
    */
   addNeighboringLeaves(x, y, z) {
     // Проверяем в большом радиусе (листва может быть далеко)
-    const radius = this.CHECK_RADIUS + 1;
+    // Используем радиус 7 чтобы покрыть все листья которые были на расстоянии 6 от дерева
+    const radius = 7;
     for (let dx = -radius; dx <= radius; dx++) {
       for (let dy = -radius; dy <= radius; dy++) {
         for (let dz = -radius; dz <= radius; dz++) {
