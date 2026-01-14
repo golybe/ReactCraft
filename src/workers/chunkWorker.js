@@ -10,6 +10,7 @@ import { TerrainDensitySampler } from '../utils/terrain.js';
 import { CaveCarver, ThresholdCaveCarver } from '../utils/caves.js';
 import { OreGenerator } from '../utils/ores.js';
 import { getBiome, BIOMES, BIOME_IDS } from '../utils/biomes.js';
+import { structureManager } from '../core/world/structures/StructureManager.js';
 // Используем простые константы без BlockRegistry для совместимости с воркерами
 import { BLOCK_TYPES } from '../constants/blockTypes.js';
 import { CHUNK_SIZE, CHUNK_HEIGHT, SEA_LEVEL } from '../constants/world.js';
@@ -161,6 +162,21 @@ function generateChunk(chunkX, chunkZ, seed) {
           setBlock(x, y, z, block, meta);
         }
       }
+      
+      // Определяем реальную высоту поверхности ПОСЛЕ генерации (сверху вниз)
+      let realSurfaceY = -1;
+      for (let y = Math.min(surfaceY + 5, CHUNK_HEIGHT - 1); y >= 0; y--) {
+        const idx = y * CHUNK_SIZE * CHUNK_SIZE + x * CHUNK_SIZE + z;
+        const blockId = blocks[idx];
+        // Ищем первый ТВЕРДЫЙ блок (не воздух, не вода)
+        if (blockId !== BLOCK_TYPES.AIR && blockId !== BLOCK_TYPES.WATER) {
+          realSurfaceY = y;
+          break;
+        }
+      }
+      
+      surfaceHeights[x * CHUNK_SIZE + z] = realSurfaceY;
+      surfaceBiomes[x * CHUNK_SIZE + z] = biome;
     }
   }
 
@@ -171,21 +187,32 @@ function generateChunk(chunkX, chunkZ, seed) {
   const treeSeed = seed + chunkX * 1000 + chunkZ;
   const treeRng = new SeededRandom(treeSeed);
 
-  for (let x = 2; x < CHUNK_SIZE - 2; x++) {
-    for (let z = 2; z < CHUNK_SIZE - 2; z++) {
+  // Используем сетку 4x4 для равномерного распределения
+  const STEP = 4;
+  for (let cx = 0; cx < CHUNK_SIZE; cx += STEP) {
+    for (let cz = 0; cz < CHUNK_SIZE; cz += STEP) {
+      // Выбираем случайную точку внутри ячейки 4x4 (jitter)
+      const x = cx + Math.floor(treeRng.next() * STEP);
+      const z = cz + Math.floor(treeRng.next() * STEP);
+
+      // Проверка границ (с учетом отступа для листвы)
+      if (x < 2 || x >= CHUNK_SIZE - 2 || z < 2 || z >= CHUNK_SIZE - 2) continue;
+
       const idx = x * CHUNK_SIZE + z;
       const surfaceY = surfaceHeights[idx];
       const biome = surfaceBiomes[idx];
 
       if (!biome) continue;
 
-      if (treeRng.next() < (biome.treeChance || 0)) {
-        // Only place tree on land above water
-        if (surfaceY > SEA_LEVEL) {
-          const groundBlock = blocks[getIndex(x, surfaceY, z)];
-          if (groundBlock === BLOCK_TYPES.GRASS || groundBlock === BLOCK_TYPES.DIRT) {
-            placeTree(blocks, x, surfaceY + 1, z, treeRng, biome);
-          }
+      // Шанс дерева теперь масштабируется (так как мы проверяем реже)
+      // Если STEP=4, мы проверяем в 16 раз меньше блоков, значит шанс нужно умножить на коэффициент
+      const adjustedChance = (biome.treeChance || 0) * (STEP * STEP * 0.8);
+
+      if (treeRng.next() < adjustedChance) {
+        // Только на суше выше уровня моря, и surfaceY должен быть валидным
+        if (surfaceY > SEA_LEVEL && surfaceY > 0 && surfaceY < 250) {
+          // Передаем координату ЗЕМЛИ (не +1), проверки делаются внутри TreeStructure
+          structureManager.generate('tree', blocks, x, surfaceY, z, treeRng, { biome });
         }
       }
     }
@@ -199,71 +226,6 @@ function generateChunk(chunkX, chunkZ, seed) {
     blocks: blocks.buffer,
     metadata: metadata.buffer
   };
-}
-
-// =====================================================
-// TREE PLACEMENT
-// =====================================================
-
-function placeTree(blocks, x, y, z, rng, biome) {
-  const setBlock = (bx, by, bz, blockId) => {
-    if (bx >= 0 && bx < CHUNK_SIZE && bz >= 0 && bz < CHUNK_SIZE && by >= 0 && by < CHUNK_HEIGHT) {
-      const index = by * CHUNK_SIZE * CHUNK_SIZE + bx * CHUNK_SIZE + bz;
-      if (blocks[index] === BLOCK_TYPES.AIR) {
-        blocks[index] = blockId;
-      }
-    }
-  };
-
-  // Desert = cactus
-  if (biome.id === 'desert') {
-    const height = 2 + Math.floor(rng.next() * 2);
-    for (let i = 0; i < height; i++) {
-      setBlock(x, y + i, z, BLOCK_TYPES.LEAVES);
-    }
-    return;
-  }
-
-  // Snowy biomes = spruce style
-  const isSnowy = biome.id?.includes('snow') || biome.id?.includes('taiga');
-
-  // Standard tree
-  const trunkHeight = 4 + Math.floor(rng.next() * 2);
-
-  // Trunk
-  for (let i = 0; i < trunkHeight; i++) {
-    setBlock(x, y + i, z, BLOCK_TYPES.WOOD);
-  }
-
-  // Leaves (spherical canopy or conical for spruce)
-  if (isSnowy) {
-    // Spruce-style conical
-    for (let dy = 1; dy <= trunkHeight + 1; dy++) {
-      const radius = Math.max(0, 2 - Math.floor((dy - 1) / 2));
-      for (let dx = -radius; dx <= radius; dx++) {
-        for (let dz = -radius; dz <= radius; dz++) {
-          if (dx === 0 && dz === 0 && dy < trunkHeight) continue;
-          if (Math.abs(dx) === radius && Math.abs(dz) === radius && rng.next() > 0.5) continue;
-          setBlock(x + dx, y + dy, z + dz, BLOCK_TYPES.LEAVES);
-        }
-      }
-    }
-  } else {
-    // Standard oak-style
-    const leafStart = trunkHeight - 2;
-    for (let dy = leafStart; dy <= trunkHeight + 1; dy++) {
-      const radius = dy <= trunkHeight - 1 ? 2 : 1;
-      for (let dx = -radius; dx <= radius; dx++) {
-        for (let dz = -radius; dz <= radius; dz++) {
-          if (dx === 0 && dz === 0 && dy < trunkHeight) continue;
-          if (Math.abs(dx) === 2 && Math.abs(dz) === 2) continue;
-          if (rng.next() > 0.15) {
-            setBlock(x + dx, y + dy, z + dz, BLOCK_TYPES.LEAVES);
-          }
-        }
-      }
-    }
-  }
 }
 
 // =====================================================

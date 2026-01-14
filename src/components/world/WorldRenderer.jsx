@@ -30,7 +30,7 @@ import { ChunkMesher } from '../../utils/chunkMesher';
 
 // Компонент меша для конкретного типа блока в чанке
 // faceFilter: null = все грани, 'top' = верх, 'bottom' = низ, 'sides' = бока
-const ChunkBlockMesh = ({ blockType, chunkData, lightMap, chunkX, chunkZ, getNeighborData, faceFilter = null, textureName = null }) => {
+const ChunkBlockMesh = ({ blockType, chunkData, lightMap, chunkX, chunkZ, getNeighborData, faceFilter = null, textureName = null, texturesLoaded }) => {
   const meshRef = useRef(null);
 
   const material = useMemo(() => {
@@ -77,7 +77,7 @@ const ChunkBlockMesh = ({ blockType, chunkData, lightMap, chunkX, chunkZ, getNei
       }
 
       return mat;
-  }, [blockType, faceFilter, textureName]);
+  }, [blockType, faceFilter, textureName, texturesLoaded]);
 
   // Генерация геометрии
   const geometry = useMemo(() => {
@@ -117,10 +117,13 @@ import { PerformanceMetrics } from '../../utils/performance';
 // Основной компонент мира с оптимизацией Time Slicing
 const World = ({ chunks, chunkManager, onBlocksCount }) => {
   const [totalBlocks, setTotalBlocks] = useState(0);
+  const [texturesLoaded, setTexturesLoaded] = useState(texturesPreloaded);
   
   // Предзагрузка текстур при монтировании
   useEffect(() => {
-    preloadTextures();
+    if (!texturesPreloaded) {
+      preloadTextures().then(() => setTexturesLoaded(true));
+    }
   }, []);
   
   // visibleChunks - это чанки, которые мы разрешили рендерить
@@ -252,6 +255,7 @@ const World = ({ chunks, chunkManager, onBlocksCount }) => {
             chunkData={chunkData}
             lightMap={lightMap}
             getNeighborDataFor={getNeighborDataFor}
+            texturesLoaded={texturesLoaded}
           />
         );
       })}
@@ -260,7 +264,7 @@ const World = ({ chunks, chunkManager, onBlocksCount }) => {
 };
 
 // Рендерер отдельного чанка
-const ChunkRenderer = React.memo(({ chunkX, chunkZ, chunkData, lightMap, getNeighborDataFor }) => {
+const ChunkRenderer = React.memo(({ chunkX, chunkZ, chunkData, lightMap, getNeighborDataFor, texturesLoaded }) => {
   const getNeighborData = useCallback(() => {
     return getNeighborDataFor(chunkX, chunkZ);
   }, [getNeighborDataFor, chunkX, chunkZ]);
@@ -302,6 +306,7 @@ const ChunkRenderer = React.memo(({ chunkX, chunkZ, chunkData, lightMap, getNeig
                 chunkZ={chunkZ}
                 getNeighborData={getNeighborData}
                 faceFilter="top"
+                texturesLoaded={texturesLoaded}
               />
               <ChunkBlockMesh
                 key={`${type}-bottom`}
@@ -312,6 +317,7 @@ const ChunkRenderer = React.memo(({ chunkX, chunkZ, chunkData, lightMap, getNeig
                 chunkZ={chunkZ}
                 getNeighborData={getNeighborData}
                 faceFilter="bottom"
+                texturesLoaded={texturesLoaded}
               />
               <ChunkBlockMesh
                 key={`${type}-sides`}
@@ -322,6 +328,7 @@ const ChunkRenderer = React.memo(({ chunkX, chunkZ, chunkData, lightMap, getNeig
                 chunkZ={chunkZ}
                 getNeighborData={getNeighborData}
                 faceFilter="sides"
+                texturesLoaded={texturesLoaded}
               />
             </React.Fragment>
           );
@@ -335,6 +342,7 @@ const ChunkRenderer = React.memo(({ chunkX, chunkZ, chunkData, lightMap, getNeig
               chunkX={chunkX}
               chunkZ={chunkZ}
               getNeighborData={getNeighborData}
+              texturesLoaded={texturesLoaded}
             />
           );
         }
@@ -342,6 +350,7 @@ const ChunkRenderer = React.memo(({ chunkX, chunkZ, chunkData, lightMap, getNeig
     </group>
   );
 }, (prevProps, nextProps) => {
+  if (prevProps.texturesLoaded !== nextProps.texturesLoaded) return false;
   if (prevProps.chunkData !== nextProps.chunkData) return false;
   if (prevProps.lightMap !== nextProps.lightMap) return false;
   return true;
