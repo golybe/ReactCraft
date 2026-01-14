@@ -91,3 +91,24 @@ export class PlantBlock extends Block {
     this.isPlant = true;
   }
 }
+
+/**
+ * Факел - источник света, рендерится как маленький объект
+ */
+export class TorchBlock extends Block {
+  constructor(id, settings) {
+    super(id, {
+      solid: false,
+      transparent: true,
+      hardness: 0, // Мгновенно ломается
+      ...settings,
+      renderType: 'torch'
+    });
+    this.renderType = 'torch';
+    this.lightLevel = settings.lightLevel || 14; // Факел даёт свет уровня 14
+    this.isLightSource = true;
+    this.renderAsItem = true; // В инвентаре рендерится как 2D предмет
+    // Bounding box факела (для выделения)
+    this.boundingBox = { minX: 0.4375, maxX: 0.5625, minY: 0, maxY: 0.625, minZ: 0.4375, maxZ: 0.5625 };
+  }
+}

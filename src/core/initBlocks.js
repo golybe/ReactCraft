@@ -1,5 +1,5 @@
 import { BlockRegistry } from './blocks/BlockRegistry';
-import { AirBlock, SolidBlock, TransparentBlock, LiquidBlock, Item, Tool, PlantBlock } from './blocks/StandardBlocks';
+import { AirBlock, SolidBlock, TransparentBlock, LiquidBlock, Item, Tool, PlantBlock, TorchBlock } from './blocks/StandardBlocks';
 import { TOOL_TYPES } from './blocks/Block';
 import { BLOCK_TYPES } from '../constants/blockTypes';
 
@@ -216,6 +216,15 @@ export const initBlocks = () => {
     color: 0x5bac36,
     hardness: 0,
     drops: null // Не дропает ничего (можно добавить семена позже)
+  }));
+
+  // 22: TORCH - факел (источник света)
+  BlockRegistry.register(new TorchBlock(BLOCK_TYPES.TORCH, {
+    name: 'torch',
+    texture: 'torch',
+    color: 0xffaa00,
+    hardness: 0,
+    lightLevel: 14 // Факел даёт свет 14 (как в Minecraft)
   }));
 
   // =========================================================

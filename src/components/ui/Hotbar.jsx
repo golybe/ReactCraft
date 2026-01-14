@@ -21,7 +21,7 @@ const HotbarSlot = memo(({ slot, isSelected, index, onSelect, showCount = true }
   
   // Определяем размер: предметы (items) 32px, блоки 24px
   const block = type ? BlockRegistry.get(type) : null;
-  const isItem = block?.isPlaceable === false;
+  const isItem = block?.isPlaceable === false || block?.renderAsItem;
   const iconSize = isItem ? 36 : 24;
   const maxDurability = block?.maxDurability || 0;
 

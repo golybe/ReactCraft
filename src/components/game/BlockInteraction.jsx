@@ -83,7 +83,8 @@ export const BlockInteraction = ({
           x: Math.floor(point.x + normal.x * 0.5),
           y: Math.floor(point.y + normal.y * 0.5),
           z: Math.floor(point.z + normal.z * 0.5)
-        }
+        },
+        faceNormal: { x: normal.x, y: normal.y, z: normal.z }
       };
     }
     return null;
@@ -150,8 +151,8 @@ export const BlockInteraction = ({
           const target = doRaycast();
           if (target) {
             const { onBlockPlace } = propsRef.current;
-            // Pass both positions: breakPos (block clicked) and placePos (where to place)
-            onBlockPlace(target.placePos.x, target.placePos.y, target.placePos.z, target.breakPos);
+            // Pass positions and face normal for directional blocks (torches)
+            onBlockPlace(target.placePos.x, target.placePos.y, target.placePos.z, target.breakPos, target.faceNormal);
           }
         }
       }

@@ -29,7 +29,7 @@ export const ensureBlocksInitialized = () => {
       BLOCK_TYPES.PLANKS,
       BLOCK_TYPES.BRICK,
       BLOCK_TYPES.SAND,
-      BLOCK_TYPES.SNOW,
+      BLOCK_TYPES.TORCH,
       BLOCK_TYPES.LEAVES
     );
   }

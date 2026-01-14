@@ -165,7 +165,8 @@ export const DebugInfo = ({
   isInWater,
   isHeadUnderwater,
   canFly,
-  isFlying
+  isFlying,
+  lightLevel
 }) => {
   return (
     <div style={{
@@ -186,6 +187,7 @@ export const DebugInfo = ({
       <div>Chunks loaded: {chunksCount}</div>
       <div>Entities: {blocksCount} blocks</div>
       <div style={{ color: '#aaa' }}>Biome: {biome}</div>
+      <div style={{ color: '#ffdd55' }}>Light: {lightLevel !== undefined ? lightLevel : '?'}</div>
       <div style={{ color: gameMode === GAME_MODES.CREATIVE ? '#6aadbd' : '#6abd6e' }}>
         Mode: {GAME_MODE_NAMES[gameMode]}
       </div>

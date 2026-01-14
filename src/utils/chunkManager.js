@@ -1,5 +1,5 @@
 import { CHUNK_SIZE, CHUNK_HEIGHT, RENDER_DISTANCE } from '../constants/world';
-import { BLOCK_TYPES } from '../constants/blocks';
+import { BLOCK_TYPES, BLOCK_PROPERTIES } from '../constants/blocks';
 import { LightingManager } from '../core/world/LightingManager';
 import { ChunkGenerator } from '../core/world/ChunkGenerator';
 import { ChunkBatcher } from '../core/world/ChunkBatcher';
@@ -84,6 +84,9 @@ export class ChunkManager {
 
     // Process pending lighting
     this.processPendingLighting();
+    
+    // Check for chunks that need relighting (neighbors loaded since last calculation)
+    this.checkForRelighting();
 
     if (this.currentChunk.x === chunkX && this.currentChunk.z === chunkZ && Object.keys(this.chunks).length > 0) {
       return { hasChanges: false };
@@ -161,29 +164,26 @@ export class ChunkManager {
   processPendingLighting() {
     if (this.pendingLighting.size === 0) return;
 
-    const MAX_PER_TICK = 2;
+    // Увеличиваем лимит для более быстрого освещения
+    const MAX_PER_TICK = 8;
     const processed = [];
 
-    for (const key of this.pendingLighting) {
+    // Сначала сортируем по приоритету - ближе к игроку = важнее
+    const sortedKeys = Array.from(this.pendingLighting).sort((a, b) => {
+      if (!this.currentChunk.x) return 0;
+      const [ax, az] = a.split(',').map(Number);
+      const [bx, bz] = b.split(',').map(Number);
+      const distA = Math.abs(ax - this.currentChunk.x) + Math.abs(az - this.currentChunk.z);
+      const distB = Math.abs(bx - this.currentChunk.x) + Math.abs(bz - this.currentChunk.z);
+      return distA - distB;
+    });
+
+    for (const key of sortedKeys) {
       if (processed.length >= MAX_PER_TICK) break;
 
       if (this.chunks[key]) {
         this.lightingManager.computeLighting(this.chunks[key], key);
         processed.push(key);
-
-        // Update neighbors
-        const [cx, cz] = key.split(',').map(Number);
-        const neighbors = [
-          `${cx - 1},${cz}`, `${cx + 1},${cz}`,
-          `${cx},${cz - 1}`, `${cx},${cz + 1}`
-        ];
-
-        for (const nKey of neighbors) {
-          if (this.chunks[nKey]) {
-            this.chunks[nKey] = this.chunks[nKey].clone();
-            this.lightingManager.computeLighting(this.chunks[nKey], nKey);
-          }
-        }
       }
     }
 
@@ -191,8 +191,66 @@ export class ChunkManager {
       this.pendingLighting.delete(key);
     }
 
+    // После обработки партии, добавляем соседей в очередь для пересчёта
+    // Это критично для правильного распространения света между чанками
     if (processed.length > 0) {
+      for (const key of processed) {
+        const [cx, cz] = key.split(',').map(Number);
+        const neighbors = [
+          `${cx - 1},${cz}`, `${cx + 1},${cz}`,
+          `${cx},${cz - 1}`, `${cx},${cz + 1}`
+        ];
+
+        for (const nKey of neighbors) {
+          // Добавляем соседа в очередь только если он существует и ещё не в очереди
+          if (this.chunks[nKey] && !this.pendingLighting.has(nKey) && !processed.includes(nKey)) {
+            // Помечаем для пересчёта на следующем тике
+            this.pendingLightingNeighbors = this.pendingLightingNeighbors || new Set();
+            this.pendingLightingNeighbors.add(nKey);
+          }
+        }
+      }
+
+      // Переносим соседей в основную очередь
+      if (this.pendingLightingNeighbors && this.pendingLightingNeighbors.size > 0) {
+        for (const nKey of this.pendingLightingNeighbors) {
+          this.pendingLighting.add(nKey);
+        }
+        this.pendingLightingNeighbors.clear();
+      }
+
       this.notifyUpdate();
+    }
+  }
+
+  /**
+   * Check for chunks that need relighting because neighbors are now available
+   */
+  checkForRelighting() {
+    // Limit how many we check per frame
+    const MAX_CHECK = 4;
+    let checked = 0;
+    
+    for (const key of Object.keys(this.chunks)) {
+      if (checked >= MAX_CHECK) break;
+      
+      if (this.lightingManager.needsRelight(key) && !this.pendingLighting.has(key)) {
+        // Check if all neighbors now exist
+        const [cx, cz] = key.split(',').map(Number);
+        const neighbors = [
+          `${cx - 1},${cz}`, `${cx + 1},${cz}`,
+          `${cx},${cz - 1}`, `${cx},${cz + 1}`
+        ];
+        
+        const allNeighborsExist = neighbors.every(nKey => 
+          this.chunks[nKey] && this.lightingManager.hasLightMap(nKey)
+        );
+        
+        if (allNeighborsExist) {
+          this.pendingLighting.add(key);
+          checked++;
+        }
+      }
     }
   }
 
@@ -226,8 +284,43 @@ export class ChunkManager {
       const oldId = targetChunk.getBlock(lx, worldY, lz);
       targetChunk.setBlock(lx, worldY, lz, blockType, metadata);
 
-      if (this.batcher.shouldUpdateLighting(oldId, blockType)) {
-        this.batcher.markLightingDirty(key);
+      // Собираем соседние чанки на границе
+      const borderNeighbors = [];
+      if (lx === 0 && this.chunks[`${cx - 1},${cz}`]) borderNeighbors.push(`${cx - 1},${cz}`);
+      if (lx === CHUNK_SIZE - 1 && this.chunks[`${cx + 1},${cz}`]) borderNeighbors.push(`${cx + 1},${cz}`);
+      if (lz === 0 && this.chunks[`${cx},${cz - 1}`]) borderNeighbors.push(`${cx},${cz - 1}`);
+      if (lz === CHUNK_SIZE - 1 && this.chunks[`${cx},${cz + 1}`]) borderNeighbors.push(`${cx},${cz + 1}`);
+
+      // Для факелов - инкрементальное обновление света
+      const oldProps = BLOCK_PROPERTIES[oldId];
+      const newProps = BLOCK_PROPERTIES[blockType];
+      const oldIsTorch = oldProps?.renderType === 'torch';
+      const newIsTorch = newProps?.renderType === 'torch';
+      
+      if (oldIsTorch && !newIsTorch) {
+        // Удалили факел - инкрементальное удаление света
+        const affectedChunks = this.lightingManager.removeLightSource(worldX, worldY, worldZ, 14);
+        for (const chunkKey of affectedChunks) {
+          this.batcher.markModified(chunkKey);
+          this.modifiedChunkKeys.add(chunkKey);
+        }
+      } else if (!oldIsTorch && newIsTorch) {
+        // Поставили факел - инкрементальное добавление света
+        const affectedChunks = this.lightingManager.addLightSource(worldX, worldY, worldZ, 14);
+        for (const chunkKey of affectedChunks) {
+          this.batcher.markModified(chunkKey);
+          this.modifiedChunkKeys.add(chunkKey);
+        }
+      } else {
+        // Обычный блок - пересчёт освещения и соседей на границе
+        if (this.batcher.shouldUpdateLighting(oldId, blockType)) {
+          this.batcher.markLightingDirty(key);
+          for (const neighborKey of borderNeighbors) {
+            this.batcher.markLightingDirty(neighborKey);
+            this.batcher.markModified(neighborKey);
+            this.modifiedChunkKeys.add(neighborKey);
+          }
+        }
       }
 
       return true;
@@ -235,23 +328,42 @@ export class ChunkManager {
 
     // Standard mode
     const newChunk = this.chunks[key].clone();
+    const oldBlockType = newChunk.getBlock(lx, worldY, lz);
     newChunk.setBlock(lx, worldY, lz, blockType, metadata);
     this.chunks[key] = newChunk;
     this.modifiedChunkKeys.add(key);
 
-    this.lightingManager.computeLighting(newChunk, key);
+    // Собираем соседние чанки на границе для пересчёта освещения
+    const borderNeighbors = [];
+    if (lx === 0 && this.chunks[`${cx - 1},${cz}`]) borderNeighbors.push(`${cx - 1},${cz}`);
+    if (lx === CHUNK_SIZE - 1 && this.chunks[`${cx + 1},${cz}`]) borderNeighbors.push(`${cx + 1},${cz}`);
+    if (lz === 0 && this.chunks[`${cx},${cz - 1}`]) borderNeighbors.push(`${cx},${cz - 1}`);
+    if (lz === CHUNK_SIZE - 1 && this.chunks[`${cx},${cz + 1}`]) borderNeighbors.push(`${cx},${cz + 1}`);
 
-    // Update neighbor lighting at borders
-    const neighborsToUpdate = [];
-    if (lx === 0) neighborsToUpdate.push(`${cx - 1},${cz}`);
-    if (lx === CHUNK_SIZE - 1) neighborsToUpdate.push(`${cx + 1},${cz}`);
-    if (lz === 0) neighborsToUpdate.push(`${cx},${cz - 1}`);
-    if (lz === CHUNK_SIZE - 1) neighborsToUpdate.push(`${cx},${cz + 1}`);
+    // Проверяем, это изменение факела
+    const oldProps = BLOCK_PROPERTIES[oldBlockType];
+    const newProps = BLOCK_PROPERTIES[blockType];
+    const oldIsTorch = oldProps?.renderType === 'torch';
+    const newIsTorch = newProps?.renderType === 'torch';
 
-    for (const nKey of neighborsToUpdate) {
-      if (this.chunks[nKey]) {
-        this.chunks[nKey] = this.chunks[nKey].clone();
-        this.lightingManager.computeLighting(this.chunks[nKey], nKey);
+    if (oldIsTorch && !newIsTorch) {
+      // Удалили факел - инкрементальное удаление света
+      const affectedChunks = this.lightingManager.removeLightSource(worldX, worldY, worldZ, 14);
+      for (const chunkKey of affectedChunks) {
+        this.modifiedChunkKeys.add(chunkKey);
+      }
+    } else if (!oldIsTorch && newIsTorch) {
+      // Поставили факел - инкрементальное добавление света
+      const affectedChunks = this.lightingManager.addLightSource(worldX, worldY, worldZ, 14);
+      for (const chunkKey of affectedChunks) {
+        this.modifiedChunkKeys.add(chunkKey);
+      }
+    } else {
+      // Обычный блок - пересчёт освещения текущего и соседних чанков на границе
+      this.lightingManager.computeLighting(newChunk, key);
+      for (const neighborKey of borderNeighbors) {
+        this.lightingManager.computeLighting(this.chunks[neighborKey], neighborKey);
+        this.modifiedChunkKeys.add(neighborKey);
       }
     }
 

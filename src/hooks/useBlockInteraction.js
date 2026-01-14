@@ -164,7 +164,7 @@ export function useBlockInteraction({
     setLastPunchTime(Date.now());
   }, [playerPos, gameMode, destroyBlock, worldRef, inventoryRef, selectedSlot]);
 
-  const handleBlockPlace = useCallback((x, y, z) => {
+  const handleBlockPlace = useCallback((x, y, z, faceNormal) => {
     if (!worldRef?.current) return;
     if (y < 0 || y >= CHUNK_HEIGHT) return;
 
@@ -175,6 +175,37 @@ export function useBlockInteraction({
     const blockProps = BlockRegistry.get(blockType);
     if (blockProps && blockProps.isPlaceable === false) {
       return;
+    }
+
+    // Определяем metadata для факела (направление)
+    let metadata = 0;
+    if (blockType === BLOCK_TYPES.TORCH && faceNormal) {
+      // faceNormal указывает направление ОТ блока на который кликнули
+      // Факел ставится на соседний блок и прикрепляется к грани
+      // metadata указывает С КАКОЙ СТОРОНЫ находится стена (куда прикреплён факел)
+      if (faceNormal.y > 0.5) {
+        // Ставим на верхнюю грань = на пол
+        metadata = 0; // Floor torch
+      } else if (faceNormal.y < -0.5) {
+        // На нижнюю грань - нельзя ставить факел на потолок в vanilla MC
+        return;
+      } else if (faceNormal.x > 0.5) {
+        // Кликнули по X+ грани блока, факел ставится справа от блока
+        // Стена для факела будет слева (X-), значит факел прикреплён к X- стороне
+        metadata = 2; // Attached to West wall (X-)
+      } else if (faceNormal.x < -0.5) {
+        // Кликнули по X- грани блока, факел ставится слева
+        // Стена справа (X+), факел прикреплён к X+
+        metadata = 1; // Attached to East wall (X+)
+      } else if (faceNormal.z > 0.5) {
+        // Кликнули по Z+ грани, факел ставится южнее
+        // Стена на севере (Z-), факел прикреплён к Z-
+        metadata = 4; // Attached to North wall (Z-)
+      } else if (faceNormal.z < -0.5) {
+        // Кликнули по Z- грани, факел ставится севернее
+        // Стена на юге (Z+), факел прикреплён к Z+
+        metadata = 3; // Attached to South wall (Z+)
+      }
     }
 
     // Check collision with player
@@ -202,7 +233,7 @@ export function useBlockInteraction({
       }
     }
 
-    const success = worldRef.current.setBlock(x, y, z, blockType);
+    const success = worldRef.current.setBlock(x, y, z, blockType, metadata);
     if (success) {
       setChunks({ ...worldRef.current.getChunks() });
 

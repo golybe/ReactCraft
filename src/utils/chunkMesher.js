@@ -234,6 +234,9 @@ export class ChunkMesher {
     if (blockProps && blockProps.renderType === 'cross') {
       return this.generateCrossGeometry(targetBlockType);
     }
+    if (blockProps && blockProps.renderType === 'torch') {
+      return this.generateTorchGeometry(targetBlockType);
+    }
 
     const positions = [];
     const normals = [];
@@ -678,6 +681,167 @@ export class ChunkMesher {
           indices.push(indexOffset, indexOffset + 1, indexOffset + 2);
           indices.push(indexOffset, indexOffset + 2, indexOffset + 3);
           indexOffset += 4;
+        }
+      }
+    }
+
+    return {
+      positions: new Float32Array(positions),
+      normals: new Float32Array(normals),
+      colors: new Float32Array(colors),
+      uvs: new Float32Array(uvs),
+      indices: new Uint32Array(indices)
+    };
+  }
+
+  /**
+   * Генерация геометрии для факела
+   * metadata: 0=floor, 1=east, 2=west, 3=south, 4=north
+   */
+  generateTorchGeometry(targetBlockType) {
+    const positions = [];
+    const normals = [];
+    const colors = [];
+    const uvs = [];
+    const indices = [];
+    let indexOffset = 0;
+
+    // Размер факела (как в Minecraft: 2x10x2 пикселей = 2/16 x 10/16 x 2/16)
+    const torchWidth = 2 / 16;  // 0.125
+    const torchHeight = 10 / 16; // 0.625
+
+    for (let y = 0; y < CHUNK_HEIGHT; y++) {
+      if (this.chunkData.isEmptyLayer(y)) continue;
+
+      for (let x = 0; x < CHUNK_SIZE; x++) {
+        for (let z = 0; z < CHUNK_SIZE; z++) {
+          const block = this.chunkData.getBlock(x, y, z);
+          if (block !== targetBlockType) continue;
+
+          // Получаем metadata для направления
+          const meta = this.chunkData.getMetadata ? this.chunkData.getMetadata(x, y, z) : 0;
+
+          // Яркость (факел самосветящийся)
+          const brightness = 1.0;
+          const halfW = torchWidth / 2;
+
+          // Базовая позиция (центр нижней грани)
+          let baseX = x + 0.5;
+          let baseY = y;
+          let baseZ = z + 0.5;
+
+          // Для настенных факелов: смещение и наклон
+          // metadata: 0=floor, 1=East(X+), 2=West(X-), 3=South(Z+), 4=North(Z-)
+          // Факел прикреплён к стене и наклоняется ОТ неё
+          let offsetX = 0, offsetZ = 0; // Смещение верха относительно базы
+          
+          if (meta === 1) { // Прикреплён к восточной стене (X+), наклоняется к X-
+            baseX = x + 1.0 - halfW; // Вплотную к стене
+            baseY = y + 0.2;
+            offsetX = -0.3; // Верх смещается влево (к X-)
+          } else if (meta === 2) { // Прикреплён к западной стене (X-), наклоняется к X+
+            baseX = x + halfW; // Вплотную к стене
+            baseY = y + 0.2;
+            offsetX = 0.3; // Верх смещается вправо (к X+)
+          } else if (meta === 3) { // Прикреплён к южной стене (Z+), наклоняется к Z-
+            baseZ = z + 1.0 - halfW; // Вплотную к стене
+            baseY = y + 0.2;
+            offsetZ = -0.3; // Верх смещается к Z-
+          } else if (meta === 4) { // Прикреплён к северной стене (Z-), наклоняется к Z+
+            baseZ = z + halfW; // Вплотную к стене
+            baseY = y + 0.2;
+            offsetZ = 0.3; // Верх смещается к Z+
+          }
+
+          // Вычисляем верхнюю точку с учётом наклона
+          const topX = baseX + offsetX;
+          const topY = baseY + (meta === 0 ? torchHeight : torchHeight * 0.85);
+          const topZ = baseZ + offsetZ;
+
+          // Генерируем 4 боковые грани + верхняя грань как 3D столбик
+          // Для простоты будем рисовать вертикальный прямоугольник в каждом направлении
+          // с правильными UV координатами для текстуры факела
+          
+          const faces = [];
+          
+          // UV для боковых граней факела (текстура 16x16, факел занимает центральные 2x10 пикселей)
+          // В текстуре факела: палка 7-9 по X (0-15), 6-15 по Y
+          const uvSide = { u1: 7/16, u2: 9/16, v1: 6/16, v2: 1 };
+          // Верхняя грань - огонь/верхушка
+          const uvTop = { u1: 7/16, u2: 9/16, v1: 6/16, v2: 8/16 };
+
+          // Боковые грани (4 стороны)
+          // Z+ грань
+          faces.push({
+            verts: [
+              baseX - halfW, baseY, baseZ + halfW,
+              baseX + halfW, baseY, baseZ + halfW,
+              topX + halfW, topY, topZ + halfW,
+              topX - halfW, topY, topZ + halfW
+            ],
+            normal: [0, 0, 1],
+            uvs: [uvSide.u1, 1, uvSide.u2, 1, uvSide.u2, uvSide.v1, uvSide.u1, uvSide.v1]
+          });
+          
+          // Z- грань
+          faces.push({
+            verts: [
+              baseX + halfW, baseY, baseZ - halfW,
+              baseX - halfW, baseY, baseZ - halfW,
+              topX - halfW, topY, topZ - halfW,
+              topX + halfW, topY, topZ - halfW
+            ],
+            normal: [0, 0, -1],
+            uvs: [uvSide.u1, 1, uvSide.u2, 1, uvSide.u2, uvSide.v1, uvSide.u1, uvSide.v1]
+          });
+          
+          // X+ грань
+          faces.push({
+            verts: [
+              baseX + halfW, baseY, baseZ + halfW,
+              baseX + halfW, baseY, baseZ - halfW,
+              topX + halfW, topY, topZ - halfW,
+              topX + halfW, topY, topZ + halfW
+            ],
+            normal: [1, 0, 0],
+            uvs: [uvSide.u1, 1, uvSide.u2, 1, uvSide.u2, uvSide.v1, uvSide.u1, uvSide.v1]
+          });
+          
+          // X- грань
+          faces.push({
+            verts: [
+              baseX - halfW, baseY, baseZ - halfW,
+              baseX - halfW, baseY, baseZ + halfW,
+              topX - halfW, topY, topZ + halfW,
+              topX - halfW, topY, topZ - halfW
+            ],
+            normal: [-1, 0, 0],
+            uvs: [uvSide.u1, 1, uvSide.u2, 1, uvSide.u2, uvSide.v1, uvSide.u1, uvSide.v1]
+          });
+          
+          // Верхняя грань
+          faces.push({
+            verts: [
+              topX - halfW, topY, topZ + halfW,
+              topX + halfW, topY, topZ + halfW,
+              topX + halfW, topY, topZ - halfW,
+              topX - halfW, topY, topZ - halfW
+            ],
+            normal: [0, 1, 0],
+            uvs: [uvTop.u1, uvTop.v2, uvTop.u2, uvTop.v2, uvTop.u2, uvTop.v1, uvTop.u1, uvTop.v1]
+          });
+
+          for (const face of faces) {
+            positions.push(...face.verts);
+            for (let i = 0; i < 4; i++) {
+              normals.push(...face.normal);
+              colors.push(brightness, brightness, brightness);
+            }
+            uvs.push(...face.uvs);
+            indices.push(indexOffset, indexOffset + 1, indexOffset + 2);
+            indices.push(indexOffset, indexOffset + 2, indexOffset + 3);
+            indexOffset += 4;
+          }
         }
       }
     }

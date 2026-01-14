@@ -31,8 +31,11 @@ export const BLOCK_TYPES = {
   
   // Plants
   TALL_GRASS: 21,  // Short grass (декоративная трава)
+  
+  // Light sources
+  TORCH: 22,
 
-  // RESERVED FOR FUTURE BLOCKS: 22 - 511
+  // RESERVED FOR FUTURE BLOCKS: 23 - 511
 
   // ITEMS (Non-block entities): 512+
   STICK: 512,

@@ -499,7 +499,7 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
 
   // === CRAFTING TABLE INTERACTION ===
   // Wrapper for handleBlockPlace that checks for crafting table
-  const handleBlockPlaceOrInteract = useCallback((x, y, z, breakPos) => {
+  const handleBlockPlaceOrInteract = useCallback((x, y, z, breakPos, faceNormal) => {
     if (!worldRef?.current) return;
 
     // If breakPos is provided, check if it's a crafting table
@@ -514,8 +514,8 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
       }
     }
 
-    // Otherwise, place block as usual
-    handleBlockPlace(x, y, z);
+    // Otherwise, place block as usual (pass faceNormal for torches)
+    handleBlockPlace(x, y, z, faceNormal);
   }, [worldRef, handleBlockPlace, openUI]);
 
   // Loading screen
@@ -649,6 +649,11 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
           isHeadUnderwater={isHeadUnderwater}
           canFly={canFly}
           isFlying={isFlying}
+          lightLevel={worldRef?.current?.getLightLevel(
+            Math.floor(playerPos.x),
+            Math.floor(playerPos.y + 1.6), // На уровне глаз
+            Math.floor(playerPos.z)
+          )}
         />
       )}
     </div>

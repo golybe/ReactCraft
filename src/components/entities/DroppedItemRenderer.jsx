@@ -90,7 +90,7 @@ const DroppedItem = ({
   });
 
   const block = useMemo(() => BlockRegistry.get(blockType), [blockType]);
-  const isItem = block?.isPlaceable === false;
+  const isItem = block?.isPlaceable === false || block?.renderAsItem;
 
   // Для блоков с разными гранями создаем массив материалов
   const [materials, setMaterials] = useState(null);

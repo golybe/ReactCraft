@@ -75,7 +75,7 @@ const HeldItem = ({ selectedBlock, lightLevel = 15, lastPunchTime, isFlying, isM
   const isHand = !selectedBlock;
 
   const blockProps = selectedBlock ? BlockRegistry.get(selectedBlock) : null;
-  const isItem = blockProps?.isPlaceable === false;
+  const isItem = blockProps?.isPlaceable === false || blockProps?.renderAsItem;
 
   const punchStartTime = useRef(0);
   const miningAnimTime = useRef(0);

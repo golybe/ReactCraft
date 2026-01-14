@@ -12,7 +12,7 @@ export class ChunkBatcher {
     this.batchLightingDirtyKeys = new Set();
 
     // Max chunks to process lighting per batch (optimization)
-    this.MAX_LIGHTING_CHUNKS_PER_BATCH = 1;
+    this.MAX_LIGHTING_CHUNKS_PER_BATCH = 5; // Увеличено для быстрого обновления света
   }
 
   /**

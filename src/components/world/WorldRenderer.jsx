@@ -81,6 +81,11 @@ const ChunkBlockMesh = ({ blockType, chunkData, lightMap, chunkX, chunkZ, getNei
       mat.alphaTest = 0.5;
       mat.side = THREE.DoubleSide;
     }
+    // Факелы - прозрачность для текстуры
+    if (info.renderType === 'torch') {
+      mat.alphaTest = 0.5;
+      mat.side = THREE.DoubleSide;
+    }
 
     return mat;
   }, [blockType, faceFilter, textureName, texturesLoaded]);

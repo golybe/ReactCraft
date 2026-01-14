@@ -41,7 +41,8 @@ const files = {
   'stone_shovel.png': 'item/stone_shovel.png',
   'crafting_table_top.png': 'block/crafting_table_top.png',
   'crafting_table_side.png': 'block/crafting_table_side.png',
-  'crafting_table_front.png': 'block/crafting_table_front.png'
+  'crafting_table_front.png': 'block/crafting_table_front.png',
+  'torch.png': 'block/torch.png'
 };
 
 const downloadFile = (filename, remotePath) => {

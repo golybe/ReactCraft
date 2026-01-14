@@ -14,8 +14,8 @@ export const BlockIcon = ({ blockId, size = 32, style }) => {
     const isGrass = blockId === BLOCK_TYPES.GRASS;
     const isLeaves = blockId === BLOCK_TYPES.LEAVES;
 
-    // Проверка: это предмет или блок?
-    if (block.isPlaceable === false) {
+    // Проверка: это предмет или блок, который рендерится как предмет (факел)
+    if (block.isPlaceable === false || block.renderAsItem) {
         const iconUrl = tex.side || tex.top || tex.front;
         return (
             <div style={{
