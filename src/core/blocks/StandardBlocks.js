@@ -65,7 +65,8 @@ export class Tool extends Item {
   constructor(id, settings) {
     super(id, {
       ...settings,
-      isTool: true
+      isTool: true,
+      maxStackSize: 1 // Инструменты не стакаются!
     });
     this.isTool = true;
     this.toolType = settings.toolType || 'hand'; // тип инструмента (axe, pickaxe, shovel)

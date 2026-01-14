@@ -297,7 +297,15 @@ export class Inventory {
    * Сериализовать инвентарь для сохранения
    */
   serialize() {
-    return this.slots.map(slot => slot ? { t: slot.type, c: slot.count } : null);
+    return this.slots.map(slot => {
+      if (!slot) return null;
+      const data = { t: slot.type, c: slot.count };
+      // Сохраняем прочность для инструментов
+      if (slot.durability !== undefined) {
+        data.d = slot.durability;
+      }
+      return data;
+    });
   }
 
   /**
@@ -307,7 +315,18 @@ export class Inventory {
     if (!data || !Array.isArray(data)) {
       return new Inventory(size);
     }
-    const slots = data.map(item => item ? { type: item.t || item.type, count: item.c || item.count } : null);
+    const slots = data.map(item => {
+      if (!item) return null;
+      const slot = { 
+        type: item.t || item.type, 
+        count: item.c || item.count 
+      };
+      // Восстанавливаем прочность если есть
+      if (item.d !== undefined) {
+        slot.durability = item.d;
+      }
+      return slot;
+    });
     return new Inventory(size, slots);
   }
 

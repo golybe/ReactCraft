@@ -50,6 +50,9 @@ export class Block {
     // Свойства для еды
     this.isFood = settings.isFood || false;
     this.healAmount = settings.healAmount || 0;
+    
+    // Максимальный размер стака (64 по умолчанию, 1 для инструментов)
+    this.maxStackSize = settings.maxStackSize || 64;
   }
 
   /**
