@@ -11,9 +11,11 @@ export function usePlayerMovement({
 }) {
   const gameModeDefaults = getGameModeDefaults(gameMode);
 
-  const [playerPos, setPlayerPos] = useState(
-    initialPlayerPos || { x: 0, y: SEA_LEVEL + 10, z: 0 }
-  );
+  const [playerPos, setPlayerPos] = useState(() => {
+    const pos = initialPlayerPos || { x: 0, y: SEA_LEVEL + 10, z: 0 };
+    console.log('[usePlayerMovement] Initial position:', pos);
+    return pos;
+  });
   const [playerYaw, setPlayerYaw] = useState(0);
   const [playerPitch, setPlayerPitch] = useState(0);
   const [isFlying, setIsFlying] = useState(false);

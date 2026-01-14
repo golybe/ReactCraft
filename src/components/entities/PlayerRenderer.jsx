@@ -21,7 +21,9 @@ const Player = ({ onMove, chunks, initialPosition, noclipMode, canFly, isFlying,
     // Создаем PhysicsEngine
     physicsEngineRef.current = new PhysicsEngine(chunks);
 
+    console.log('[PlayerRenderer] initialPosition prop:', initialPosition);
     const spawn = PlayerClass.findSpawnPoint(chunks, initialPosition);
+    console.log('[PlayerRenderer] Spawn point found:', spawn);
     log('Player', 'Spawn point found:', spawn);
 
     // Создаем экземпляр Player класса
