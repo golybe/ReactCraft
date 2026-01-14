@@ -4,25 +4,13 @@
   "seed": 123,
   "gameMode": 1,
   "createdAt": 1768402075219,
-  "lastPlayed": 1768402702025,
+  "lastPlayed": 1768403343564,
   "playerPos": {
-    "x": -0.013943940127477517,
+    "x": -2.706622814210968,
     "y": 42,
-    "z": -0.12576065292858005
+    "z": -1.1807588572904084
   },
   "inventory": [
-    {
-      "type": 520,
-      "count": 1
-    },
-    {
-      "type": 4,
-      "count": 4
-    },
-    {
-      "type": 12,
-      "count": 64
-    },
     {
       "type": 14,
       "count": 64
@@ -32,18 +20,33 @@
       "count": 64
     },
     {
-      "type": 6,
+      "type": 4,
       "count": 64
+    },
+    {
+      "type": 521,
+      "count": 1
     },
     {
       "type": 522,
       "count": 1
     },
     {
-      "type": 521,
+      "type": 520,
       "count": 1
     },
-    null,
+    {
+      "type": 523,
+      "count": 1
+    },
+    {
+      "type": 524,
+      "count": 1
+    },
+    {
+      "type": 525,
+      "count": 1
+    },
     null,
     null,
     null,

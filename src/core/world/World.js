@@ -4,6 +4,7 @@
  */
 import { ChunkManager } from '../../utils/chunkManager';
 import { LiquidSimulator } from '../physics/LiquidSimulator';
+import { LeafDecaySimulator } from '../physics/LeafDecaySimulator';
 import { CHUNK_SIZE, CHUNK_HEIGHT } from '../../constants/world';
 import { BLOCK_TYPES } from '../../constants/blocks';
 
@@ -12,6 +13,7 @@ export class World {
     this.seed = seed;
     this.chunkManager = new ChunkManager(seed, savedChunks);
     this.liquidSimulator = new LiquidSimulator(this.chunkManager);
+    this.leafDecaySimulator = new LeafDecaySimulator(this.chunkManager);
     
     // Callback для оповещения об обновлениях
     this.onChunksUpdate = null;
@@ -32,11 +34,17 @@ export class World {
   setBlock(x, y, z, blockType, metadata = 0) {
     if (y < 0 || y >= CHUNK_HEIGHT) return false;
     
+    const oldBlockType = this.chunkManager.getBlock(x, y, z);
     const success = this.chunkManager.setBlock(x, y, z, blockType, metadata);
     
     if (success) {
       // Уведомляем симулятор жидкости об изменении
       this.liquidSimulator?.onBlockUpdate(x, y, z);
+      
+      // Если удалили дерево, запускаем проверку листвы
+      if (oldBlockType === BLOCK_TYPES.WOOD && blockType === BLOCK_TYPES.AIR) {
+        this.leafDecaySimulator?.onWoodRemoved(x, y, z);
+      }
       
       // Уведомляем об изменении состояния
       if (this.onStateChange) {
@@ -76,17 +84,29 @@ export class World {
   }
 
   /**
-   * Обновить физику (жидкости)
+   * Обновить физику (жидкости, листва)
    */
   updatePhysics() {
+    let hasChanges = false;
+    
+    // Обновляем жидкости
     if (this.liquidSimulator) {
-      const hasChanges = this.liquidSimulator.update();
-      if (hasChanges && this.onChunksUpdate) {
-        this.onChunksUpdate({ ...this.chunkManager.chunks });
-      }
-      return hasChanges;
+      const liquidChanges = this.liquidSimulator.update();
+      hasChanges = hasChanges || liquidChanges;
     }
-    return false;
+    
+    // Обновляем осыпание листвы
+    if (this.leafDecaySimulator) {
+      const leafChanges = this.leafDecaySimulator.update();
+      hasChanges = hasChanges || leafChanges;
+    }
+    
+    // Уведомляем об изменениях
+    if (hasChanges && this.onChunksUpdate) {
+      this.onChunksUpdate({ ...this.chunkManager.chunks });
+    }
+    
+    return hasChanges;
   }
 
   /**
@@ -168,5 +188,12 @@ export class World {
    */
   getLiquidSimulator() {
     return this.liquidSimulator;
+  }
+
+  /**
+   * Получить LeafDecaySimulator
+   */
+  getLeafDecaySimulator() {
+    return this.leafDecaySimulator;
   }
 }
