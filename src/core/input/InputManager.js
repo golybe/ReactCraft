@@ -119,7 +119,13 @@ export class InputManager {
         event.preventDefault();
       }
       
-      this.emit(action, { event });
+      // Передаем информацию о модификаторах (Shift, Ctrl, Alt)
+      this.emit(action, { 
+        event,
+        shiftKey: event.shiftKey,
+        ctrlKey: event.ctrlKey,
+        altKey: event.altKey
+      });
     }
   }
 

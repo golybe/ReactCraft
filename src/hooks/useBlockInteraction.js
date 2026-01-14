@@ -25,6 +25,7 @@ export function useBlockInteraction({
   const [lastPunchTime, setLastPunchTime] = useState(0);
 
   const miningManagerRef = useRef(null);
+  const processedItemsRef = useRef(new Set()); // Для предотвращения дюпликации при подборе
 
   // Initialize Mining Manager
   useEffect(() => {
@@ -225,8 +226,18 @@ export function useBlockInteraction({
   }, [gameMode, destroyBlock, handleStopMining, worldRef]);
 
   const handleItemPickup = useCallback((itemId, count, blockType) => {
+    // Защита от дюпликации: проверяем, не обрабатывался ли уже этот предмет
+    if (processedItemsRef.current.has(itemId)) {
+      return;
+    }
+    
+    // Отмечаем как обработанный
+    processedItemsRef.current.add(itemId);
+    
     if (count === 0) {
       setDroppedItems(prev => prev.filter(item => item.id !== itemId));
+      // Очищаем из Set после удаления
+      setTimeout(() => processedItemsRef.current.delete(itemId), 1000);
       return;
     }
 
@@ -236,10 +247,14 @@ export function useBlockInteraction({
 
       if (remaining === 0) {
         setDroppedItems(prev => prev.filter(item => item.id !== itemId));
+        // Очищаем из Set после удаления
+        setTimeout(() => processedItemsRef.current.delete(itemId), 1000);
       } else {
         setDroppedItems(prev => prev.map(item =>
           item.id === itemId ? { ...item, count: remaining } : item
         ));
+        // Удаляем из обработанных, чтобы можно было подобрать остаток позже
+        processedItemsRef.current.delete(itemId);
       }
     }
   }, [inventoryRef, setInventory, setDroppedItems]);

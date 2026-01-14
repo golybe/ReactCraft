@@ -176,16 +176,21 @@ export function useInventoryManagement({
     }
   }, []);
 
-  // Drop item (Q key)
-  const handleDropItem = useCallback(() => {
+  // Drop item (Q key or Shift+Q for whole stack)
+  const handleDropItem = useCallback((data = {}) => {
     if (isChatOpen || isInventoryOpen || isPaused) return null;
     if (!inventoryRef.current) return null;
 
     const blockType = inventoryRef.current.getBlockType(selectedSlot);
     if (!blockType) return null;
 
-    // Remove 1 item from slot
-    const { removed } = inventoryRef.current.removeFromSlot(selectedSlot, 1);
+    // Shift+Q выбрасывает весь стак, Q - только один предмет
+    const dropAll = data.shiftKey === true;
+    const currentCount = inventoryRef.current.getSlots()[selectedSlot]?.count || 0;
+    const countToRemove = dropAll ? currentCount : 1;
+
+    // Remove items from slot
+    const { removed } = inventoryRef.current.removeFromSlot(selectedSlot, countToRemove);
     if (removed === 0) return null;
 
     setInventory(inventoryRef.current.getSlots());
@@ -205,7 +210,7 @@ export function useInventoryManagement({
     const droppedItem = {
       id: itemId,
       blockType: blockType,
-      count: 1,
+      count: removed, // Выбрасываем столько, сколько удалили (1 или весь стак)
       position: {
         x: playerPos.x + dirX * 1.2,
         y: playerPos.y + 1.5,

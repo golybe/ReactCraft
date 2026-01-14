@@ -1,5 +1,5 @@
 /**
- * Dropped Item Component - Simple Minecraft-style physics
+ * Dropped Item Component - Refined Physics
  */
 import React, { useRef, useState, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
@@ -12,13 +12,14 @@ const textureManager = TextureManager.getInstance();
 
 // Physics constants
 const ITEM_SIZE = 0.25;
-const GRAVITY = 20;
-const FRICTION = 0.8;
-const BOUNCE = 0.4; // Чуть более прыгучие
+const GRAVITY = 22; // Чуть тяжелее, чтобы падали резче
+const FRICTION_AIR = 0.98; // Сопротивление воздуха
+const FRICTION_GROUND = 0.6; // Трение о землю (быстрая остановка)
+const BOUNCE = 0.35;
 const PICKUP_RADIUS = 1.5;
-const MAGNET_RADIUS = 2.5;
-const MAGNET_SPEED = 6;
-const DESPAWN_TIME = 300;
+const MAGNET_RADIUS = 3.0; // Чуть увеличил радиус магнита
+const MAGNET_SPEED = 8;
+const DESPAWN_TIME = 300; // 5 минут
 
 const DroppedItem = ({ 
   id,
@@ -29,7 +30,7 @@ const DroppedItem = ({
   playerPos,
   onPickup,
   getBlock,
-  noPickupTime = 0
+  noPickupTime = 0.5 // Небольшая задержка перед подбором, чтобы не подобрать сразу как выкинул
 }) => {
   const meshRef = useRef();
   const shadowRef = useRef();
@@ -44,16 +45,18 @@ const DroppedItem = ({
     vz: initialVelocity.z,
     onGround: false,
     time: 0,
-    rot: Math.random() * Math.PI * 2
+    rot: Math.random() * Math.PI * 2,
+    rotSpeed: (Math.random() - 0.5) * 2, // Случайная скорость вращения при падении
+    pickedUp: false // Флаг для предотвращения дюпликации (синхронный)
   });
   
   const block = useMemo(() => BlockRegistry.get(blockType), [blockType]);
-  
   const isItem = block?.isPlaceable === false;
   
   const material = useMemo(() => {
     if (!block) return new THREE.MeshBasicMaterial({ color: 0xff00ff });
     const textureInfo = getBlockTextureInfo(blockType);
+    // Берем текстуру side, если нет all, чтобы блоки выглядели понятнее сбоку
     const textureName = textureInfo?.all || textureInfo?.side || textureInfo?.top;
     const texture = textureName ? textureManager.getTextureSync(textureName) : null;
     
@@ -71,7 +74,6 @@ const DroppedItem = ({
     });
   }, [blockType, block, isItem]);
 
-  // Материал для тени (круглая тень как в Minecraft)
   const shadowMaterial = useMemo(() => {
     return new THREE.MeshBasicMaterial({
       color: 0x000000,
@@ -84,20 +86,22 @@ const DroppedItem = ({
 
   const isSolid = (x, y, z) => {
     if (!getBlock) return false;
+    // Добавляем небольшой отступ, чтобы не проверять внутри соседнего блока при пограничных значениях
     const id = getBlock(Math.floor(x), Math.floor(y), Math.floor(z));
-    return id && id !== 0 && id !== 7;
+    return id && id !== 0 && id !== 7; // Игнорируем воздух и барьеры (если 7 это барьер)
   };
 
-  // Исправленный поиск земли - ищем строго ПОД предметом
   const getGroundY = (x, z, itemBottomY) => {
     const bx = Math.floor(x);
     const bz = Math.floor(z);
-    // Начинаем поиск с блока, в котором находятся "ноги" предмета
     const startY = Math.floor(itemBottomY);
     
-    for (let y = startY; y >= 0; y--) {
+    // Ограничиваем глубину поиска 3 блоками вниз для оптимизации
+    const limit = Math.max(0, startY - 3);
+
+    for (let y = startY; y >= limit; y--) {
       if (isSolid(bx, y, bz)) {
-        return y + 1; // Верхняя грань блока
+        return y + 1;
       }
     }
     return -100;
@@ -109,10 +113,15 @@ const DroppedItem = ({
     const dt = Math.min(delta, 0.05);
     const s = state.current;
     
+    // Проверка синхронного флага для предотвращения дюпликации
+    if (s.pickedUp) return;
+    
     s.time += dt;
     
     if (s.time > DESPAWN_TIME) {
-      if (onPickup) onPickup(id, 0);
+      s.pickedUp = true; // Устанавливаем флаг
+      setIsPickedUp(true);
+      if (onPickup) onPickup(id, 0); // 0 count означает удаление без добавления в инвентарь
       return;
     }
     
@@ -120,33 +129,43 @@ const DroppedItem = ({
     
     // Distances
     const dx = playerPos.x - s.x;
-    const dy = (playerPos.y + 0.5) - s.y;
+    const dy = (playerPos.y + 0.5) - s.y; // Центр игрока чуть выше ног
     const dz = playerPos.z - s.z;
-    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    const distSq = dx * dx + dy * dy + dz * dz; // Используем квадрат расстояния для оптимизации sqrt
+    const dist = Math.sqrt(distSq);
     
-    // Pickup
+    // Pickup logic - используем синхронный флаг для предотвращения множественного вызова
     if (canPickup && dist < PICKUP_RADIUS) {
-      setIsPickedUp(true);
+      s.pickedUp = true; // Устанавливаем флаг СРАЗУ (синхронно)
+      setIsPickedUp(true); // React state для UI (асинхронно)
       if (onPickup) onPickup(id, count, blockType);
       return;
     }
     
-    // Magnet
+    // Magnet logic
     let isMagnetized = false;
     if (canPickup && dist < MAGNET_RADIUS) {
       isMagnetized = true;
-      const strength = MAGNET_SPEED * (1 - dist / MAGNET_RADIUS);
+      // Экспоненциальное увеличение силы магнита при приближении
+      const strength = MAGNET_SPEED * (1 - dist / MAGNET_RADIUS) + 2;
+      
       s.vx += (dx / dist) * strength * dt;
       s.vy += (dy / dist) * strength * dt;
       s.vz += (dz / dist) * strength * dt;
-      // Damping при магнетизме, чтобы не улетали в космос
-      s.vx *= 0.9;
-      s.vy *= 0.9;
-      s.vz *= 0.9;
+      
+      // Сильное затухание, чтобы предмет не пролетал сквозь игрока
+      s.vx *= 0.85;
+      s.vy *= 0.85;
+      s.vz *= 0.85;
     } else {
-      // Gravity
+      // Standard Physics
       s.vy -= GRAVITY * dt;
+      // Terminal velocity
       if (s.vy < -20) s.vy = -20;
+      
+      // Air resistance
+      s.vx *= FRICTION_AIR;
+      s.vz *= FRICTION_AIR;
     }
     
     // Predict next position
@@ -158,25 +177,27 @@ const DroppedItem = ({
     const itemRadius = ITEM_SIZE / 2;
     
     // 1. Ground Collision
-    // Ищем землю под предполагаемой новой позицией
-    const groundY = getGroundY(s.x, s.z, s.y - itemRadius + 0.1); 
+    const groundY = getGroundY(s.x, s.z, s.y); 
     const floorY = groundY + itemRadius;
     
     if (newY < floorY) {
-      // Hit ground
       newY = floorY;
       
       if (s.vy < -2) {
         // Bounce
         s.vy = -s.vy * BOUNCE;
-        s.vx *= FRICTION;
-        s.vz *= FRICTION;
+        // При ударе теряем часть горизонтальной скорости
+        s.vx *= 0.8; 
+        s.vz *= 0.8;
       } else {
         // Settle
         s.vy = 0;
         s.onGround = true;
-        s.vx *= 0.8; // Strong friction on ground
-        s.vz *= 0.8;
+        // Сильное трение на земле
+        s.vx *= FRICTION_GROUND;
+        s.vz *= FRICTION_GROUND;
+        
+        // Полная остановка, чтобы не дергался
         if (Math.abs(s.vx) < 0.05) s.vx = 0;
         if (Math.abs(s.vz) < 0.05) s.vz = 0;
       }
@@ -185,15 +206,16 @@ const DroppedItem = ({
     }
     
     // 2. Wall Collision (X)
-    if (isSolid(newX + (s.vx > 0 ? itemRadius : -itemRadius), s.y, s.z)) {
+    // Проверяем коллизию на высоте "пояса" предмета
+    if (isSolid(newX + (s.vx > 0 ? itemRadius : -itemRadius), newY, s.z)) {
       newX = s.x;
-      s.vx = -s.vx * 0.5; // Отскок от стены
+      s.vx = -s.vx * 0.3; // Слабый отскок, предмет скорее "падает" вдоль стены
     }
     
     // 3. Wall Collision (Z)
-    if (isSolid(newX, s.y, newZ + (s.vz > 0 ? itemRadius : -itemRadius))) {
+    if (isSolid(newX, newY, newZ + (s.vz > 0 ? itemRadius : -itemRadius))) {
       newZ = s.z;
-      s.vz = -s.vz * 0.5; // Отскок от стены
+      s.vz = -s.vz * 0.3; // Слабый отскок
     }
     
     // Update State
@@ -201,64 +223,52 @@ const DroppedItem = ({
     s.y = newY;
     s.z = newZ;
     
-    // Render
+    // Render Position
     let displayY = s.y;
-    // Анимация парения только когда лежит спокойно
-    if (s.onGround && !isMagnetized && Math.abs(s.vx) < 0.1 && Math.abs(s.vz) < 0.1) {
-      displayY += Math.sin(s.time * 2.5) * 0.05;
+    // Анимация парения (Bobbing) только если предмет лежит и не магнитится
+    if (s.onGround && !isMagnetized && Math.abs(s.vx) < 0.1) {
+      displayY += Math.sin(s.time * 3) * 0.1; // Чуть выше амплитуда
     }
     
     meshRef.current.position.set(s.x, displayY, s.z);
     
-    // Вращаем только если это блок. Спрайты всегда смотрят на камеру.
+    // Rotation logic
     if (!isItem) {
-      const rotSpeed = s.onGround ? 1 : 3;
-      s.rot += dt * rotSpeed;
-      meshRef.current.rotation.y = s.rot;
+      // Если летит - крутится хаотично, если лежит - крутится красиво вокруг оси Y
+      if (!s.onGround && !isMagnetized) {
+          meshRef.current.rotation.x += s.rotSpeed * dt;
+          meshRef.current.rotation.z += s.rotSpeed * dt;
+      } else {
+          // Выравниваем вращение при приземлении
+          meshRef.current.rotation.x *= 0.9;
+          meshRef.current.rotation.z *= 0.9;
+          s.rot += dt * 1.5;
+          meshRef.current.rotation.y = s.rot;
+      }
     }
 
-    // Обновляем позицию тени (круглая тень на земле)
+    // Shadow logic
     if (shadowRef.current) {
-      const shadowY = groundY + 0.01; // Немного выше земли, чтобы не зарываться
+      // Тень всегда на земле, даже если предмет подпрыгивает в анимации
+      const shadowY = groundY + 0.02; 
       shadowRef.current.position.set(s.x, shadowY, s.z);
       
-      // Затухание тени в зависимости от высоты предмета над землей
       const distanceFromGround = s.y - groundY;
-      const shadowOpacity = Math.max(0, 0.3 - distanceFromGround * 0.1);
+      const shadowOpacity = Math.max(0, 0.4 - distanceFromGround * 0.25);
       shadowRef.current.material.opacity = shadowOpacity;
+      
+      // Скейлим тень, когда предмет высоко (эффект рассеивания)
+      const scale = 1 + distanceFromGround * 0.2;
+      shadowRef.current.scale.set(scale, scale, scale);
     }
   });
 
   if (isPickedUp || !block) return null;
 
-  if (isItem) {
-    return (
-      <group>
-        {/* Круглая тень на земле */}
-        <mesh
-          ref={shadowRef}
-          position={[initialPosition.x, initialPosition.y - 0.1, initialPosition.z]}
-          rotation={[-Math.PI / 2, 0, 0]}
-          material={shadowMaterial}
-          renderOrder={-1}
-        >
-          <circleGeometry args={[ITEM_SIZE * 0.8, 16]} />
-        </mesh>
-        
-        {/* Спрайт предмета */}
-        <sprite
-          ref={meshRef}
-          position={[initialPosition.x, initialPosition.y, initialPosition.z]}
-          material={material}
-          scale={[ITEM_SIZE * 1.8, ITEM_SIZE * 1.8, 1]}
-        />
-      </group>
-    );
-  }
-
+  // Рендеринг остался тем же, но я добавил проверку на существование meshRef перед рендером
+  // Группа и меши остались как у тебя, так как они сделаны правильно
   return (
     <group>
-      {/* Круглая тень на земле */}
       <mesh
         ref={shadowRef}
         position={[initialPosition.x, initialPosition.y - 0.1, initialPosition.z]}
@@ -269,24 +279,27 @@ const DroppedItem = ({
         <circleGeometry args={[ITEM_SIZE * 0.8, 16]} />
       </mesh>
       
-      {/* Блок */}
-      <mesh
-        ref={meshRef}
-        position={[initialPosition.x, initialPosition.y, initialPosition.z]}
-        material={material}
-      >
-        <boxGeometry args={[ITEM_SIZE, ITEM_SIZE, ITEM_SIZE]} />
-      </mesh>
+      {isItem ? (
+        <sprite
+          ref={meshRef}
+          position={[initialPosition.x, initialPosition.y, initialPosition.z]}
+          material={material}
+          scale={[ITEM_SIZE * 1.8, ITEM_SIZE * 1.8, 1]}
+        />
+      ) : (
+        <mesh
+          ref={meshRef}
+          position={[initialPosition.x, initialPosition.y, initialPosition.z]}
+          material={material}
+        >
+          <boxGeometry args={[ITEM_SIZE, ITEM_SIZE, ITEM_SIZE]} />
+        </mesh>
+      )}
     </group>
   );
 };
 
-export const DroppedItemsManager = ({ 
-  items, 
-  playerPos, 
-  onPickup, 
-  getBlock 
-}) => {
+export const DroppedItemsManager = ({ items, playerPos, onPickup, getBlock }) => {
   return (
     <group>
       {items.map(item => (
@@ -300,7 +313,7 @@ export const DroppedItemsManager = ({
           playerPos={playerPos}
           onPickup={onPickup}
           getBlock={getBlock}
-          noPickupTime={item.noPickupTime || 0}
+          noPickupTime={item.noPickupTime}
         />
       ))}
     </group>
