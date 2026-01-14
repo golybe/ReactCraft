@@ -1,6 +1,7 @@
 import { BlockRegistry } from './blocks/BlockRegistry';
-import { AirBlock, SolidBlock, TransparentBlock, LiquidBlock } from './blocks/StandardBlocks';
+import { AirBlock, SolidBlock, TransparentBlock, LiquidBlock, Item } from './blocks/StandardBlocks';
 import { TOOL_TYPES } from './blocks/Block';
+import { BLOCK_TYPES } from '../constants/blockTypes';
 
 // Инициализация всех блоков
 export const initBlocks = () => {
@@ -150,5 +151,16 @@ export const initBlocks = () => {
     hardness: Infinity,
     unbreakable: true,
     drops: null
+  }));
+
+  // =========================================================
+  // ITEMS (512+)
+  // =========================================================
+
+  // 512: STICK
+  BlockRegistry.register(new Item(BLOCK_TYPES.STICK, {
+    name: 'stick',
+    texture: 'stick',
+    color: 0xffffff
   }));
 };

@@ -32,6 +32,7 @@ const DroppedItem = ({
   noPickupTime = 0
 }) => {
   const meshRef = useRef();
+  const shadowRef = useRef();
   const [isPickedUp, setIsPickedUp] = useState(false);
   
   const state = useRef({
@@ -48,16 +49,38 @@ const DroppedItem = ({
   
   const block = useMemo(() => BlockRegistry.get(blockType), [blockType]);
   
+  const isItem = block?.isPlaceable === false;
+  
   const material = useMemo(() => {
     if (!block) return new THREE.MeshBasicMaterial({ color: 0xff00ff });
     const textureInfo = getBlockTextureInfo(blockType);
     const textureName = textureInfo?.all || textureInfo?.side || textureInfo?.top;
     const texture = textureName ? textureManager.getTextureSync(textureName) : null;
+    
+    if (isItem) {
+      return new THREE.SpriteMaterial({
+        map: texture,
+        color: 0xffffff,
+        transparent: true
+      });
+    }
+
     return new THREE.MeshBasicMaterial({
       map: texture,
       color: texture ? 0xffffff : block.color
     });
-  }, [blockType, block]);
+  }, [blockType, block, isItem]);
+
+  // Материал для тени (круглая тень как в Minecraft)
+  const shadowMaterial = useMemo(() => {
+    return new THREE.MeshBasicMaterial({
+      color: 0x000000,
+      transparent: true,
+      opacity: 0.3,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    });
+  }, []);
 
   const isSolid = (x, y, z) => {
     if (!getBlock) return false;
@@ -187,21 +210,74 @@ const DroppedItem = ({
     
     meshRef.current.position.set(s.x, displayY, s.z);
     
-    const rotSpeed = s.onGround ? 1 : 3;
-    s.rot += dt * rotSpeed;
-    meshRef.current.rotation.y = s.rot;
+    // Вращаем только если это блок. Спрайты всегда смотрят на камеру.
+    if (!isItem) {
+      const rotSpeed = s.onGround ? 1 : 3;
+      s.rot += dt * rotSpeed;
+      meshRef.current.rotation.y = s.rot;
+    }
+
+    // Обновляем позицию тени (круглая тень на земле)
+    if (shadowRef.current) {
+      const shadowY = groundY + 0.01; // Немного выше земли, чтобы не зарываться
+      shadowRef.current.position.set(s.x, shadowY, s.z);
+      
+      // Затухание тени в зависимости от высоты предмета над землей
+      const distanceFromGround = s.y - groundY;
+      const shadowOpacity = Math.max(0, 0.3 - distanceFromGround * 0.1);
+      shadowRef.current.material.opacity = shadowOpacity;
+    }
   });
 
   if (isPickedUp || !block) return null;
 
+  if (isItem) {
+    return (
+      <group>
+        {/* Круглая тень на земле */}
+        <mesh
+          ref={shadowRef}
+          position={[initialPosition.x, initialPosition.y - 0.1, initialPosition.z]}
+          rotation={[-Math.PI / 2, 0, 0]}
+          material={shadowMaterial}
+          renderOrder={-1}
+        >
+          <circleGeometry args={[ITEM_SIZE * 0.8, 16]} />
+        </mesh>
+        
+        {/* Спрайт предмета */}
+        <sprite
+          ref={meshRef}
+          position={[initialPosition.x, initialPosition.y, initialPosition.z]}
+          material={material}
+          scale={[ITEM_SIZE * 1.8, ITEM_SIZE * 1.8, 1]}
+        />
+      </group>
+    );
+  }
+
   return (
-    <mesh
-      ref={meshRef}
-      position={[initialPosition.x, initialPosition.y, initialPosition.z]}
-      material={material}
-    >
-      <boxGeometry args={[ITEM_SIZE, ITEM_SIZE, ITEM_SIZE]} />
-    </mesh>
+    <group>
+      {/* Круглая тень на земле */}
+      <mesh
+        ref={shadowRef}
+        position={[initialPosition.x, initialPosition.y - 0.1, initialPosition.z]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        material={shadowMaterial}
+        renderOrder={-1}
+      >
+        <circleGeometry args={[ITEM_SIZE * 0.8, 16]} />
+      </mesh>
+      
+      {/* Блок */}
+      <mesh
+        ref={meshRef}
+        position={[initialPosition.x, initialPosition.y, initialPosition.z]}
+        material={material}
+      >
+        <boxGeometry args={[ITEM_SIZE, ITEM_SIZE, ITEM_SIZE]} />
+      </mesh>
+    </group>
   );
 };
 

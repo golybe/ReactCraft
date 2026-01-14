@@ -136,6 +136,12 @@ export function useBlockInteraction({
     const blockType = inventoryRef?.current?.getBlockType(selectedSlot) || null;
     if (!blockType) return;
 
+    // ПРОВЕРКА: Можно ли ставить этот предмет как блок?
+    const blockProps = BlockRegistry.get(blockType);
+    if (blockProps && blockProps.isPlaceable === false) {
+      return;
+    }
+
     // Check collision with player
     if (isSolid(blockType)) {
       const pMinX = playerPos.x - PLAYER_WIDTH / 2;

@@ -119,7 +119,12 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
     getSelectedBlockType,
     handleSelectSlot,
     scrollHotbar,
-    handleDropItem
+    handleDropItem,
+    craftingGrid,
+    setCraftingGrid,
+    craftingResult,
+    handleCraftResultPickup,
+    handleShiftCraftResult
   } = useInventoryManagement({
     worldInfo,
     gameMode,
@@ -353,6 +358,11 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
         inventory={inventory}
         onInventoryChange={setInventory}
         isCreativeMode={gameMode === GAME_MODES.CREATIVE}
+        craftingGrid={craftingGrid}
+        onCraftingGridChange={setCraftingGrid}
+        craftingResult={craftingResult}
+        onCraftResultPickup={handleCraftResultPickup}
+        onShiftCraft={handleShiftCraftResult}
       />
 
       <Chat

@@ -22,9 +22,10 @@ const files = {
   'coal_ore.png': 'block/coal_ore.png',
   'iron_ore.png': 'block/iron_ore.png',
   'gold_ore.png': 'block/gold_ore.png',
-  'diamond_ore.png': 'block/diamond_ore.png',
-  'brick.png': 'block/bricks.png'
-};
+    'diamond_ore.png': 'block/diamond_ore.png',
+    'brick.png': 'block/bricks.png',
+    'stick.png': 'item/stick.png'
+  };
 
 const downloadFile = (filename, remotePath) => {
   const url = BASE_URL + remotePath;

@@ -257,12 +257,47 @@ const SurvivalInventory = ({
   cursorItem,
   setCursorItem,
   hoveredBlockName,
-  setHoveredBlockName
+  setHoveredBlockName,
+  craftingGrid,
+  onCraftingGridChange,
+  craftingResult,
+  onCraftResultPickup,
+  onShiftCraft
 }) => {
 
-  // Left click - pick up/place entire stack
-  const handleSlotClick = (index) => {
-    const currentSlot = inventory[index];
+  // Common click handler for all slots (inventory and crafting)
+  const handleGenericSlotClick = (slots, onSlotsChange, index, isResultSlot = false, shiftKey = false) => {
+    if (isResultSlot) {
+      if (!craftingResult) return;
+      
+      if (shiftKey) {
+        // Shift + Click: Массовый крафт в инвентарь
+        onShiftCraft();
+        return;
+      }
+
+      const resultData = getSlotData(craftingResult);
+      
+      if (cursorItem) {
+        const cursorData = getSlotData(cursorItem);
+        // Можно забрать результат, только если типы совпадают и в стаке на курсоре есть место
+        if (cursorData.type === resultData.type && cursorData.count + resultData.count <= MAX_STACK_SIZE) {
+          const result = onCraftResultPickup();
+          if (result) {
+            setCursorItem({ type: cursorData.type, count: cursorData.count + result.count });
+          }
+        }
+      } else {
+        // Обычный забор предмета (курсор пуст)
+        const result = onCraftResultPickup();
+        if (result) {
+          setCursorItem({ type: result.type, count: result.count });
+        }
+      }
+      return;
+    }
+
+    const currentSlot = slots[index];
     const { type: currentType, count: currentCount } = getSlotData(currentSlot);
 
     if (cursorItem) {
@@ -271,9 +306,9 @@ const SurvivalInventory = ({
 
       if (!currentType) {
         // Empty slot - place entire cursor stack
-        const newInventory = [...inventory];
-        newInventory[index] = { type: cursorData.type, count: cursorData.count };
-        onInventoryChange(newInventory);
+        const newSlots = [...slots];
+        newSlots[index] = { type: cursorData.type, count: cursorData.count };
+        onSlotsChange(newSlots);
         setCursorItem(null);
       } else if (currentType === cursorData.type) {
         // Same type - merge stacks
@@ -281,9 +316,9 @@ const SurvivalInventory = ({
         const newSlotCount = Math.min(totalCount, MAX_STACK_SIZE);
         const remaining = totalCount - newSlotCount;
 
-        const newInventory = [...inventory];
-        newInventory[index] = { type: currentType, count: newSlotCount };
-        onInventoryChange(newInventory);
+        const newSlots = [...slots];
+        newSlots[index] = { type: currentType, count: newSlotCount };
+        onSlotsChange(newSlots);
 
         if (remaining > 0) {
           setCursorItem({ type: cursorData.type, count: remaining });
@@ -292,25 +327,26 @@ const SurvivalInventory = ({
         }
       } else {
         // Different type - swap
-        const newInventory = [...inventory];
-        newInventory[index] = { type: cursorData.type, count: cursorData.count };
-        onInventoryChange(newInventory);
+        const newSlots = [...slots];
+        newSlots[index] = { type: cursorData.type, count: cursorData.count };
+        onSlotsChange(newSlots);
         setCursorItem({ type: currentType, count: currentCount });
       }
     } else {
       // Picking up item
       if (currentType) {
         setCursorItem({ type: currentType, count: currentCount });
-        const newInventory = [...inventory];
-        newInventory[index] = null;
-        onInventoryChange(newInventory);
+        const newSlots = [...slots];
+        newSlots[index] = null;
+        onSlotsChange(newSlots);
       }
     }
   };
 
-  // Right click - place ONE item / pick up HALF stack
-  const handleSlotRightClick = (index) => {
-    const currentSlot = inventory[index];
+  const handleGenericSlotRightClick = (slots, onSlotsChange, index, isResultSlot = false) => {
+    if (isResultSlot) return; // Right click does nothing on result
+
+    const currentSlot = slots[index];
     const { type: currentType, count: currentCount } = getSlotData(currentSlot);
 
     if (cursorItem) {
@@ -319,9 +355,9 @@ const SurvivalInventory = ({
 
       if (!currentType) {
         // Empty slot - place ONE item
-        const newInventory = [...inventory];
-        newInventory[index] = { type: cursorData.type, count: 1 };
-        onInventoryChange(newInventory);
+        const newSlots = [...slots];
+        newSlots[index] = { type: cursorData.type, count: 1 };
+        onSlotsChange(newSlots);
 
         if (cursorData.count > 1) {
           setCursorItem({ type: cursorData.type, count: cursorData.count - 1 });
@@ -330,9 +366,9 @@ const SurvivalInventory = ({
         }
       } else if (currentType === cursorData.type && currentCount < MAX_STACK_SIZE) {
         // Same type, not full - add ONE
-        const newInventory = [...inventory];
-        newInventory[index] = { type: currentType, count: currentCount + 1 };
-        onInventoryChange(newInventory);
+        const newSlots = [...slots];
+        newSlots[index] = { type: currentType, count: currentCount + 1 };
+        onSlotsChange(newSlots);
 
         if (cursorData.count > 1) {
           setCursorItem({ type: cursorData.type, count: cursorData.count - 1 });
@@ -340,7 +376,6 @@ const SurvivalInventory = ({
           setCursorItem(null);
         }
       }
-      // Different type or full stack - do nothing on right click
     } else {
       // No cursor item - pick up HALF the stack
       if (currentType && currentCount > 0) {
@@ -349,35 +384,54 @@ const SurvivalInventory = ({
 
         setCursorItem({ type: currentType, count: takeCount });
 
-        const newInventory = [...inventory];
+        const newSlots = [...slots];
         if (leaveCount > 0) {
-          newInventory[index] = { type: currentType, count: leaveCount };
+          newSlots[index] = { type: currentType, count: leaveCount };
         } else {
-          newInventory[index] = null;
+          newSlots[index] = null;
         }
-        onInventoryChange(newInventory);
+        onSlotsChange(newSlots);
       }
     }
   };
 
   return (
     <div className="mc-survival-content">
-      {/* Crafting area placeholder */}
+      {/* Crafting area */}
       <div className="mc-crafting-area">
         <div className="mc-player-preview">
-          {/* Player model placeholder */}
           <div className="mc-player-silhouette" />
         </div>
         <div className="mc-crafting-grid">
           <div className="mc-crafting-label">Crafting</div>
           <div className="mc-crafting-slots">
-            {/* 2x2 crafting grid placeholder */}
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="mc-slot disabled" style={{ width: '36px', height: '36px' }} />
+            {craftingGrid.map((slot, i) => (
+              <MCSlot
+                key={`craft-${i}`}
+                slot={slot}
+                onClick={() => handleGenericSlotClick(craftingGrid, onCraftingGridChange, i)}
+                onRightClick={() => handleGenericSlotRightClick(craftingGrid, onCraftingGridChange, i)}
+                onHover={() => {
+                  const data = getSlotData(slot);
+                  if (data.type) setHoveredBlockName(BlockRegistry.get(data.type)?.name);
+                }}
+                isHovered={false}
+                size={36}
+              />
             ))}
           </div>
           <div className="mc-crafting-arrow">→</div>
-          <div className="mc-slot disabled" style={{ width: '36px', height: '36px' }} />
+          <div className="mc-result-slot">
+            <MCSlot
+              slot={craftingResult}
+              onClick={(e) => handleGenericSlotClick(null, null, 0, true, e.shiftKey)}
+              onHover={() => {
+                if (craftingResult?.type) setHoveredBlockName(BlockRegistry.get(craftingResult.type)?.name);
+              }}
+              isHovered={false}
+              size={36}
+            />
+          </div>
         </div>
       </div>
 
@@ -396,8 +450,8 @@ const SurvivalInventory = ({
                 <MCSlot
                   key={index}
                   slot={slot}
-                  onClick={() => handleSlotClick(index)}
-                  onRightClick={() => handleSlotRightClick(index)}
+                  onClick={() => handleGenericSlotClick(inventory, onInventoryChange, index)}
+                  onRightClick={() => handleGenericSlotRightClick(inventory, onInventoryChange, index)}
                   onHover={() => type && setHoveredBlockName(BlockRegistry.get(type)?.name)}
                   isHovered={false}
                   showCount={true}
@@ -421,8 +475,8 @@ const SurvivalInventory = ({
             <MCSlot
               key={index}
               slot={slot}
-              onClick={() => handleSlotClick(index)}
-              onRightClick={() => handleSlotRightClick(index)}
+              onClick={() => handleGenericSlotClick(inventory, onInventoryChange, index)}
+              onRightClick={() => handleGenericSlotRightClick(inventory, onInventoryChange, index)}
               onHover={() => type && setHoveredBlockName(BlockRegistry.get(type)?.name)}
               isHovered={false}
               showCount={true}
@@ -438,7 +492,18 @@ const SurvivalInventory = ({
 /**
  * Main Inventory Component
  */
-const Inventory = ({ isOpen, onClose, inventory, onInventoryChange, isCreativeMode = false }) => {
+const Inventory = ({
+  isOpen,
+  onClose,
+  inventory,
+  onInventoryChange,
+  isCreativeMode = false,
+  craftingGrid,
+  onCraftingGridChange,
+  craftingResult,
+  onCraftResultPickup,
+  onShiftCraft
+}) => {
   const [cursorItem, setCursorItem] = useState(null);
   const [hoveredBlockName, setHoveredBlockName] = useState(null);
 
@@ -521,6 +586,11 @@ const Inventory = ({ isOpen, onClose, inventory, onInventoryChange, isCreativeMo
             setCursorItem={setCursorItem}
             hoveredBlockName={hoveredBlockName}
             setHoveredBlockName={setHoveredBlockName}
+            craftingGrid={craftingGrid}
+            onCraftingGridChange={onCraftingGridChange}
+            craftingResult={craftingResult}
+            onCraftResultPickup={onCraftResultPickup}
+            onShiftCraft={onShiftCraft}
           />
         )}
       </div>

@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { getBlockTextureInfo } from '../../utils/textures';
 import { BLOCK_TINTS } from '../../constants/colors';
 import { TextureManager } from '../../core/rendering/TextureManager';
+import { BlockRegistry } from '../../core/blocks/BlockRegistry';
 
 const textureManager = TextureManager.getInstance();
 
@@ -48,6 +49,9 @@ const HeldItem = ({ selectedBlock, lightLevel = 15, lastPunchTime, isFlying, isM
   const lastLightLevel = useRef(lightLevel);
   const isHand = !selectedBlock;
   
+  const blockProps = selectedBlock ? BlockRegistry.get(selectedBlock) : null;
+  const isItem = blockProps?.isPlaceable === false;
+  
   const punchStartTime = useRef(0);
   const miningAnimTime = useRef(0);
   
@@ -91,7 +95,7 @@ const HeldItem = ({ selectedBlock, lightLevel = 15, lastPunchTime, isFlying, isM
       const brightness = Math.max(0.3, lightLevel / 15);
       const mat = new THREE.MeshBasicMaterial({
         map: tex,
-        side: THREE.FrontSide,
+        side: isItem ? THREE.DoubleSide : THREE.FrontSide,
         depthTest: false,
         depthWrite: false,
         transparent: true
@@ -119,7 +123,7 @@ const HeldItem = ({ selectedBlock, lightLevel = 15, lastPunchTime, isFlying, isM
           const brightness = Math.max(0.3, lightLevel / 15);
           materials = new THREE.MeshBasicMaterial({
             map: sideTex,
-            side: THREE.FrontSide,
+            side: isItem ? THREE.DoubleSide : THREE.FrontSide,
             depthTest: false,
             depthWrite: false,
             transparent: true
@@ -209,8 +213,21 @@ const HeldItem = ({ selectedBlock, lightLevel = 15, lastPunchTime, isFlying, isM
         // Влияние bobbing
         meshRef.current.rotateZ(bobX * 0.1); 
         meshRef.current.rotateX(bobY * 0.1);
+    } else if (isItem) {
+        // Позиция ПРЕДМЕТА (спрайт)
+        meshRef.current.translateX(0.6 + bobX);      
+        meshRef.current.translateY(-0.4 + bobY);     
+        meshRef.current.translateZ(-0.7);            
+        
+        // В Minecraft предметы в руке повернуты на ~45 градусов по Y и немного наклонены
+        meshRef.current.rotateY(THREE.MathUtils.degToRad(180)); // Лицевой стороной к камере
+        meshRef.current.rotateZ(THREE.MathUtils.degToRad(180));
+        meshRef.current.rotateX(THREE.MathUtils.degToRad(-10));
+
+        meshRef.current.rotateX(bobY * 0.5);
+        meshRef.current.rotateY(bobX * 0.2);
     } else {
-        // Позиция блока
+        // Позиция блока (куб)
         meshRef.current.translateX(0.4 + bobX);      
         meshRef.current.translateY(-0.6 + bobY);     
         meshRef.current.translateZ(-0.7);            
@@ -237,7 +254,14 @@ const HeldItem = ({ selectedBlock, lightLevel = 15, lastPunchTime, isFlying, isM
             meshRef.current.rotateX(-Math.abs(miningSwing) * 0.5);
             meshRef.current.rotateY(-miningSwing * 0.15);
             meshRef.current.translateZ(-Math.abs(miningSwing) * 0.12);
+        } else if (isItem) {
+            // Анимация удара предметом (палкой) - легкое покачивание
+            meshRef.current.rotateX(Math.abs(miningSwing) * 0.4); // Умеренный размах
+            meshRef.current.rotateY(-miningSwing * 0.2);
+            meshRef.current.translateZ(-Math.abs(miningSwing) * 0.2); // Легкое движение вперед
+            meshRef.current.translateY(-Math.abs(miningSwing) * 0.1); // Небольшое движение вниз
         } else {
+            // Анимация для блока
             meshRef.current.rotateX(-Math.abs(miningSwing) * 0.6);
             meshRef.current.rotateY(-miningSwing * 0.2);
             meshRef.current.rotateZ(-miningSwing * 0.1);
@@ -248,14 +272,18 @@ const HeldItem = ({ selectedBlock, lightLevel = 15, lastPunchTime, isFlying, isM
         const punchValue = Math.sin(punchProgress * Math.PI);
         
         if (isHand) {
-             // Свинг руки: поворот вниз и немного в центр
+             // Свинг руки
              meshRef.current.rotateX(-punchValue * 0.8);
              meshRef.current.rotateY(-punchValue * 0.4);
              meshRef.current.rotateZ(punchValue * 0.4);
-             
-             // Смещение вперед
              meshRef.current.translateZ(-punchValue * 0.3);
              meshRef.current.translateY(punchValue * 0.1);
+        } else if (isItem) {
+            // Одиночный удар палкой (легкий взмах)
+            meshRef.current.rotateX(punchValue * 0.6);
+            meshRef.current.rotateY(-punchValue * 0.3);
+            meshRef.current.translateZ(-punchValue * 0.3); // Умеренное движение вперед
+            meshRef.current.translateY(-punchValue * 0.15); // Небольшое движение вниз
         } else {
             // Удар блоком
             meshRef.current.rotateX(-punchValue * 1.0);
@@ -272,7 +300,12 @@ const HeldItem = ({ selectedBlock, lightLevel = 15, lastPunchTime, isFlying, isM
 
   if (!materials) return null;
 
-  const scale = isHand ? [0.25, 0.50, 0.2] : [0.4, 0.4, 0.4];
+  let scale = [0.4, 0.4, 0.4];
+  if (isHand) {
+    scale = [0.25, 0.50, 0.2];
+  } else if (isItem) {
+    scale = [0.7, 0.7, 0.7]; // Значительно увеличиваем предметы в руке
+  }
 
   return (
     <mesh 
@@ -283,7 +316,11 @@ const HeldItem = ({ selectedBlock, lightLevel = 15, lastPunchTime, isFlying, isM
       castShadow
       receiveShadow
     >
-      <boxGeometry args={[1, 1, 1]} />
+      {isItem ? (
+        <planeGeometry args={[1, 1]} />
+      ) : (
+        <boxGeometry args={[1, 1, 1]} />
+      )}
     </mesh>
   );
 };

@@ -14,6 +14,33 @@ export const BlockIcon = ({ blockId, size = 32, style }) => {
     const isGrass = blockId === BLOCK_TYPES.GRASS;
     const isLeaves = blockId === BLOCK_TYPES.LEAVES;
     
+    // Проверка: это предмет или блок?
+    if (block.isPlaceable === false) {
+        const iconUrl = tex.side || tex.top || tex.front;
+        return (
+            <div style={{ 
+                width: size, 
+                height: size, 
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+                ...style 
+            }}>
+                <div style={{
+                    width: '100%',
+                    height: '100%',
+                    backgroundImage: `url(${iconUrl})`,
+                    backgroundSize: 'contain',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'center',
+                    imageRendering: 'pixelated',
+                    transform: 'scale(1.2)', // Масштабируем через transform - это работает лучше
+                }} />
+            </div>
+        );
+    }
+    
     const tintTop = isGrass ? BLOCK_TINTS['grassTop'] : (isLeaves ? BLOCK_TINTS['leaves'] : null);
     const tintSide = isGrass ? BLOCK_TINTS['grassSide'] : (isLeaves ? BLOCK_TINTS['leaves'] : null);
 

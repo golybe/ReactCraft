@@ -20,7 +20,8 @@ export const textures = {
   diamondOre: texPath('diamond_ore.png'),
   snow: texPath('snow.png'),
   planks: texPath('planks.png'),
-  bedrock: texPath('bedrock.png')
+  bedrock: texPath('bedrock.png'),
+  stick: texPath('stick.png')
 };
 
 export const getBlockTexture = (name) => {
@@ -42,7 +43,8 @@ const blockTextureMap = {
   [BLOCK_TYPES.DIAMOND_ORE]: { all: 'diamondOre' },
   [BLOCK_TYPES.SNOW]: { all: 'snow' },
   [BLOCK_TYPES.PLANKS]: { all: 'planks' },
-  [BLOCK_TYPES.BEDROCK]: { all: 'bedrock' }
+  [BLOCK_TYPES.BEDROCK]: { all: 'bedrock' },
+  [BLOCK_TYPES.STICK]: { all: 'stick', isItem: true }
 };
 
 export const getBlockTextureInfo = (blockType) => blockTextureMap[blockType];

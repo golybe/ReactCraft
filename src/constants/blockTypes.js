@@ -21,7 +21,12 @@ export const BLOCK_TYPES = {
   DIAMOND_ORE: 12,
   SNOW: 13,
   PLANKS: 14,
-  BEDROCK: 15
+  BEDROCK: 15,
+  
+  // RESERVED FOR FUTURE BLOCKS: 16 - 511
+  
+  // ITEMS (Non-block entities): 512+
+  STICK: 512
 };
 
 export default BLOCK_TYPES;

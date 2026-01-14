@@ -12,6 +12,10 @@ export const HOTBAR_SIZE = 9;       // Slots 0-8
 export const MAIN_INVENTORY_SIZE = 27;  // Slots 9-35 (3 rows of 9)
 export const TOTAL_INVENTORY_SIZE = HOTBAR_SIZE + MAIN_INVENTORY_SIZE; // 36 total
 
+// Crafting layout constants
+export const CRAFTING_GRID_SIZE = 4; // 2x2 for player inventory
+export const CRAFTING_RESULT_SLOT = 1;
+
 /**
  * Create a new stack
  * @param {number} type - Block type ID

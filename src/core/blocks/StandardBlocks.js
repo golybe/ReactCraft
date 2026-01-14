@@ -41,3 +41,19 @@ export class LiquidBlock extends Block {
     });
   }
 }
+
+/**
+ * Чистый предмет (не блок)
+ */
+export class Item extends Block {
+  constructor(id, settings) {
+    super(id, {
+      solid: false,
+      transparent: true,
+      unbreakable: true, // Предметы нельзя поставить/сломать в мире как блоки
+      isPlaceable: false,
+      ...settings
+    });
+    this.isPlaceable = false;
+  }
+}
