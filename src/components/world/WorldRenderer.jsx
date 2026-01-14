@@ -116,8 +116,7 @@ const ChunkBlockMesh = ({ blockType, chunkData, lightMap, chunkX, chunkZ, getNei
 import { PerformanceMetrics } from '../../utils/performance';
 
 // Основной компонент мира с оптимизацией Time Slicing
-const World = ({ chunks, chunkManager, onBlocksCount }) => {
-  const [totalBlocks, setTotalBlocks] = useState(0);
+const World = ({ chunks, chunkManager }) => {
   const [texturesLoaded, setTexturesLoaded] = useState(texturesPreloaded);
 
   // Предзагрузка текстур при монтировании
@@ -195,28 +194,7 @@ const World = ({ chunks, chunkManager, onBlocksCount }) => {
   });
 
 
-  // Подсчет блоков (для статистики)
-  useEffect(() => {
-    if (Math.random() > 0.05) return;
 
-    let count = 0;
-    PerformanceMetrics.measure('blocksCount', () => {
-      if (chunks) {
-        Object.values(chunks).forEach(chunk => {
-          if (!chunk) return;
-          for (let x = 0; x < CHUNK_SIZE; x++) {
-            for (let y = 0; y < CHUNK_HEIGHT; y++) {
-              for (let z = 0; z < CHUNK_SIZE; z++) {
-                if (chunk.getBlock(x, y, z) !== BLOCK_TYPES.AIR) count++;
-              }
-            }
-          }
-        });
-      }
-    });
-    setTotalBlocks(count);
-    if (onBlocksCount) onBlocksCount(count);
-  }, [chunks, onBlocksCount]);
 
   if (!chunks) return null;
 

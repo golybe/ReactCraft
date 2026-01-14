@@ -95,7 +95,6 @@ export const GameCanvas = ({
   isDead,
   teleportPos,
   onPlayerMove,
-  onBlocksCount,
   onBlockDestroy,
   onBlockPlace,
   onPunch,
@@ -157,7 +156,6 @@ export const GameCanvas = ({
           <WorldRenderer
             chunks={chunks}
             chunkManager={chunkManager}
-            onBlocksCount={onBlocksCount}
           />
           <PlayerRenderer
             onMove={onPlayerMove}

@@ -370,10 +370,7 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
     }
   }, [isDead]);
 
-  // Blocks count callback
-  const handleBlocksCount = useCallback((count) => {
-    setBlocksCount(count);
-  }, [setBlocksCount]);
+
 
   // Save handlers with inventory
   const onSaveGame = useCallback(async () => {
@@ -555,7 +552,6 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
         teleportPos={teleportPos}
         initialPlayerPos={initialPlayerPos}
         onPlayerMove={handlePlayerMove}
-        onBlocksCount={handleBlocksCount}
         onBlockDestroy={handleBlockBreak}
         onBlockPlace={handleBlockPlaceOrInteract}
         onPunch={handlePunch}
@@ -588,7 +584,7 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
         <div style={{
           position: 'fixed',
           bottom: '62px',
-          left: '53.5%',
+          left: '52.8%',
           transform: 'translateX(-50%)',
           marginLeft: '-176px', // Выравнивание слева от хотбара (половина ширины хотбара ~352px)
           zIndex: 100
