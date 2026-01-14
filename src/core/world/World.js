@@ -41,9 +41,9 @@ export class World {
       // Уведомляем симулятор жидкости об изменении
       this.liquidSimulator?.onBlockUpdate(x, y, z);
       
-      // Если удалили дерево, запускаем проверку листвы
-      if (oldBlockType === BLOCK_TYPES.WOOD && blockType === BLOCK_TYPES.AIR) {
-        this.leafDecaySimulator?.onWoodRemoved(x, y, z);
+      // Уведомляем симулятор листвы об удалении блока (новая оптимизированная версия)
+      if (oldBlockType !== BLOCK_TYPES.AIR && blockType === BLOCK_TYPES.AIR) {
+        this.leafDecaySimulator?.onBlockRemoved(x, y, z, oldBlockType);
       }
       
       // Уведомляем об изменении состояния
