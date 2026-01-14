@@ -1,4 +1,5 @@
 import { RECIPES } from '../../constants/recipes';
+import { BlockRegistry } from '../blocks/BlockRegistry';
 
 export class CraftingManager {
   /**
@@ -18,11 +19,23 @@ export class CraftingManager {
     for (const recipe of RECIPES) {
       if (recipe.type === 'shapeless') {
         if (this.matchShapeless(activeItems, recipe.ingredients)) {
-          return { ...recipe.result };
+          const result = { ...recipe.result };
+          // Инициализация прочности для инструментов
+          const block = BlockRegistry.get(result.type);
+          if (block && block.maxDurability > 0 && result.durability === undefined) {
+            result.durability = block.maxDurability;
+          }
+          return result;
         }
       } else if (recipe.type === 'shaped') {
         if (this.matchShaped(grid, recipe.pattern)) {
-          return { ...recipe.result };
+          const result = { ...recipe.result };
+          // Инициализация прочности для инструментов
+          const block = BlockRegistry.get(result.type);
+          if (block && block.maxDurability > 0 && result.durability === undefined) {
+            result.durability = block.maxDurability;
+          }
+          return result;
         }
       }
     }

@@ -262,10 +262,34 @@ export function useBlockInteraction({
 
       miningManagerRef.current.onBlockBroken = (bx, by, bz, bid) => {
         destroyBlock(bx, by, bz, bid);
+
+        // Получаем АКТУАЛЬНЫЙ предмет из инвентаря
+        const currentInventory = inventoryRef?.current;
+        if (!currentInventory) return;
+
+        const freshHeldItem = currentInventory.getSlots()[selectedSlot];
+        const freshHeldBlockId = freshHeldItem?.type;
+        const freshHeldBlock = freshHeldBlockId ? BlockRegistry.get(freshHeldBlockId) : null;
+
+        // Уменьшаем прочность инструмента
+        if (freshHeldBlock && freshHeldBlock.isTool && freshHeldBlock.maxDurability > 0) {
+          const currentDurability = freshHeldItem.durability !== undefined ? freshHeldItem.durability : freshHeldBlock.maxDurability;
+          const newDurability = currentDurability - 1;
+
+          if (newDurability <= 0) {
+            // Инструмент сломался
+            currentInventory.setSlot(selectedSlot, null);
+            // TODO: Звук поломки
+          } else {
+            // Обновляем прочность
+            currentInventory.setSlot(selectedSlot, { ...freshHeldItem, durability: newDurability });
+          }
+          setInventory([...currentInventory.getSlots()]);
+        }
       };
       miningManagerRef.current.startMining(x, y, z, blockId, toolType, toolEfficiency);
     }
-  }, [gameMode, destroyBlock, handleStopMining, worldRef, inventoryRef, selectedSlot]);
+  }, [gameMode, destroyBlock, handleStopMining, worldRef, inventoryRef, selectedSlot, setInventory]);
 
   const handleItemPickup = useCallback((itemId, count, blockType) => {
     // Защита от дюпликации: проверяем, не обрабатывался ли уже этот предмет
