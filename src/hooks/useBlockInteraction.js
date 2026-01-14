@@ -127,10 +127,10 @@ export function useBlockInteraction({
       const heldItem = inventoryRef?.current?.getSlots()[selectedSlot];
       const heldBlockId = heldItem?.type;
       const heldBlock = heldBlockId ? BlockRegistry.get(heldBlockId) : null;
-      
+
       const toolType = heldBlock?.toolType || TOOL_TYPES.HAND;
       const toolEfficiency = heldBlock?.toolEfficiency || 1.0;
-      
+
       miningManagerRef.current.onBlockBroken = (bx, by, bz, bid) => {
         destroyBlock(bx, by, bz, bid);
 
@@ -256,7 +256,7 @@ export function useBlockInteraction({
       const heldItem = inventoryRef?.current?.getSlots()[selectedSlot];
       const heldBlockId = heldItem?.type;
       const heldBlock = heldBlockId ? BlockRegistry.get(heldBlockId) : null;
-      
+
       const toolType = heldBlock?.toolType || TOOL_TYPES.HAND;
       const toolEfficiency = heldBlock?.toolEfficiency || 1.0;
 
@@ -291,7 +291,7 @@ export function useBlockInteraction({
     }
   }, [gameMode, destroyBlock, handleStopMining, worldRef, inventoryRef, selectedSlot, setInventory]);
 
-  const handleItemPickup = useCallback((itemId, count, blockType) => {
+  const handleItemPickup = useCallback((itemId, count, blockType, durability) => {
     // Защита от дюпликации: проверяем, не обрабатывался ли уже этот предмет
     if (processedItemsRef.current.has(itemId)) {
       return;
@@ -308,7 +308,8 @@ export function useBlockInteraction({
     }
 
     if (inventoryRef?.current) {
-      const { remaining } = inventoryRef.current.addToFullInventory(blockType, count);
+      // Передаём durability при добавлении в инвентарь
+      const { remaining } = inventoryRef.current.addToFullInventory(blockType, count, durability);
       setInventory(inventoryRef.current.getSlots());
 
       if (remaining === 0) {
@@ -333,14 +334,14 @@ export function useBlockInteraction({
   // Устанавливаем callback для обработки дропов при осыпании листвы
   useEffect(() => {
     if (!worldRef?.current) return;
-    
+
     const handleLeafDecay = (x, y, z, blockId) => {
       const block = BlockRegistry.get(blockId);
-      
+
       // Удаляем блок
       worldRef.current.getChunkManager().setBlock(x, y, z, BLOCK_TYPES.AIR);
       setChunks({ ...worldRef.current.getChunks() });
-      
+
       // Создаем частицы debris
       if (blockId) {
         const lightLevel = worldRef.current.getLightLevel(x, y, z);
@@ -350,7 +351,7 @@ export function useBlockInteraction({
           setDebrisList(prev => prev.filter(d => d.id !== id));
         }, 1000);
       }
-      
+
       // В Survival режиме создаем дропы (яблоки с шансом 5%)
       if (gameMode === GAME_MODES.SURVIVAL && block) {
         const drops = block.getDrops();
@@ -383,7 +384,7 @@ export function useBlockInteraction({
         });
       }
     };
-    
+
     worldRef.current.setLeafDecayCallback(handleLeafDecay);
   }, [worldRef, gameMode, setChunks, setDebrisList, setDroppedItems]);
 

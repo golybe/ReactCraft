@@ -1,0 +1,63 @@
+{
+  "id": "world_1768412593649",
+  "name": "123",
+  "seed": 123,
+  "gameMode": 0,
+  "createdAt": 1768412593649,
+  "lastPlayed": 1768413323331,
+  "playerPos": {
+    "x": -20.840371728354928,
+    "y": 56,
+    "z": 29.093853948367112
+  },
+  "inventory": [
+    {
+      "type": 513,
+      "count": 64
+    },
+    {
+      "type": 16,
+      "count": 58
+    },
+    {
+      "type": 1,
+      "count": 57
+    },
+    {
+      "type": 12,
+      "count": 56
+    },
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+  ]
+}

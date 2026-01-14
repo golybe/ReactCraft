@@ -21,21 +21,21 @@ export class Inventory {
           const slot = initialData[i];
           if (slot) {
             // Восстанавливаем durability если есть
-            this.slots[i] = { 
-              type: slot.type, 
+            this.slots[i] = {
+              type: slot.type,
               count: slot.count,
-              durability: slot.durability 
+              durability: slot.durability
             };
           } else {
             this.slots[i] = null;
           }
         }
       } else {
-        this.slots = initialData.map(slot => 
-          slot ? { 
-            type: slot.type || slot.t, 
+        this.slots = initialData.map(slot =>
+          slot ? {
+            type: slot.type || slot.t,
             count: slot.count || slot.c,
-            durability: slot.durability 
+            durability: slot.durability
           } : null
         );
         // Дополняем до нужного размера если нужно
@@ -64,8 +64,8 @@ export class Inventory {
   static createStack(type, count = 1, durability = undefined) {
     if (!type || type === 0 || count <= 0) return null;
     const maxStack = Inventory.getMaxStackSize(type);
-    return { 
-      type, 
+    return {
+      type,
       count: Math.min(count, maxStack),
       durability: durability // Сохраняем прочность
     };
@@ -80,7 +80,7 @@ export class Inventory {
     // Предметы с прочностью (инструменты) обычно не стакаются, если у них разная прочность
     // Но если maxStackSize = 1, то они вообще не стакаются
     if (maxStack === 1) return false;
-    
+
     return stack1.type === stack2.type && stack1.count < maxStack;
   }
 
@@ -147,7 +147,7 @@ export class Inventory {
       // Тот же тип - добавляем в стек (если можно)
       // Если у предметов есть прочность, они не стакаются (обычно maxStack = 1 это решает)
       if (maxStack === 1) {
-         return { remaining: count }; // Нельзя стакать
+        return { remaining: count }; // Нельзя стакать
       }
 
       const space = maxStack - slot.count;
@@ -353,7 +353,11 @@ export class Inventory {
    * Сериализовать инвентарь для сохранения
    */
   serialize() {
-    return this.slots.map(slot => slot ? { t: slot.type, c: slot.count } : null);
+    return this.slots.map(slot => slot ? {
+      t: slot.type,
+      c: slot.count,
+      d: slot.durability // Сохраняем прочность
+    } : null);
   }
 
   /**
@@ -363,15 +367,24 @@ export class Inventory {
     if (!data || !Array.isArray(data)) {
       return new Inventory(size);
     }
-    const slots = data.map(item => item ? { type: item.t || item.type, count: item.c || item.count } : null);
+    const slots = data.map(item => item ? {
+      type: item.t || item.type,
+      count: item.c || item.count,
+      durability: item.d !== undefined ? item.d : item.durability // Восстанавливаем прочность
+    } : null);
     return new Inventory(size, slots);
   }
 
   /**
    * Получить массив слотов (для совместимости с React state)
+   * Возвращает глубокую копию для предотвращения мутаций
    */
   getSlots() {
-    return [...this.slots];
+    return this.slots.map(slot => slot ? {
+      type: slot.type,
+      count: slot.count,
+      durability: slot.durability
+    } : null);
   }
 
   /**
@@ -379,8 +392,8 @@ export class Inventory {
    */
   setSlots(slots) {
     if (Array.isArray(slots) && slots.length === this.slots.length) {
-      this.slots = slots.map(slot => slot ? { 
-        type: slot.type, 
+      this.slots = slots.map(slot => slot ? {
+        type: slot.type,
         count: slot.count,
         durability: slot.durability // Сохраняем прочность
       } : null);

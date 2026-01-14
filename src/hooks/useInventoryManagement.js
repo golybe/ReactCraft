@@ -82,7 +82,7 @@ export function useInventoryManagement({
 
       // Проверяем, можем ли добавить предметы в инвентарь
       const { remaining } = inventoryRef.current.addToFullInventory(resultType, resultCountPerCraft);
-      
+
       if (remaining > 0) {
         // Инвентарь заполнен - откатываем добавление и останавливаемся
         inventoryRef.current.removeItem(resultType, resultCountPerCraft - remaining);
@@ -96,7 +96,7 @@ export function useInventoryManagement({
         return newCount > 0 ? { ...item, count: newCount } : null;
       });
       totalAdded += resultCountPerCraft;
-      
+
       // Защита от бесконечного цикла
       if (totalAdded > 1000) break;
     }
@@ -136,7 +136,7 @@ export function useInventoryManagement({
 
       // Проверяем, можем ли добавить предметы в инвентарь
       const { remaining } = inventoryRef.current.addToFullInventory(resultType, resultCountPerCraft);
-      
+
       if (remaining > 0) {
         // Инвентарь заполнен - откатываем добавление и останавливаемся
         inventoryRef.current.removeItem(resultType, resultCountPerCraft - remaining);
@@ -150,7 +150,7 @@ export function useInventoryManagement({
         return newCount > 0 ? { ...item, count: newCount } : null;
       });
       totalAdded += resultCountPerCraft;
-      
+
       // Защита от бесконечного цикла
       if (totalAdded > 1000) break;
     }
@@ -178,12 +178,9 @@ export function useInventoryManagement({
   // Hotbar is slots 0-8
   const hotbar = inventory.slice(0, HOTBAR_SIZE);
 
-  // Sync inventoryRef with React state
-  useEffect(() => {
-    if (inventoryRef.current) {
-      inventoryRef.current.setSlots(inventory);
-    }
-  }, [inventory]);
+  // ВАЖНО: НЕ синхронизируем inventory обратно в inventoryRef!
+  // inventoryRef - это единственный источник истины.
+  // setInventory используется только для триггера ре-рендера React.
 
   // Sync selectedSlot with Inventory class
   useEffect(() => {
@@ -240,6 +237,10 @@ export function useInventoryManagement({
     const currentCount = inventoryRef.current.getSlots()[selectedSlot]?.count || 0;
     const countToRemove = dropAll ? currentCount : 1;
 
+    // Получаем durability перед удалением из слота
+    const slotData = inventoryRef.current.getSlots()[selectedSlot];
+    const itemDurability = slotData?.durability;
+
     const { removed } = inventoryRef.current.removeFromSlot(selectedSlot, countToRemove);
     if (removed === 0) return null;
 
@@ -259,6 +260,7 @@ export function useInventoryManagement({
       id: itemId,
       blockType: blockType,
       count: removed,
+      durability: itemDurability, // Сохраняем прочность
       position: {
         x: playerPos.x + dirX * 1.2,
         y: playerPos.y + 1.5,
@@ -279,6 +281,17 @@ export function useInventoryManagement({
     return droppedItem;
   }, [selectedSlot, playerPos, playerYaw, playerPitch, isChatOpen, isInventoryOpen, isPaused, setDroppedItems]);
 
+  /**
+   * Обработчик изменений инвентаря из UI (перетаскивание слотов)
+   * Синхронизирует изменения обратно в inventoryRef
+   */
+  const handleInventoryChangeFromUI = useCallback((newSlots) => {
+    if (inventoryRef.current) {
+      inventoryRef.current.setSlots(newSlots);
+    }
+    setInventory(newSlots);
+  }, []);
+
   return {
     inventory,
     setInventory,
@@ -293,6 +306,7 @@ export function useInventoryManagement({
     handleSelectSlot,
     scrollHotbar,
     handleDropItem,
+    handleInventoryChangeFromUI, // Для UI изменений (синхронизирует с inventoryRef)
     // Crafting states and handlers
     craftingGrid,
     setCraftingGrid,

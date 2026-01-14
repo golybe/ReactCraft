@@ -147,6 +147,7 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
     handleSelectSlot,
     scrollHotbar,
     handleDropItem,
+    handleInventoryChangeFromUI, // Для изменений из UI
     craftingGrid,
     setCraftingGrid,
     craftingResult,
@@ -608,7 +609,7 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
         activeUI={activeUI}
         onClose={closeUI}
         inventory={inventory}
-        onInventoryChange={setInventory}
+        onInventoryChange={handleInventoryChangeFromUI}
         isCreativeMode={gameMode === GAME_MODES.CREATIVE}
         craftingGrid={craftingGrid}
         onCraftingGridChange={setCraftingGrid}
