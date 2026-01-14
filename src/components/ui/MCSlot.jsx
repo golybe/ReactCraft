@@ -79,7 +79,7 @@ export const MCSlot = ({
             )}
 
             {/* Durability Bar */}
-            {type && maxDurability > 0 && (durability === undefined || durability < maxDurability) && (
+            {type && maxDurability > 0 && durability !== undefined && durability < maxDurability && (
                 <div className="durability-bar-container" style={{
                     position: 'absolute',
                     bottom: '4px',

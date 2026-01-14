@@ -53,7 +53,7 @@ const HotbarSlot = memo(({ slot, isSelected, index, onSelect, showCount = true }
       )}
 
       {/* Durability Bar */}
-      {type && maxDurability > 0 && (durability === undefined || durability < maxDurability) && (
+      {type && maxDurability > 0 && durability !== undefined && durability < maxDurability && (
         <div className="durability-bar-container" style={{
             position: 'absolute',
             bottom: '4px',

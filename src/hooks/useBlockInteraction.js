@@ -134,20 +134,28 @@ export function useBlockInteraction({
       miningManagerRef.current.onBlockBroken = (bx, by, bz, bid) => {
         destroyBlock(bx, by, bz, bid);
 
+        // Получаем АКТУАЛЬНЫЙ предмет из инвентаря (так как замыкание может хранить старый)
+        const currentInventory = inventoryRef?.current;
+        if (!currentInventory) return;
+
+        const freshHeldItem = currentInventory.getSlots()[selectedSlot];
+        const freshHeldBlockId = freshHeldItem?.type;
+        const freshHeldBlock = freshHeldBlockId ? BlockRegistry.get(freshHeldBlockId) : null;
+
         // Уменьшаем прочность инструмента
-        if (heldBlock && heldBlock.isTool && heldBlock.maxDurability > 0) {
-          const currentDurability = heldItem.durability !== undefined ? heldItem.durability : heldBlock.maxDurability;
+        if (freshHeldBlock && freshHeldBlock.isTool && freshHeldBlock.maxDurability > 0) {
+          const currentDurability = freshHeldItem.durability !== undefined ? freshHeldItem.durability : freshHeldBlock.maxDurability;
           const newDurability = currentDurability - 1;
 
           if (newDurability <= 0) {
             // Инструмент сломался
-            inventoryRef.current.setSlot(selectedSlot, null);
+            currentInventory.setSlot(selectedSlot, null);
             // TODO: Звук поломки
           } else {
             // Обновляем прочность
-            inventoryRef.current.setSlot(selectedSlot, { ...heldItem, durability: newDurability });
+            currentInventory.setSlot(selectedSlot, { ...freshHeldItem, durability: newDurability });
           }
-          setInventory([...inventoryRef.current.getSlots()]);
+          setInventory([...currentInventory.getSlots()]);
         }
       };
       miningManagerRef.current.startMining(x, y, z, blockId, toolType, toolEfficiency);

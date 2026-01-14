@@ -52,6 +52,12 @@ const useSlotInteraction = () => {
                 const cursorData = cursorItem ? getSlotData(cursorItem) : null;
                 const maxStack = Inventory.getMaxStackSize(result.type);
 
+                // Инициализируем прочность, если это новый инструмент
+                const block = BlockRegistry.get(result.type);
+                if (block && block.maxDurability > 0 && result.durability === undefined) {
+                    result.durability = block.maxDurability;
+                }
+
                 if (cursorData && cursorData.type === result.type && cursorData.count + result.count <= maxStack) {
                     setCursorItem({ ...cursorData, count: cursorData.count + result.count });
                 } else if (!cursorData) {
