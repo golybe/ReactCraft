@@ -89,6 +89,7 @@ function generateChunk(chunkX, chunkZ, seed) {
       const surfaceDetail = terrainData?.surfaceDetail || 0;
       const beachNoise = terrainData?.beachNoise || 0;
       const isOceanBiome = terrainData?.isOceanBiome || false;
+      const isBeachTerrain = terrainData?.isBeach || false;
 
       // Find surface height by scanning from top
       let surfaceY = 0;

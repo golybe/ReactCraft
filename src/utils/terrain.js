@@ -93,41 +93,71 @@ export class TerrainDensitySampler {
       // Sample noise values
       const params = this.noise.sampleTerrainParams(gridX, gridZ);
 
-      // Get biome
-      const biome = getBiome(params.temperature, params.humidity, params.continentalness);
+      // Calculate base terrain height from continentalness spline FIRST
+      // This determines if we're in ocean or on land
+      const continentHeight = CONTINENTALNESS_SPLINE.getValue(params.continentalness);
+      let baseHeight = SEA_LEVEL + continentHeight;
 
-      // Sample cliff noise for dramatic terrain
+      // Determine if this is underwater based on HEIGHT, not biome
+      // This is the key fix: ocean is where terrain is below sea level
+      const isUnderwater = baseHeight < SEA_LEVEL - 2;
+
+      // Sample cliff noise for dramatic terrain (only on land)
       const cliffNoise = this.noise.sampleCliff(gridX, gridZ);
-      const cliffFactor = CLIFF_SPLINE.getValue(cliffNoise);
+      const cliffFactor = isUnderwater ? 0 : CLIFF_SPLINE.getValue(cliffNoise);
 
-      // Calculate base terrain height from splines
-      let baseHeight = SEA_LEVEL + CONTINENTALNESS_SPLINE.getValue(params.continentalness);
+      // Apply erosion ONLY on land (not in oceans)
+      // This prevents erosion from raising ocean floor above sea level
+      if (!isUnderwater) {
+        const erosionVal = EROSION_SPLINE.getValue(params.erosion);
+        baseHeight += erosionVal * (1 - cliffFactor * 0.5);
+      } else {
+        // For oceans: very slight variation for ocean floor interest
+        const erosionVal = EROSION_SPLINE.getValue(params.erosion);
+        baseHeight += erosionVal * 0.1; // Only 10% effect underwater
+      }
 
-      // Apply erosion with cliff influence
-      const erosionVal = EROSION_SPLINE.getValue(params.erosion);
-      baseHeight += erosionVal * (1 - cliffFactor * 0.5); // Cliffs resist erosion
-
-      // Apply PV on land with continent weight
-      if (params.continentalness > -0.15) {
-        const pvWeight = Math.min(1, (params.continentalness + 0.15) / 0.4);
+      // Apply PV only on land above sea level
+      if (!isUnderwater && params.continentalness > 0) {
+        const pvWeight = Math.min(1, params.continentalness / 0.3);
         const pvVal = PV_SPLINE.getValue(params.pv);
-        // Cliffs amplify peaks
         baseHeight += pvVal * pvWeight * (1 + cliffFactor * 0.5);
       }
 
-      // Apply biome height offset (reduced for ocean biomes - they handle it via continentalness)
-      const isOceanBiome = biome.id === 'deep_ocean' || biome.id === 'ocean' || biome.id === 'warm_ocean';
-      if (!isOceanBiome) {
+      // Determine actual terrain type based on HEIGHT
+      const isOceanTerrain = baseHeight < SEA_LEVEL - 5;
+      const isBeachTerrain = !isOceanTerrain && baseHeight < SEA_LEVEL + 3;
+
+      // Get biome - but OVERRIDE based on actual height
+      // This prevents "Ocean" biome appearing on dry land
+      let biome;
+      if (isOceanTerrain) {
+        // Force ocean biome if terrain is underwater
+        biome = getBiome(params.temperature, params.humidity, -0.6); // Force ocean continentalness
+      } else if (isBeachTerrain) {
+        // Force beach biome if near sea level
+        biome = getBiome(params.temperature, params.humidity, -0.2); // Force beach continentalness
+      } else {
+        // Normal land - use actual continentalness but clamped to positive (land)
+        const landContinentalness = Math.max(0, params.continentalness);
+        biome = getBiome(params.temperature, params.humidity, landContinentalness);
+      }
+
+      // Flags for block generation
+      const isOceanBiome = isOceanTerrain;
+      const isBeach = isBeachTerrain;
+
+      // Apply biome height offset only for land biomes
+      if (!isOceanBiome && !isBeach) {
         baseHeight += biome.heightOffset || 0;
       }
 
-      // Check for river
+      // Check for river (only on land)
       const riverVal = this.noise.sampleRiver(gridX, gridZ);
-      const riverThreshold = 0.82; // Slightly lower threshold = more rivers
-      const isRiver = riverVal > riverThreshold && baseHeight > SEA_LEVEL - 2 && !isOceanBiome;
+      const riverThreshold = 0.82;
+      const isRiver = riverVal > riverThreshold && baseHeight > SEA_LEVEL + 2 && !isOceanBiome;
 
       if (isRiver) {
-        // River cuts into terrain
         const riverDepth = (riverVal - riverThreshold) / (1 - riverThreshold);
         const riverBed = SEA_LEVEL - 5;
         baseHeight = riverBed + (baseHeight - riverBed) * (1 - riverDepth * 0.85);
@@ -145,7 +175,8 @@ export class TerrainDensitySampler {
         cliffFactor,
         surfaceDetail,
         beachNoise,
-        isOceanBiome
+        isOceanBiome,
+        isBeach
       });
     }
 
@@ -191,7 +222,8 @@ export class TerrainDensitySampler {
       cliffFactor,
       surfaceDetail: nearestTerrain.surfaceDetail,
       beachNoise: nearestTerrain.beachNoise,
-      isOceanBiome: nearestTerrain.isOceanBiome
+      isOceanBiome: nearestTerrain.isOceanBiome,
+      isBeach: nearestTerrain.isBeach
     };
   }
 
