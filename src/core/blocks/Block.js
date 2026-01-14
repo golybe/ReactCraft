@@ -11,13 +11,14 @@ export const TOOL_TYPES = {
 
 /**
  * Tool effectiveness multipliers
+ * Базовые множители для инструментов (более реалистичные значения)
  */
 export const TOOL_MULTIPLIERS = {
   [TOOL_TYPES.HAND]: 1.0,
-  [TOOL_TYPES.PICKAXE]: 6.0,
-  [TOOL_TYPES.AXE]: 6.0,
-  [TOOL_TYPES.SHOVEL]: 6.0,
-  [TOOL_TYPES.SHEARS]: 15.0
+  [TOOL_TYPES.PICKAXE]: 2.0,  // Было 6.0 - слишком быстро
+  [TOOL_TYPES.AXE]: 2.0,       // Было 6.0 - слишком быстро
+  [TOOL_TYPES.SHOVEL]: 2.0,    // Было 6.0 - слишком быстро
+  [TOOL_TYPES.SHEARS]: 5.0     // Было 15.0 - слишком быстро
 };
 
 /**
