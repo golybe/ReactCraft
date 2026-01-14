@@ -5,6 +5,8 @@
  */
 import { Command, CommandProcessor } from './CommandProcessor';
 import { GAME_MODES, GAME_MODE_NAMES } from '../../constants/gameMode';
+import { NoiseGenerators } from '../../utils/noise';
+import { getBiomeId, BIOME_IDS, BIOMES } from '../../utils/biomes';
 
 // === TELEPORT ===
 class TeleportCommand extends Command {
@@ -347,6 +349,138 @@ class DamageCommand extends Command {
   }
 }
 
+// === LOCATE BIOME ===
+class LocateBiomeCommand extends Command {
+  constructor() {
+    super('locate', ['find', 'locatebiome'], 'Locate nearest biome');
+    
+    // Build biome name lookup (lowercase -> biome id)
+    this.biomeNameToId = {};
+    for (const [key, id] of Object.entries(BIOME_IDS)) {
+      // Add by key name (e.g., 'plains', 'deep_ocean')
+      this.biomeNameToId[key.toLowerCase()] = id;
+      // Add by display name (e.g., 'plains', 'deep ocean')
+      const biome = BIOMES[id];
+      if (biome && biome.name) {
+        this.biomeNameToId[biome.name.toLowerCase()] = id;
+        // Also add without spaces
+        this.biomeNameToId[biome.name.toLowerCase().replace(/\s+/g, '')] = id;
+        this.biomeNameToId[biome.name.toLowerCase().replace(/\s+/g, '_')] = id;
+      }
+    }
+  }
+
+  execute(args, context) {
+    // Usage: /locate biome <biome_name>
+    if (args.length < 2 || args[0].toLowerCase() !== 'biome') {
+      return {
+        success: false,
+        message: 'Usage: /locate biome <biome_name>',
+        type: 'error'
+      };
+    }
+
+    // Get biome name from remaining args
+    const biomeName = args.slice(1).join('_').toLowerCase();
+    const targetBiomeId = this.biomeNameToId[biomeName];
+
+    if (targetBiomeId === undefined) {
+      // List available biomes
+      const available = Object.keys(BIOME_IDS).map(k => k.toLowerCase()).join(', ');
+      return {
+        success: false,
+        message: `Unknown biome: ${biomeName}. Available: ${available}`,
+        type: 'error'
+      };
+    }
+
+    // Get world seed
+    const seed = context.worldInfo?.seed;
+    if (!seed) {
+      return {
+        success: false,
+        message: 'World seed not available',
+        type: 'error'
+      };
+    }
+
+    // Get player position
+    const startX = Math.floor(context.playerPos.x);
+    const startZ = Math.floor(context.playerPos.z);
+
+    // Search for biome using spiral pattern
+    const result = this.searchBiome(seed, startX, startZ, targetBiomeId);
+
+    if (result) {
+      const distance = Math.floor(Math.sqrt(
+        (result.x - startX) ** 2 + (result.z - startZ) ** 2
+      ));
+      const biomeName = BIOMES[targetBiomeId]?.name || 'Unknown';
+      return {
+        success: true,
+        message: `Found ${biomeName} at ${result.x}, ~, ${result.z} (${distance} blocks away)`,
+        type: 'success'
+      };
+    } else {
+      return {
+        success: false,
+        message: `Could not find ${BIOMES[targetBiomeId]?.name || biomeName} within search radius`,
+        type: 'error'
+      };
+    }
+  }
+
+  /**
+   * Search for biome using spiral pattern
+   * Samples every 16 blocks (chunk size) for efficiency
+   */
+  searchBiome(seed, startX, startZ, targetBiomeId) {
+    const noise = new NoiseGenerators(seed);
+    const STEP = 16; // Sample every chunk
+    const MAX_RADIUS = 10000; // Max search radius in blocks
+    const MAX_STEPS = Math.floor(MAX_RADIUS / STEP);
+
+    // Spiral search pattern
+    let x = 0, z = 0;
+    let dx = 0, dz = -1;
+    const maxI = (2 * MAX_STEPS + 1) ** 2;
+
+    for (let i = 0; i < maxI; i++) {
+      // Check current position
+      const worldX = startX + x * STEP;
+      const worldZ = startZ + z * STEP;
+
+      const params = noise.sampleTerrainParams(worldX, worldZ);
+      const biomeId = getBiomeId(params.temperature, params.humidity, params.continentalness);
+
+      if (biomeId === targetBiomeId) {
+        return { x: worldX, z: worldZ };
+      }
+
+      // Spiral movement
+      if (x === z || (x < 0 && x === -z) || (x > 0 && x === 1 - z)) {
+        // Change direction
+        const temp = dx;
+        dx = -dz;
+        dz = temp;
+      }
+      x += dx;
+      z += dz;
+
+      // Stop if we've gone too far
+      if (Math.abs(x) > MAX_STEPS && Math.abs(z) > MAX_STEPS) {
+        break;
+      }
+    }
+
+    return null;
+  }
+
+  getUsage() {
+    return '/locate biome <biome_name>';
+  }
+}
+
 // === HELP ===
 class HelpCommand extends Command {
   constructor(processor) {
@@ -383,6 +517,7 @@ export function createCommandProcessor() {
   processor.register(new HealthCommand());
   processor.register(new HealCommand());
   processor.register(new DamageCommand());
+  processor.register(new LocateBiomeCommand());
 
   // Help должен быть последним, т.к. ему нужен processor
   processor.register(new HelpCommand(processor));
@@ -402,5 +537,6 @@ export {
   HealthCommand,
   HealCommand,
   DamageCommand,
+  LocateBiomeCommand,
   HelpCommand
 };

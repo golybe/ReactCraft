@@ -68,10 +68,11 @@ export class ChunkGenerator {
     // Create Chunk from transferable buffers
     const blocksArray = new Uint8Array(result.blocks);
     const metadataArray = new Uint8Array(result.metadata);
+    const biomeMapArray = result.biomeMap ? new Uint8Array(result.biomeMap) : null;
 
     log('ChunkGenerator', `Chunk ${key} generated, blocks: ${blocksArray.length}`);
 
-    return new Chunk({ blocks: blocksArray, metadata: metadataArray });
+    return new Chunk({ blocks: blocksArray, metadata: metadataArray, biomeMap: biomeMapArray });
   }
 
   /**

@@ -172,17 +172,9 @@ function generateChunk(chunkX, chunkZ, seed) {
                   } else {
                     block = BLOCK_TYPES.SAND;
                   }
-                } else if (slope > 0.6 || cliffFactor > 0.7) {
-                  // Steep cliff - exposed stone
-                  block = BLOCK_TYPES.STONE;
-                } else if (slope > 0.35 && surfaceDetail > 0.4) {
-                  // Moderate slope - stone patches
-                  block = BLOCK_TYPES.STONE;
-                } else if (surfaceDetail > 0.7 && biome.surfaceBlock === BLOCK_TYPES.GRASS) {
-                  // Random dirt patches in grass biomes
-                  block = BLOCK_TYPES.DIRT;
                 } else {
-                  // Normal surface
+                  // Normal surface - use biome's surface block
+                  // Stone surface only in mountain biomes (surfaceBlock is already STONE there)
                   block = biome.surfaceBlock || BLOCK_TYPES.GRASS;
                 }
               } else if (depthFromSurface <= 3) {
@@ -194,11 +186,8 @@ function generateChunk(chunkX, chunkZ, seed) {
                   } else {
                     block = BLOCK_TYPES.SANDSTONE;
                   }
-                } else if (slope > 0.5 || cliffFactor > 0.6) {
-                  // Cliff subsurface - stone
-                  block = BLOCK_TYPES.STONE;
                 } else {
-                  // Normal subsurface
+                  // Normal subsurface - use biome's subsurface block
                   block = biome.subsurfaceBlock || BLOCK_TYPES.DIRT;
                 }
               } else {
@@ -284,10 +273,31 @@ function generateChunk(chunkX, chunkZ, seed) {
   // Clear terrain sampler cache
   terrainSampler.clearCache();
 
+  // Convert biome objects to biome IDs for storage
+  const biomeMap = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE);
+  for (let i = 0; i < surfaceBiomes.length; i++) {
+    const biome = surfaceBiomes[i];
+    // Find biome ID by matching the biome object
+    if (biome) {
+      // Search for biome ID in BIOME_IDS
+      let foundId = BIOME_IDS.PLAINS; // Default
+      for (const [key, id] of Object.entries(BIOME_IDS)) {
+        if (BIOMES[id] && BIOMES[id].id === biome.id) {
+          foundId = id;
+          break;
+        }
+      }
+      biomeMap[i] = foundId;
+    } else {
+      biomeMap[i] = BIOME_IDS.PLAINS;
+    }
+  }
+
   // Return transferable ArrayBuffers
   return {
     blocks: blocks.buffer,
-    metadata: metadata.buffer
+    metadata: metadata.buffer,
+    biomeMap: biomeMap.buffer
   };
 }
 
@@ -309,7 +319,7 @@ self.onmessage = function(e) {
       // Transfer ArrayBuffers for zero-copy
       self.postMessage(
         { taskId, result },
-        [result.blocks, result.metadata]
+        [result.blocks, result.metadata, result.biomeMap]
       );
       // console.log(`[ChunkWorker] Result sent for task ${taskId}`);
     }

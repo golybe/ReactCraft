@@ -7,15 +7,22 @@ export class Chunk {
     // 0 = слой пуст (только воздух), 1 = есть блоки
     this.layerMask = new Uint8Array(CHUNK_HEIGHT);
 
+    // Биомы для каждой колонки (16x16 = 256)
+    this.biomeMap = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE);
+
     // Если переданы данные - копируем их
     if (data instanceof Chunk) {
       this.data = new Uint8Array(data.data);
       this.metadata = new Uint8Array(data.metadata);
       this.layerMask = new Uint8Array(data.layerMask);
+      this.biomeMap = new Uint8Array(data.biomeMap);
     } else if (data && data.blocks && data.metadata) {
-      // Инициализация из объекта { blocks, metadata } (обычно при десериализации)
+      // Инициализация из объекта { blocks, metadata, biomeMap } (обычно при десериализации)
       this.data = new Uint8Array(data.blocks);
       this.metadata = new Uint8Array(data.metadata);
+      if (data.biomeMap) {
+        this.biomeMap = new Uint8Array(data.biomeMap);
+      }
       this.recalculateLayers();
     } else if (data instanceof Uint8Array) {
       // Legacy support (только блоки)
@@ -25,7 +32,7 @@ export class Chunk {
     } else {
       this.data = new Uint8Array(CHUNK_SIZE * CHUNK_HEIGHT * CHUNK_SIZE);
       this.metadata = new Uint8Array(CHUNK_SIZE * CHUNK_HEIGHT * CHUNK_SIZE);
-      // layerMask по умолчанию 0 (все пусто)
+      // layerMask и biomeMap по умолчанию 0 (все пусто)
     }
   }
 
@@ -113,6 +120,14 @@ export class Chunk {
     return this.layerMask[y] === 0;
   }
 
+  // Получить биом в колонке (локальные координаты 0..15)
+  getBiomeId(x, z) {
+    if (x < 0 || x >= CHUNK_SIZE || z < 0 || z >= CHUNK_SIZE) {
+      return 7; // PLAINS default
+    }
+    return this.biomeMap[x * CHUNK_SIZE + z];
+  }
+
   // Клонировать чанк (для иммутабельности в React)
   clone() {
     return new Chunk(this);
@@ -158,11 +173,12 @@ export class Chunk {
   }
 
   // RLE Сжатие данных чанка для сохранения
-  // Возвращает объект { blocks: [], metadata: [] }
+  // Возвращает объект { blocks: [], metadata: [], biomeMap: [] }
   serialize() {
     return {
       blocks: Chunk.serializeArray(this.data),
-      metadata: Chunk.serializeArray(this.metadata)
+      metadata: Chunk.serializeArray(this.metadata),
+      biomeMap: Chunk.serializeArray(this.biomeMap)
     };
   }
 
@@ -177,12 +193,14 @@ export class Chunk {
        return new Chunk(chunkData);
     }
 
-    // Новый формат { blocks, metadata }
+    // Новый формат { blocks, metadata, biomeMap }
     if (rleData && rleData.blocks) {
       const blocks = Chunk.deserializeArray(rleData.blocks, size);
       const metadata = rleData.metadata ? Chunk.deserializeArray(rleData.metadata, size) : new Uint8Array(size);
+      const biomeSize = CHUNK_SIZE * CHUNK_SIZE;
+      const biomeMap = rleData.biomeMap ? Chunk.deserializeArray(rleData.biomeMap, biomeSize) : new Uint8Array(biomeSize);
       
-      return new Chunk({ blocks, metadata });
+      return new Chunk({ blocks, metadata, biomeMap });
     }
 
     return new Chunk(); // Fallback empty chunk

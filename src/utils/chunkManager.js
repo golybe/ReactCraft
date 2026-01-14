@@ -297,17 +297,41 @@ export class ChunkManager {
     const lx = ((worldX % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
     const lz = ((worldZ % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
 
-    // Determine biome by top block (heuristic)
-    for (let y = CHUNK_HEIGHT - 1; y >= 0; y--) {
-      const block = chunk.getBlock(lx, y, lz);
-      if (block === BLOCK_TYPES.GRASS) return { id: 'plains', name: 'Plains' };
-      if (block === BLOCK_TYPES.SAND && y < 42) return { id: 'beach', name: 'Beach' };
-      if (block === BLOCK_TYPES.SAND && y >= 42) return { id: 'desert', name: 'Desert' };
-      if (block === BLOCK_TYPES.SNOW) return { id: 'snowy', name: 'Snowy Plains' };
-      if (block === BLOCK_TYPES.STONE && y > 70) return { id: 'mountains', name: 'Mountains' };
-    }
+    // Use stored biome from chunk's biomeMap
+    const biomeId = chunk.getBiomeId(lx, lz);
+    return this.getBiomeData(biomeId);
+  }
 
-    return { id: 'ocean', name: 'Ocean' };
+  // Get biome data by ID
+  getBiomeData(biomeId) {
+    // Biome names mapping based on BIOME_IDS from biomes.js
+    const BIOME_NAMES = {
+      0: { id: 'deep_ocean', name: 'Deep Ocean' },
+      1: { id: 'ocean', name: 'Ocean' },
+      2: { id: 'warm_ocean', name: 'Warm Ocean' },
+      3: { id: 'beach', name: 'Beach' },
+      4: { id: 'stony_beach', name: 'Stony Beach' },
+      5: { id: 'desert', name: 'Desert' },
+      6: { id: 'badlands', name: 'Badlands' },
+      7: { id: 'plains', name: 'Plains' },
+      8: { id: 'sunflower_plains', name: 'Sunflower Plains' },
+      9: { id: 'swamp', name: 'Swamp' },
+      10: { id: 'forest', name: 'Forest' },
+      11: { id: 'birch_forest', name: 'Birch Forest' },
+      12: { id: 'dark_forest', name: 'Dark Forest' },
+      13: { id: 'taiga', name: 'Taiga' },
+      14: { id: 'snowy_taiga', name: 'Snowy Taiga' },
+      15: { id: 'snowy_plains', name: 'Snowy Plains' },
+      16: { id: 'savanna', name: 'Savanna' },
+      17: { id: 'jungle', name: 'Jungle' },
+      18: { id: 'mountains', name: 'Mountains' },
+      19: { id: 'snowy_mountains', name: 'Snowy Mountains' },
+      20: { id: 'peaks', name: 'Jagged Peaks' },
+      21: { id: 'frozen_peaks', name: 'Frozen Peaks' },
+      22: { id: 'river', name: 'River' },
+      23: { id: 'frozen_river', name: 'Frozen River' }
+    };
+    return BIOME_NAMES[biomeId] || { id: 'plains', name: 'Plains' };
   }
 
   // === SAVE/LOAD ===
