@@ -461,13 +461,13 @@ export class ChunkMesher {
                 faceShade = 1.0;        // Top (Y+) — полный свет
                 warmth = 0.04;          // чуть теплее (солнечный свет)
               } else if (f === 3) {
-                faceShade = 0.7;        // Bottom (Y-) — темнее
+                faceShade = 0.5;        // Bottom (Y-) — классический Minecraft
                 warmth = -0.02;         // чуть холоднее
               } else if (f === 0 || f === 1) {
-                faceShade = 0.85;       // East/West (X±) — мягче!
+                faceShade = 0.6;        // East/West (X±) — классический Minecraft
                 warmth = -0.01;         // нейтрально-холодный (свет неба)
               } else {
-                faceShade = 0.92;       // North/South (Z±) — почти как верх
+                faceShade = 0.8;        // North/South (Z±) — классический Minecraft
                 warmth = 0.01;          // чуть тёплый
               }
 
