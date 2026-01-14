@@ -14,6 +14,7 @@ import { Inventory as InventoryClass } from '../core/inventory/Inventory';
 import { TOTAL_INVENTORY_SIZE, HOTBAR_SIZE } from '../utils/inventory';
 import { GameCanvas } from './game/GameCanvas';
 import { LoadingScreen, PauseMenu, SaveMessage, DebugInfo } from './game/GameUI';
+import { InputManager, INPUT_ACTIONS } from '../core/input/InputManager';
 
 // Компоненты PhysicsLoop, MiningLoop, GameLights и BlockInteraction теперь в GameCanvas.jsx
 
@@ -96,6 +97,7 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
   const worldRef = useRef(null);
   const isChatOpenRef = useRef(isChatOpen);
   const isInventoryOpenRef = useRef(isInventoryOpen);
+  const inputManagerRef = useRef(null);
 
   useEffect(() => {
       isChatOpenRef.current = isChatOpen;
@@ -430,17 +432,7 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
         ));
       }
     }
-
-    // Если все подобрали - удаляем
-    if (remaining === 0) {
-      setDroppedItems(prev => prev.filter(item => item.id !== itemId));
-    } else {
-      // Остались лишние - обновляем количество
-      setDroppedItems(prev => prev.map(item =>
-        item.id === itemId ? { ...item, count: remaining } : item
-      ));
-    }
-  }, [inventory]);
+  }, []);
 
   // Функция getBlock для DroppedItem (коллизии)
   const getBlockAt = useCallback((x, y, z) => {
@@ -643,47 +635,97 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
     }]);
   }, [inventory, selectedSlot, playerPos, playerYaw, playerPitch, isChatOpen, isInventoryOpen, isPaused]);
 
-  // Обработка клавиш (Чат, Инвентарь, Выброс)
+  // Инициализация InputManager
   useEffect(() => {
-    const handleKeyDown = (e) => {
-      // Выброс предмета
-      if (e.code === 'KeyQ' && document.pointerLockElement === document.body) {
-        e.preventDefault();
-        handleDropItem();
-        return;
-      }
-      
-      // Чат
-      if (e.code === 'KeyT' && !isChatOpen && !isInventoryOpen && !isPaused) {
-        e.preventDefault();
+    const inputManager = new InputManager();
+    inputManagerRef.current = inputManager;
+    
+    // Подключаем к DOM
+    inputManager.attach();
+    
+    return () => {
+      inputManager.destroy();
+    };
+  }, []);
+  
+  // Обновляем обработчики InputManager при изменении состояния
+  useEffect(() => {
+    if (!inputManagerRef.current) return;
+    
+    const inputManager = inputManagerRef.current;
+    
+    // Обновляем состояние UI в InputManager
+    inputManager.setUIState({
+      isChatOpen,
+      isInventoryOpen,
+      isPaused
+    });
+    
+    // Очищаем старые обработчики
+    inputManager.off(INPUT_ACTIONS.DROP_ITEM);
+    inputManager.off(INPUT_ACTIONS.OPEN_CHAT);
+    inputManager.off(INPUT_ACTIONS.TOGGLE_INVENTORY);
+    inputManager.off(INPUT_ACTIONS.HOTBAR_SCROLL_DOWN);
+    inputManager.off(INPUT_ACTIONS.HOTBAR_SCROLL_UP);
+    for (let i = 1; i <= 9; i++) {
+      inputManager.off(INPUT_ACTIONS[`SELECT_SLOT_${i}`]);
+    }
+    
+    // Регистрируем обработчики действий с актуальным состоянием
+    inputManager.on(INPUT_ACTIONS.DROP_ITEM, () => {
+      handleDropItem();
+    });
+    
+    inputManager.on(INPUT_ACTIONS.OPEN_CHAT, () => {
+      if (!isChatOpen && !isInventoryOpen && !isPaused) {
         setIsChatOpen(true);
         isChatOpenRef.current = true;
         document.exitPointerLock();
       }
+    });
+    
+    inputManager.on(INPUT_ACTIONS.TOGGLE_INVENTORY, () => {
+      if (isChatOpen) return;
       
-      // Инвентарь
-      if (e.code === 'KeyE') {
-          if (isChatOpen) return;
-          e.preventDefault();
-          
-          if (!isInventoryOpen && !isPaused) {
-              setIsInventoryOpen(true);
-              isInventoryOpenRef.current = true;
-              document.exitPointerLock();
-          } else if (isInventoryOpen) {
-              setIsInventoryOpen(false);
-              isInventoryOpenRef.current = false;
-              document.body.requestPointerLock();
-          }
+      if (!isInventoryOpen && !isPaused) {
+        setIsInventoryOpen(true);
+        isInventoryOpenRef.current = true;
+        document.exitPointerLock();
+      } else if (isInventoryOpen) {
+        setIsInventoryOpen(false);
+        isInventoryOpenRef.current = false;
+        document.body.requestPointerLock();
       }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    });
+    
+    // Обработка выбора слотов хотбара
+    for (let i = 1; i <= 9; i++) {
+      inputManager.on(INPUT_ACTIONS[`SELECT_SLOT_${i}`], () => {
+        setSelectedSlot(i - 1);
+      });
+    }
+    
+    // Обработка скролла хотбара
+    inputManager.on(INPUT_ACTIONS.HOTBAR_SCROLL_DOWN, () => {
+      setSelectedSlot(prev => (prev + 1) % HOTBAR_BLOCKS.length);
+    });
+    
+    inputManager.on(INPUT_ACTIONS.HOTBAR_SCROLL_UP, () => {
+      setSelectedSlot(prev => (prev - 1 + HOTBAR_BLOCKS.length) % HOTBAR_BLOCKS.length);
+    });
   }, [isChatOpen, isPaused, isInventoryOpen, handleDropItem]);
 
+  // Обработка pointer lock (пауза/разблокировка)
   useEffect(() => {
     const handleChange = () => {
-      if (document.pointerLockElement === document.body) {
+      const locked = document.pointerLockElement === document.body;
+      
+      // Обновляем состояние в InputManager
+      if (inputManagerRef.current) {
+        inputManagerRef.current.setPointerLocked(locked);
+      }
+      
+      if (locked) {
         setIsPaused(false);
         setShowInstructions(false);
         
@@ -718,35 +760,7 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
     };
   }, []);
 
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      const num = parseInt(e.key);
-      if (num >= 1 && num <= 9) {
-        setSelectedSlot(num - 1);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
-
-  useEffect(() => {
-    const handleWheel = (e) => {
-      if (document.pointerLockElement !== document.body) return;
-
-      e.preventDefault();
-      setSelectedSlot(prev => {
-        if (e.deltaY > 0) {
-          return (prev + 1) % HOTBAR_BLOCKS.length;
-        } else {
-          return (prev - 1 + HOTBAR_BLOCKS.length) % HOTBAR_BLOCKS.length;
-        }
-      });
-    };
-
-    window.addEventListener('wheel', handleWheel, { passive: false });
-    return () => window.removeEventListener('wheel', handleWheel);
-  }, []);
+  // Удалены старые обработчики клавиш и колеса — теперь все в InputManager
 
   const handleSelectSlot = useCallback((slot) => {
     setSelectedSlot(slot);
