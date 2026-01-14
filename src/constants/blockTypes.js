@@ -28,8 +28,11 @@ export const BLOCK_TYPES = {
   GRAVEL: 18,
   SANDSTONE: 19,
   LAPIS_ORE: 20,
+  
+  // Plants
+  TALL_GRASS: 21,  // Short grass (декоративная трава)
 
-  // RESERVED FOR FUTURE BLOCKS: 21 - 511
+  // RESERVED FOR FUTURE BLOCKS: 22 - 511
 
   // ITEMS (Non-block entities): 512+
   STICK: 512,

@@ -229,6 +229,12 @@ export class ChunkMesher {
   // Генерация геометрии для конкретного типа блока и набора граней
   // faceFilter: null = все грани, 'top' = только верх, 'bottom' = только низ, 'sides' = боковые
   generateForType(targetBlockType, faceFilter = null) {
+    // Проверяем, является ли блок растением (cross-render)
+    const blockProps = BLOCK_PROPERTIES[targetBlockType];
+    if (blockProps && blockProps.renderType === 'cross') {
+      return this.generateCrossGeometry(targetBlockType);
+    }
+
     const positions = [];
     const normals = [];
     const colors = [];
@@ -549,6 +555,129 @@ export class ChunkMesher {
               indexOffset += 4;
             }
           }
+        }
+      }
+    }
+
+    return {
+      positions: new Float32Array(positions),
+      normals: new Float32Array(normals),
+      colors: new Float32Array(colors),
+      uvs: new Float32Array(uvs),
+      indices: new Uint32Array(indices)
+    };
+  }
+
+  /**
+   * Генерация cross-геометрии для растений (трава, цветы)
+   * Два пересекающихся квада под углом 45°
+   */
+  generateCrossGeometry(targetBlockType) {
+    const positions = [];
+    const normals = [];
+    const colors = [];
+    const uvs = [];
+    const indices = [];
+    let indexOffset = 0;
+
+    // Offset для X-образной формы (диагональ через центр блока)
+    const d = 0.85; // Диагональное смещение (чуть меньше 1 для эстетики)
+
+    for (let y = 0; y < CHUNK_HEIGHT; y++) {
+      if (this.chunkData.isEmptyLayer(y)) continue;
+
+      for (let x = 0; x < CHUNK_SIZE; x++) {
+        for (let z = 0; z < CHUNK_SIZE; z++) {
+          const block = this.chunkData.getBlock(x, y, z);
+          if (block !== targetBlockType) continue;
+
+          // Центр блока
+          const cx = x + 0.5;
+          const cy = y;
+          const cz = z + 0.5;
+
+          // Получаем освещение
+          const light = this.getLight(x, y, z);
+          const brightness = Math.pow(0.8, 15 - light);
+          
+          // Тинт травы (темнее, более насыщенный зеленый)
+          const tintR = 0.90 * brightness;
+          const tintG = 0.90 * brightness;
+          const tintB = 0.90 * brightness;
+
+          // Два квада: один по диагонали XZ, другой перпендикулярно
+          // Quad 1: от (cx-d/2, cz-d/2) до (cx+d/2, cz+d/2)
+          // Quad 2: от (cx-d/2, cz+d/2) до (cx+d/2, cz-d/2)
+
+          const halfD = d * 0.5;
+
+          // Quad 1 (диагональ /)
+          positions.push(
+            cx - halfD, cy, cz - halfD,      // BL
+            cx + halfD, cy, cz + halfD,      // BR
+            cx + halfD, cy + 1, cz + halfD,  // TR
+            cx - halfD, cy + 1, cz - halfD   // TL
+          );
+
+          // Нормаль перпендикулярна диагонали (по XZ)
+          const n1x = 0.707, n1z = -0.707;
+          for (let i = 0; i < 4; i++) {
+            normals.push(n1x, 0, n1z);
+            colors.push(tintR, tintG, tintB);
+          }
+          uvs.push(0, 1, 1, 1, 1, 0, 0, 0);
+          indices.push(indexOffset, indexOffset + 1, indexOffset + 2);
+          indices.push(indexOffset, indexOffset + 2, indexOffset + 3);
+          indexOffset += 4;
+
+          // Quad 1 backface (обратная сторона)
+          positions.push(
+            cx + halfD, cy, cz + halfD,      // BL
+            cx - halfD, cy, cz - halfD,      // BR
+            cx - halfD, cy + 1, cz - halfD,  // TR
+            cx + halfD, cy + 1, cz + halfD   // TL
+          );
+          for (let i = 0; i < 4; i++) {
+            normals.push(-n1x, 0, -n1z);
+            colors.push(tintR, tintG, tintB);
+          }
+          uvs.push(0, 1, 1, 1, 1, 0, 0, 0);
+          indices.push(indexOffset, indexOffset + 1, indexOffset + 2);
+          indices.push(indexOffset, indexOffset + 2, indexOffset + 3);
+          indexOffset += 4;
+
+          // Quad 2 (диагональ \)
+          positions.push(
+            cx - halfD, cy, cz + halfD,      // BL
+            cx + halfD, cy, cz - halfD,      // BR
+            cx + halfD, cy + 1, cz - halfD,  // TR
+            cx - halfD, cy + 1, cz + halfD   // TL
+          );
+          const n2x = 0.707, n2z = 0.707;
+          for (let i = 0; i < 4; i++) {
+            normals.push(n2x, 0, n2z);
+            colors.push(tintR, tintG, tintB);
+          }
+          uvs.push(0, 1, 1, 1, 1, 0, 0, 0);
+          indices.push(indexOffset, indexOffset + 1, indexOffset + 2);
+          indices.push(indexOffset, indexOffset + 2, indexOffset + 3);
+          indexOffset += 4;
+
+          // Quad 2 backface
+          positions.push(
+            cx + halfD, cy, cz - halfD,      // BL
+            cx - halfD, cy, cz + halfD,      // BR
+            cx - halfD, cy + 1, cz + halfD,  // TR
+            cx + halfD, cy + 1, cz - halfD   // TL
+          );
+          for (let i = 0; i < 4; i++) {
+            normals.push(-n2x, 0, -n2z);
+            colors.push(tintR, tintG, tintB);
+          }
+          uvs.push(0, 1, 1, 1, 1, 0, 0, 0);
+          indices.push(indexOffset, indexOffset + 1, indexOffset + 2);
+          indices.push(indexOffset, indexOffset + 2, indexOffset + 3);
+          indexOffset += 4;
         }
       }
     }

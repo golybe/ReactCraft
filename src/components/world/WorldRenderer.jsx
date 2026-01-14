@@ -76,6 +76,11 @@ const ChunkBlockMesh = ({ blockType, chunkData, lightMap, chunkX, chunkZ, getNei
       mat.alphaTest = 0.5;
       mat.side = THREE.DoubleSide;
     }
+    // Специальная обработка для cross-блоков (растения, трава)
+    if (info.renderType === 'cross') {
+      mat.alphaTest = 0.5;
+      mat.side = THREE.DoubleSide;
+    }
 
     return mat;
   }, [blockType, faceFilter, textureName, texturesLoaded]);

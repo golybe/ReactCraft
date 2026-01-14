@@ -75,3 +75,19 @@ export class Tool extends Item {
     this.maxStackSize = 1; // Инструменты не стакаются
   }
 }
+
+/**
+ * Растение (трава, цветы) - рендерится как крест (X-shape)
+ */
+export class PlantBlock extends Block {
+  constructor(id, settings) {
+    super(id, {
+      solid: false,
+      transparent: true,
+      ...settings,
+      renderType: 'cross' // Специальный тип рендеринга
+    });
+    this.renderType = 'cross';
+    this.isPlant = true;
+  }
+}

@@ -54,6 +54,7 @@ export class Block {
     // Свойства предмета
     this.maxStackSize = settings.maxStackSize || 64; // По умолчанию стакается до 64
     this.isTool = settings.isTool || false;
+    this.renderType = settings.renderType || 'block'; // 'block' | 'cross' | 'liquid'
   }
 
   /**
@@ -73,7 +74,8 @@ export class Block {
       requiresTool: this.requiresTool,
       drops: this.drops,
       dropCount: this.dropCount,
-      xp: this.xp
+      xp: this.xp,
+      renderType: this.renderType
     };
   }
 

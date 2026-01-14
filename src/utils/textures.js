@@ -37,7 +37,9 @@ export const textures = {
   // New textures
   gravel: texPath('gravel.png'),
   sandstone: texPath('sandstone.png'),
-  lapisOre: texPath('lapis_ore.png')
+  lapisOre: texPath('lapis_ore.png'),
+  // Plants
+  shortGrass: texPath('short_grass.png')
 };
 
 export const getBlockTexture = (name) => {
@@ -77,7 +79,9 @@ const blockTextureMap = {
   [BLOCK_TYPES.LAPIS_ORE]: { all: 'lapisOre' },
   [BLOCK_TYPES.STONE_AXE]: { all: 'stoneAxe', isItem: true },
   [BLOCK_TYPES.STONE_PICKAXE]: { all: 'stonePickaxe', isItem: true },
-  [BLOCK_TYPES.STONE_SHOVEL]: { all: 'stoneShovel', isItem: true }
+  [BLOCK_TYPES.STONE_SHOVEL]: { all: 'stoneShovel', isItem: true },
+  // Plants
+  [BLOCK_TYPES.TALL_GRASS]: { all: 'shortGrass', renderType: 'cross' }
 };
 
 export const getBlockTextureInfo = (blockType) => blockTextureMap[blockType];

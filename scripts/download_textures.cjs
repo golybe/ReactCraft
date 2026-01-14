@@ -9,6 +9,9 @@ const files = {
   'grass_top.png': 'block/grass_block_top.png',
   'grass_side.png': 'block/grass_block_side.png', // Оставляем на всякий случай
   'grass_side_overlay.png': 'block/grass_block_side_overlay.png', // Добавляем оверлей
+  'short_grass.png': 'block/grass.png', // Декоративная трава (в 1.19 называется grass.png)
+  'tall_grass_bottom.png': 'block/tall_grass_bottom.png', // Высокая трава (низ)
+  'tall_grass_top.png': 'block/tall_grass_top.png', // Высокая трава (верх)
   'dirt.png': 'block/dirt.png',
   'stone.png': 'block/stone.png',
   'wood_side.png': 'block/oak_log.png',

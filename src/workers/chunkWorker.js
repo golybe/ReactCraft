@@ -172,6 +172,16 @@ function generateChunk(chunkX, chunkZ, seed) {
                   } else {
                     block = BLOCK_TYPES.SAND;
                   }
+                } else if (biome.id === 'stony_beach') {
+                  // Stony Beach: смесь камня, гравия и булыжника
+                  const stonyVariation = beachNoise;
+                  if (stonyVariation > 0.65) {
+                    block = BLOCK_TYPES.COBBLESTONE; // Булыжник ~35%
+                  } else if (stonyVariation > 0.35) {
+                    block = BLOCK_TYPES.GRAVEL; // Гравий ~30%
+                  } else {
+                    block = BLOCK_TYPES.STONE; // Камень ~35%
+                  }
                 } else {
                   // Normal surface - use biome's surface block
                   // Stone surface only in mountain biomes (surfaceBlock is already STONE there)
@@ -266,6 +276,63 @@ function generateChunk(chunkX, chunkZ, seed) {
           // Передаем координату ЗЕМЛИ (не +1), проверки делаются внутри TreeStructure
           structureManager.generate('tree', blocks, x, surfaceY, z, treeRng, { biome });
         }
+      }
+    }
+  }
+
+  // =========================================================
+  // PASS 3: Generate grass/plants
+  // =========================================================
+  
+  const grassSeed = seed + chunkX * 2000 + chunkZ * 3;
+  const grassRng = new SeededRandom(grassSeed);
+
+  for (let x = 0; x < CHUNK_SIZE; x++) {
+    for (let z = 0; z < CHUNK_SIZE; z++) {
+      const idx = x * CHUNK_SIZE + z;
+      const surfaceY = surfaceHeights[idx];
+      const biome = surfaceBiomes[idx];
+
+      if (!biome || surfaceY <= SEA_LEVEL || surfaceY <= 0) continue;
+
+      // Получаем блок на поверхности
+      const surfaceBlockIdx = surfaceY * CHUNK_SIZE * CHUNK_SIZE + x * CHUNK_SIZE + z;
+      const surfaceBlock = blocks[surfaceBlockIdx];
+
+      // Трава растёт только на траве (GRASS block)
+      if (surfaceBlock !== BLOCK_TYPES.GRASS) continue;
+
+      // Проверяем что блок сверху - воздух
+      const aboveIdx = (surfaceY + 1) * CHUNK_SIZE * CHUNK_SIZE + x * CHUNK_SIZE + z;
+      if (blocks[aboveIdx] !== BLOCK_TYPES.AIR) continue;
+
+      // Шанс спавна травы зависит от биома
+      let grassChance = 0;
+      
+      // Биомы с высоким шансом травы
+      const biomeId = biome.id;
+      if (biomeId === 'plains' || biomeId === 'sunflower_plains') {
+        grassChance = 0.4; // 40% покрытие на равнинах
+      } else if (biomeId === 'forest' || biomeId === 'birch_forest') {
+        grassChance = 0.25; // 25% в лесах
+      } else if (biomeId === 'dark_forest') {
+        grassChance = 0.15; // 15% в тёмном лесу
+      } else if (biomeId === 'taiga' || biomeId === 'snowy_taiga') {
+        grassChance = 0.1; // 10% в тайге
+      } else if (biomeId === 'savanna') {
+        grassChance = 0.35; // 35% в саванне
+      } else if (biomeId === 'jungle') {
+        grassChance = 0.5; // 50% в джунглях
+      } else if (biomeId === 'swamp') {
+        grassChance = 0.3; // 30% в болоте
+      } else if (biomeId === 'mountains' || biomeId === 'snowy_mountains') {
+        grassChance = 0.05; // 5% в горах
+      }
+      // В пустынях, на пляжах, в океанах - трава не растёт (grassChance = 0)
+
+      if (grassRng.next() < grassChance) {
+        // Ставим короткую траву
+        blocks[aboveIdx] = BLOCK_TYPES.TALL_GRASS;
       }
     }
   }

@@ -1,5 +1,5 @@
 import { BlockRegistry } from './blocks/BlockRegistry';
-import { AirBlock, SolidBlock, TransparentBlock, LiquidBlock, Item, Tool } from './blocks/StandardBlocks';
+import { AirBlock, SolidBlock, TransparentBlock, LiquidBlock, Item, Tool, PlantBlock } from './blocks/StandardBlocks';
 import { TOOL_TYPES } from './blocks/Block';
 import { BLOCK_TYPES } from '../constants/blockTypes';
 
@@ -207,6 +207,15 @@ export const initBlocks = () => {
     preferredTool: TOOL_TYPES.PICKAXE,
     requiresTool: true,
     xp: 3
+  }));
+
+  // 21: TALL_GRASS (Short Grass - декоративная трава)
+  BlockRegistry.register(new PlantBlock(BLOCK_TYPES.TALL_GRASS, {
+    name: 'tall_grass',
+    texture: 'shortGrass',
+    color: 0x5bac36,
+    hardness: 0,
+    drops: null // Не дропает ничего (можно добавить семена позже)
   }));
 
   // =========================================================

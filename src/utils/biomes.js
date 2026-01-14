@@ -118,16 +118,16 @@ export const BIOMES = {
   [BIOME_IDS.STONY_BEACH]: {
     id: 'stony_beach',
     name: 'Stony Beach',
-    surfaceBlock: BLOCK_TYPES.STONE,
+    surfaceBlock: BLOCK_TYPES.GRAVEL,
     subsurfaceBlock: BLOCK_TYPES.STONE,
     stoneBlock: BLOCK_TYPES.STONE,
-    depth: 0.1,
-    scale: 0.05,
-    heightOffset: 2,
+    depth: 0.15,
+    scale: 0.12,
+    heightOffset: 3,
     treeChance: 0,
     temperature: 0.3,
     humidity: 0.3,
-    color: '#808080'
+    color: '#708090'
   },
 
   [BIOME_IDS.DESERT]: {
