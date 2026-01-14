@@ -92,8 +92,10 @@ export class Block {
     if (toolType === this.preferredTool) {
       // Правильный инструмент дает большой бонус
       multiplier = TOOL_MULTIPLIERS[toolType] || 1.0;
+      // Применяем эффективность ТОЛЬКО для правильного инструмента
+      multiplier *= toolEfficiency;
     } else if (toolType !== TOOL_TYPES.HAND) {
-      // Неправильный инструмент дает небольшой бонус
+      // Неправильный инструмент дает небольшой бонус (но без toolEfficiency!)
       multiplier = 1.5;
     }
     
@@ -101,9 +103,6 @@ export class Block {
     if (this.requiresTool && toolType === TOOL_TYPES.HAND) {
       multiplier = 0.3; // В 3 раза медленнее
     }
-    
-    // Применяем эффективность инструмента (зачарование и т.д.)
-    multiplier *= toolEfficiency;
     
     return Math.max(0.05, baseTime / multiplier); // Минимум 50мс
   }
