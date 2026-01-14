@@ -28,7 +28,8 @@ export const BLOCK_TYPES = {
   // RESERVED FOR FUTURE BLOCKS: 17 - 511
 
   // ITEMS (Non-block entities): 512+
-  STICK: 512
+  STICK: 512,
+  APPLE: 513
 };
 
 export default BLOCK_TYPES;

@@ -46,14 +46,17 @@ export const initBlocks = () => {
     preferredTool: TOOL_TYPES.AXE
   }));
 
-  // 5: LEAVES (ножницы, шанс дропнуть саженец - пока себя)
+  // 5: LEAVES (ножницы, 5% шанс дропнуть яблоко)
   BlockRegistry.register(new TransparentBlock(5, {
     name: 'leaves',
     texture: 'leaves',
     color: 0x3d7a28,
     hardness: 0.2,
     preferredTool: TOOL_TYPES.SHEARS,
-    drops: null // Без ножниц не дропает (пока)
+    drops: null, // Без ножниц не дропает сам блок
+    customDrops: [ // Но может дропнуть яблоко
+      { type: BLOCK_TYPES.APPLE, chance: 0.05 } // 5% шанс
+    ]
   }));
 
   // 6: SAND (лопата)
@@ -175,5 +178,14 @@ export const initBlocks = () => {
     name: 'stick',
     texture: 'stick',
     color: 0xffffff
+  }));
+
+  // 513: APPLE (Food item)
+  BlockRegistry.register(new Item(BLOCK_TYPES.APPLE, {
+    name: 'apple',
+    texture: 'apple',
+    color: 0xff0000,
+    isFood: true,
+    healAmount: 4
   }));
 };

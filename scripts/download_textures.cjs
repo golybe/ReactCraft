@@ -25,6 +25,7 @@ const files = {
   'diamond_ore.png': 'block/diamond_ore.png',
   'brick.png': 'block/bricks.png',
   'stick.png': 'item/stick.png',
+  'apple.png': 'item/apple.png',
   'crafting_table_top.png': 'block/crafting_table_top.png',
   'crafting_table_side.png': 'block/crafting_table_side.png',
   'crafting_table_front.png': 'block/crafting_table_front.png'

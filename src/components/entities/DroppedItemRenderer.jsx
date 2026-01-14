@@ -61,11 +61,13 @@ const DroppedItem = ({
     const texture = textureName ? textureManager.getTextureSync(textureName) : null;
     
     if (isItem) {
-      return new THREE.SpriteMaterial({
+      const spriteMat = new THREE.SpriteMaterial({
         map: texture,
         color: 0xffffff,
-        transparent: true
+        transparent: true,
+        rotation: Math.PI // Поворот на 180 градусов для исправления переворота
       });
+      return spriteMat;
     }
 
     return new THREE.MeshBasicMaterial({
@@ -226,8 +228,9 @@ const DroppedItem = ({
     // Render Position
     let displayY = s.y;
     // Анимация парения (Bobbing) только если предмет лежит и не магнитится
+    // Используем abs чтобы предмет всегда был выше или на уровне базовой позиции
     if (s.onGround && !isMagnetized && Math.abs(s.vx) < 0.1) {
-      displayY += Math.sin(s.time * 3) * 0.1; // Чуть выше амплитуда
+      displayY += Math.abs(Math.sin(s.time * 3)) * 0.1; // Покачивание только вверх
     }
     
     meshRef.current.position.set(s.x, displayY, s.z);

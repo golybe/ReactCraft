@@ -8,6 +8,8 @@ import Hotbar from './ui/Hotbar';
 import Chat from './ui/Chat';
 import UIManager from './ui/UIManager';
 import WaterOverlay from './ui/WaterOverlay';
+import HealthBar from './ui/HealthBar';
+import DeathScreen from './ui/DeathScreen';
 import { GameCanvas } from './game/GameCanvas';
 import { LoadingScreen, PauseMenu, SaveMessage, DebugInfo } from './game/GameUI';
 import { InputManager, INPUT_ACTIONS } from '../core/input/InputManager';
@@ -32,6 +34,11 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
   const [activeUI, setActiveUI] = React.useState(UI_TYPES.NONE);
   const activeUIRef = React.useRef(UI_TYPES.NONE);
 
+  // === DEATH STATE ===
+  const [isDead, setIsDead] = React.useState(false);
+  const [deathMessage, setDeathMessage] = React.useState('You died!');
+  const playerInstanceRef = React.useRef(null);
+
   // === DEBUG INFO ===
   const { debugInfo, setChunksCount, setBlocksCount } = useDebugInfo();
 
@@ -52,6 +59,8 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
     teleportPos,
     isInWater,
     isHeadUnderwater,
+    health,
+    maxHealth,
     handlePlayerMove,
     teleportTo
   } = usePlayerMovement({
@@ -66,7 +75,8 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
     isLoading,
     loadingProgress,
     currentBiome,
-    worldRef
+    worldRef,
+    entityManager
   } = useWorldLoading({
     worldInfo,
     initialChunks,
@@ -121,7 +131,8 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
     setCanFly,
     setIsFlying,
     setSpeedMultiplier,
-    teleportTo
+    teleportTo,
+    player: playerInstanceRef.current
   });
 
   // === INVENTORY MANAGEMENT ===
@@ -311,6 +322,12 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
       }
 
       if (locked) {
+        // Не разрешаем lock если игрок мертв
+        if (isDead) {
+          document.exitPointerLock();
+          return;
+        }
+
         setIsPaused(false);
         setShowInstructions(false);
 
@@ -320,8 +337,8 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
           activeUIRef.current = UI_TYPES.NONE;
         }
       } else {
-        // Pause if no UI is open
-        if (!isChatOpenRef.current && activeUIRef.current === UI_TYPES.NONE) {
+        // Pause if no UI is open (но не если игрок мертв)
+        if (!isDead && !isChatOpenRef.current && activeUIRef.current === UI_TYPES.NONE) {
           setIsPaused(true);
           setShowInstructions(true);
         }
@@ -330,7 +347,7 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
 
     const handleError = () => {
       console.error('Pointer lock failed');
-      if (!isChatOpenRef.current && activeUIRef.current === UI_TYPES.NONE) {
+      if (!isDead && !isChatOpenRef.current && activeUIRef.current === UI_TYPES.NONE) {
         setIsPaused(true);
         setShowInstructions(true);
       }
@@ -343,7 +360,14 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
       document.removeEventListener('pointerlockchange', handleChange);
       document.removeEventListener('pointerlockerror', handleError);
     };
-  }, [setIsPaused, setShowInstructions, isChatOpenRef]);
+  }, [isDead, setIsPaused, setShowInstructions, isChatOpenRef]);
+
+  // Освобождаем pointer lock при смерти
+  useEffect(() => {
+    if (isDead && document.pointerLockElement === document.body) {
+      document.exitPointerLock();
+    }
+  }, [isDead]);
 
   // Blocks count callback
   const handleBlocksCount = useCallback((count) => {
@@ -362,6 +386,118 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
   const onExit = useCallback(() => {
     handleExitToMenu(inventory, playerPos);
   }, [handleExitToMenu, inventory, playerPos]);
+
+  // === DEATH / RESPAWN HANDLERS ===
+  const handlePlayerDeath = useCallback((source) => {
+    setIsDead(true);
+    // Устанавливаем сообщение в зависимости от источника урона
+    if (source === 'fall') {
+      setDeathMessage('You fell to your death!');
+    } else if (source === 'command') {
+      setDeathMessage('You died!');
+    } else {
+      setDeathMessage('You died!');
+    }
+    // Освобождаем pointer lock
+    document.exitPointerLock();
+  }, []);
+
+  const handleRespawn = useCallback(() => {
+    if (playerInstanceRef.current) {
+      playerInstanceRef.current.respawnPlayer();
+      setIsDead(false);
+      setDeathMessage('You died!');
+      // Возвращаем pointer lock
+      document.body.requestPointerLock();
+    }
+  }, []);
+
+  const handlePlayerRef = useCallback((player) => {
+    playerInstanceRef.current = player;
+  }, []);
+
+  // === FOOD EATING ===
+  const [isEating, setIsEating] = React.useState(false);
+  const [eatingProgress, setEatingProgress] = React.useState(0);
+  const isEatingRef = React.useRef(false);
+  const eatingIntervalRef = React.useRef(null);
+  const eatingStartTimeRef = React.useRef(0);
+  const eatingDataRef = React.useRef({ foodType: null, healAmount: 0 });
+
+  const handleStartEating = useCallback((foodType, healAmount) => {
+    if (!playerInstanceRef.current || isDead || isEatingRef.current) return;
+    if (!inventoryRef?.current) return;
+
+    // Проверяем, есть ли еда в инвентаре
+    const slots = inventoryRef.current.getSlots();
+    const selectedSlotData = slots[selectedSlot];
+    if (!selectedSlotData || selectedSlotData.type !== foodType || selectedSlotData.count <= 0) {
+      return;
+    }
+
+    // Начинаем анимацию поедания
+    setIsEating(true);
+    isEatingRef.current = true;
+    setEatingProgress(0);
+    eatingStartTimeRef.current = Date.now();
+    eatingDataRef.current = { foodType, healAmount };
+
+    // Анимация поедания (1.5 секунды как в Minecraft)
+    const eatDuration = 1500;
+
+    eatingIntervalRef.current = setInterval(() => {
+      const elapsed = Date.now() - eatingStartTimeRef.current;
+      const progress = Math.min(elapsed / eatDuration, 1);
+      setEatingProgress(progress);
+
+      if (progress >= 1) {
+        // Завершаем поедание успешно
+        clearInterval(eatingIntervalRef.current);
+        eatingIntervalRef.current = null;
+
+        setIsEating(false);
+        isEatingRef.current = false;
+        setEatingProgress(0);
+
+        // Исцеляем игрока
+        if (playerInstanceRef.current) {
+          playerInstanceRef.current.heal(eatingDataRef.current.healAmount);
+        }
+
+        // Убираем 1 еду из инвентаря
+        inventoryRef.current.removeItem(eatingDataRef.current.foodType, 1);
+        setInventory(inventoryRef.current.getSlots());
+      }
+    }, 16); // ~60 FPS
+  }, [isDead, selectedSlot, inventoryRef, setInventory]);
+
+  const handleStopEating = useCallback(() => {
+    // Отменяем поедание (отпустили ПКМ раньше времени)
+    if (eatingIntervalRef.current) {
+      clearInterval(eatingIntervalRef.current);
+      eatingIntervalRef.current = null;
+    }
+
+    setIsEating(false);
+    isEatingRef.current = false;
+    setEatingProgress(0);
+  }, []);
+
+  // Останавливаем поедание при смене слота или открытии UI
+  React.useEffect(() => {
+    if (isEating) {
+      handleStopEating();
+    }
+  }, [selectedSlot, activeUI, handleStopEating]);
+
+  // Очистка при размонтировании
+  React.useEffect(() => {
+    return () => {
+      if (eatingIntervalRef.current) {
+        clearInterval(eatingIntervalRef.current);
+      }
+    };
+  }, []);
 
   // === CRAFTING TABLE INTERACTION ===
   // Wrapper for handleBlockPlace that checks for crafting table
@@ -396,6 +532,7 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
         chunkManager={worldRef.current?.getChunkManager()}
         liquidSimulator={worldRef.current?.getLiquidSimulator()}
         miningManager={miningManagerRef.current}
+        entityManager={entityManager}
         miningState={miningState}
         isMouseDown={isMouseDown}
         lastPunchTime={lastPunchTime}
@@ -413,6 +550,7 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
         speedMultiplier={speedMultiplier}
         isChatOpen={isChatOpen}
         isInventoryOpen={isUIOpen}
+        isDead={isDead}
         teleportPos={teleportPos}
         onPlayerMove={handlePlayerMove}
         onBlocksCount={handleBlocksCount}
@@ -425,12 +563,38 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
         onItemPickup={handleItemPickup}
         getBlockAt={getBlockAt}
         onChunksUpdate={setChunks}
+        onPlayerDeath={handlePlayerDeath}
+        onPlayerRef={handlePlayerRef}
+        onStartEating={handleStartEating}
+        onStopEating={handleStopEating}
+        isEating={isEating}
+        eatingProgress={eatingProgress}
       />
 
       {/* Water effect overlay */}
       <WaterOverlay isUnderwater={isHeadUnderwater} />
 
-      <Crosshair />
+      {/* Death screen overlay */}
+      {isDead && (
+        <DeathScreen onRespawn={handleRespawn} deathMessage={deathMessage} />
+      )}
+
+      {!isDead && <Crosshair />}
+
+      {/* Health bar (only in survival mode when not dead) */}
+      {gameMode === GAME_MODES.SURVIVAL && !isDead && (
+        <div style={{
+          position: 'fixed',
+          bottom: '62px',
+          left: '53.5%',
+          transform: 'translateX(-50%)',
+          marginLeft: '-176px', // Выравнивание слева от хотбара (половина ширины хотбара ~352px)
+          zIndex: 100
+        }}>
+          <HealthBar health={health} maxHealth={maxHealth} />
+        </div>
+      )}
+
       <Hotbar
         selectedSlot={selectedSlot}
         onSelectSlot={handleSelectSlot}

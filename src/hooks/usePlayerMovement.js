@@ -26,6 +26,10 @@ export function usePlayerMovement({
   const [isInWater, setIsInWater] = useState(false);
   const [isHeadUnderwater, setIsHeadUnderwater] = useState(false);
 
+  // Health states
+  const [health, setHealth] = useState(20);
+  const [maxHealth, setMaxHealth] = useState(20);
+
   // Update canFly when game mode changes
   useEffect(() => {
     const defaults = getGameModeDefaults(gameMode);
@@ -66,6 +70,14 @@ export function usePlayerMovement({
       if (data.isHeadUnderwater !== undefined) {
         setIsHeadUnderwater(prev => prev !== data.isHeadUnderwater ? data.isHeadUnderwater : prev);
       }
+
+      // Update health states
+      if (data.health !== undefined) {
+        setHealth(prev => prev !== data.health ? data.health : prev);
+      }
+      if (data.maxHealth !== undefined) {
+        setMaxHealth(prev => prev !== data.maxHealth ? data.maxHealth : prev);
+      }
     }
   }, []);
 
@@ -103,6 +115,8 @@ export function usePlayerMovement({
     setTeleportPos,
     isInWater,
     isHeadUnderwater,
+    health,
+    maxHealth,
     handlePlayerMove,
     teleportTo,
     toggleNoclip,

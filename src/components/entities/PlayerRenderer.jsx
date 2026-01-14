@@ -6,12 +6,13 @@ import { PhysicsEngine } from '../../core/physics/PhysicsEngine';
 import { PLAYER_HEIGHT } from '../../constants/world';
 import { log } from '../../utils/logger';
 
-const Player = ({ onMove, chunks, initialPosition, noclipMode, canFly, isFlying, speedMultiplier, isChatOpen, isInventoryOpen, teleportPos }) => {
+const Player = ({ onMove, chunks, initialPosition, noclipMode, canFly, isFlying, speedMultiplier, isChatOpen, isInventoryOpen, isDead, teleportPos, onDeath, onPlayerRef }) => {
   const { camera } = useThree();
   const playerRef = useRef(null);
   const physicsEngineRef = useRef(null);
   const lastSpaceTime = useRef(0);
   const isInitializedRef = useRef(false);
+  const canFlyRef = useRef(canFly); // Ref для актуального значения canFly
 
   // Инициализация PhysicsEngine и игрока
   useEffect(() => {
@@ -32,12 +33,27 @@ const Player = ({ onMove, chunks, initialPosition, noclipMode, canFly, isFlying,
     playerRef.current.speedMultiplier = speedMultiplier || 1;
     playerRef.current.onGround = spawn.foundGround;
 
+    // Callback для получения актуального canFly из React state
+    playerRef.current.getCanFly = () => canFlyRef.current;
+
+    // Настраиваем callback на смерть
+    playerRef.current.onDeath = (source) => {
+      if (onDeath) {
+        onDeath(source);
+      }
+    };
+
+    // Передаем ссылку на игрока наружу
+    if (onPlayerRef) {
+      onPlayerRef(playerRef.current);
+    }
+
     camera.position.set(spawn.x, spawn.y + PLAYER_HEIGHT - 0.2, spawn.z);
     camera.rotation.order = 'YXZ';
 
     isInitializedRef.current = true;
     log('Player', 'Initialized at', spawn);
-  }, [camera, chunks, initialPosition, onMove, noclipMode, canFly, speedMultiplier]);
+  }, [camera, chunks, initialPosition, onMove, noclipMode, canFly, speedMultiplier, onDeath, onPlayerRef]);
 
   // Обновление чанков в PhysicsEngine
   useEffect(() => {
@@ -45,6 +61,11 @@ const Player = ({ onMove, chunks, initialPosition, noclipMode, canFly, isFlying,
       physicsEngineRef.current.setChunks(chunks);
     }
   }, [chunks]);
+
+  // Синхронизация canFly через ref для мгновенного доступа
+  useEffect(() => {
+    canFlyRef.current = canFly;
+  }, [canFly]);
 
   // Обновление свойств игрока при изменении пропсов
   useEffect(() => {
@@ -67,9 +88,9 @@ const Player = ({ onMove, chunks, initialPosition, noclipMode, canFly, isFlying,
     }
   }, [teleportPos]);
 
-  // Сброс всех клавиш при открытии чата
+  // Сброс всех клавиш при открытии чата или смерти
   useEffect(() => {
-    if (isChatOpen && playerRef.current) {
+    if ((isChatOpen || isDead) && playerRef.current) {
       // Сбрасываем все зажатые клавиши
       playerRef.current.keys.forward = false;
       playerRef.current.keys.backward = false;
@@ -78,13 +99,13 @@ const Player = ({ onMove, chunks, initialPosition, noclipMode, canFly, isFlying,
       playerRef.current.keys.jump = false;
       playerRef.current.keys.shift = false;
     }
-  }, [isChatOpen]);
+  }, [isChatOpen, isDead]);
 
   // Обработка клавиатуры
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // КРИТИЧЕСКИ ВАЖНО: Если фокус в чате или инвентаре (любой input), блокируем движение
-      if (isChatOpen || isInventoryOpen || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+      // КРИТИЧЕСКИ ВАЖНО: Если фокус в чате, игрок мертв или инвентаре (любой input), блокируем движение
+      if (isDead || isChatOpen || isInventoryOpen || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
         return;
       }
 
@@ -133,25 +154,29 @@ const Player = ({ onMove, chunks, initialPosition, noclipMode, canFly, isFlying,
       document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('keyup', handleKeyUp);
     };
-  }, [isChatOpen, isInventoryOpen, canFly, isFlying]);
+  }, [isDead, isChatOpen, isInventoryOpen, canFly, isFlying]);
 
   // Обработка мыши
   useEffect(() => {
     const handleMouseMove = (e) => {
-      if (document.pointerLockElement !== document.body || !playerRef.current) return;
+      // Блокируем вращение камеры если игрок мертв
+      if (isDead || document.pointerLockElement !== document.body || !playerRef.current) return;
 
       playerRef.current.rotate(e.movementX * 0.002, e.movementY * 0.002);
     };
 
     document.addEventListener('mousemove', handleMouseMove);
     return () => document.removeEventListener('mousemove', handleMouseMove);
-  }, []);
+  }, [isDead]);
 
   // Игровой цикл
   useFrame((_, delta) => {
     const player = playerRef.current;
 
     if (!player) return;
+
+    // Не обновляем физику если игрок мертв
+    if (isDead) return;
 
     // Обновляем игрока (вся логика физики внутри класса)
     player.update(delta, chunks, isChatOpen);

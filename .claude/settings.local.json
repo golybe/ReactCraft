@@ -18,7 +18,9 @@
       "Bash(ls:*)",
       "Bash(wc:*)",
       "Bash(find:*)",
-      "Bash(tree /f \"C:\\\\tests\\\\glmtest2\\\\src\")"
+      "Bash(tree /f \"C:\\\\tests\\\\glmtest2\\\\src\")",
+      "Bash(tree:*)",
+      "Bash(curl:*)"
     ]
   }
 }

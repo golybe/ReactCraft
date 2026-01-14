@@ -1,0 +1,173 @@
+/* HealthBar styles */
+
+.health-bar {
+  display: flex;
+  flex-direction: row;
+  gap: -1px; /* Небольшое перекрытие */
+  padding: 0;
+  filter: drop-shadow(2px 2px 0px rgba(0, 0, 0, 0.5));
+}
+
+.heart-container-wrapper {
+  position: relative;
+  width: 18px;
+  height: 18px;
+}
+
+.heart {
+  display: block;
+}
+
+.heart-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+/* ============================= */
+/* АНИМАЦИИ */
+/* ============================= */
+
+/* 1. Пульсация при низком здоровье (4-6 HP) */
+@keyframes heartPulse {
+  0%, 100% { 
+    transform: scale(1);
+  }
+  50% { 
+    transform: scale(1.15);
+  }
+}
+
+.heart-container-wrapper.low-health {
+  animation: heartPulse 0.8s ease-in-out infinite;
+}
+
+/* 2. КРИТИЧЕСКОЕ состояние (<= 4 HP) - быстрая красная пульсация */
+@keyframes heartCritical {
+  0%, 100% { 
+    transform: scale(1) translateY(0);
+    filter: brightness(1) drop-shadow(0 0 0px red);
+  }
+  25% {
+    transform: scale(1.2) translateY(-2px);
+    filter: brightness(1.3) drop-shadow(0 0 8px rgba(255, 0, 0, 0.8));
+  }
+  75% {
+    transform: scale(0.95) translateY(1px);
+    filter: brightness(0.9) drop-shadow(0 0 4px rgba(255, 0, 0, 0.5));
+  }
+}
+
+.heart-container-wrapper.critical {
+  animation: heartCritical 0.4s ease-in-out infinite !important;
+}
+
+/* 3. Появление сердечек при загрузке */
+@keyframes heartAppear {
+  0% {
+    transform: scale(0) rotate(45deg);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.2) rotate(-5deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+.heart-container-wrapper {
+  animation: heartAppear 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* 4. Эффект при потере здоровья - тряска + вспышка */
+@keyframes heartDamage {
+  0%, 100% { 
+    transform: translateX(0);
+    filter: brightness(1);
+  }
+  10% { 
+    transform: translateX(-3px) rotate(-5deg);
+    filter: brightness(2) saturate(1.5);
+  }
+  20% { 
+    transform: translateX(3px) rotate(5deg);
+  }
+  30% { 
+    transform: translateX(-2px) rotate(-3deg);
+  }
+  40% { 
+    transform: translateX(2px) rotate(3deg);
+  }
+  50% { 
+    transform: translateX(0) rotate(0deg);
+    filter: brightness(1);
+  }
+}
+
+.heart-container-wrapper.damaged {
+  animation: heartDamage 0.4s ease-in-out;
+}
+
+/* 5. Эффект при исцелении - зеленая вспышка + bounce */
+@keyframes heartHeal {
+  0% { 
+    transform: scale(1);
+    filter: brightness(1) hue-rotate(0deg);
+  }
+  30% {
+    transform: scale(1.3);
+    filter: brightness(1.8) hue-rotate(100deg) saturate(2);
+  }
+  50% {
+    transform: scale(0.95);
+  }
+  70% {
+    transform: scale(1.1);
+    filter: brightness(1.3) hue-rotate(50deg);
+  }
+  100% { 
+    transform: scale(1);
+    filter: brightness(1) hue-rotate(0deg);
+  }
+}
+
+.heart-container-wrapper.healed {
+  animation: heartHeal 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* 6. Wiggle эффект (для разнообразия при критическом HP) */
+@keyframes heartWiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-8deg); }
+  75% { transform: rotate(8deg); }
+}
+
+/* 7. Hover эффект (опционально, если будет UI для взаимодействия) */
+.heart-container-wrapper:hover {
+  transform: scale(1.1);
+  transition: transform 0.1s ease-out;
+}
+
+/* 8. Эффект "исчезновения" пустых сердец */
+.heart-container-wrapper .heart-fill {
+  transition: opacity 0.2s ease-out;
+}
+
+/* 9. Плавное появление/исчезновение заполнения */
+@keyframes fillAppear {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.heart-fill {
+  animation: fillAppear 0.2s ease-out;
+}

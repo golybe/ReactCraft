@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { World } from '../core/world/World';
+import { EntityManager } from '../core/entities/EntityManager';
 import { BLOCK_TYPES } from '../constants/blocks';
+import { registerDefaultMobs } from '../constants/mobs';
 
 /**
  * Hook for managing world loading and chunk updates
@@ -17,8 +19,15 @@ export function useWorldLoading({
   const [currentBiome, setCurrentBiome] = useState('Unknown');
 
   const worldRef = useRef(null);
+  const entityManagerRef = useRef(null);
   const isLoadingRef = useRef(true);
   const playerPosRef = useRef(playerPos);
+
+  // Инициализируем EntityManager и регистрируем мобов
+  if (!entityManagerRef.current) {
+    entityManagerRef.current = new EntityManager();
+    registerDefaultMobs();
+  }
 
   // Sync loading ref
   useEffect(() => {
@@ -155,6 +164,7 @@ export function useWorldLoading({
     loadingProgress,
     currentBiome,
     worldRef,
+    entityManager: entityManagerRef.current,
     setBlock,
     getBlock,
     getLightLevel,

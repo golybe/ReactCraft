@@ -1,8 +1,8 @@
 /**
- * Player - класс игрока (наследуется от Entity)
+ * Player - класс игрока (наследуется от LivingEntity)
  * Содержит логику движения, физики и управления
  */
-import { Entity } from './Entity';
+import { LivingEntity, DamageSource } from './LivingEntity';
 import * as THREE from 'three';
 import { getBlock } from '../../utils/noise';
 import { isSolid, BLOCK_TYPES } from '../../constants/blocks';
@@ -21,12 +21,18 @@ import {
 } from '../../constants/world';
 import { PhysicsEngine } from '../physics/PhysicsEngine';
 
-export class Player extends Entity {
+// Константы игрока
+const PLAYER_MAX_HEALTH = 20;
+
+export class Player extends LivingEntity {
   constructor(x = 0, y = 64, z = 0) {
-    super(x, y, z);
+    super(x, y, z, PLAYER_MAX_HEALTH);
 
     this.width = PLAYER_WIDTH;
     this.height = PLAYER_HEIGHT;
+
+    // Сохраняем начальную позицию для респавна
+    this.spawnPoint = { x, y, z };
 
     // Управление
     this.keys = {
@@ -50,6 +56,9 @@ export class Player extends Entity {
 
     // Callback для уведомления об изменениях
     this.onMove = null;
+
+    // Callback для получения актуального canFly (из React state)
+    this.getCanFly = null;
 
     // PhysicsEngine будет установлен извне
     this.physicsEngine = null;
@@ -157,10 +166,112 @@ export class Player extends Entity {
   }
 
   /**
-   * Обновление игрока (вызывается каждый кадр)
+   * Вращение камеры
+   */
+  rotate(deltaYaw, deltaPitch) {
+    this.rotation.yaw -= deltaYaw;
+    this.rotation.pitch -= deltaPitch;
+    this.rotation.pitch = Math.max(
+      -Math.PI / 2 + 0.01,
+      Math.min(Math.PI / 2 - 0.01, this.rotation.pitch)
+    );
+  }
+
+  /**
+   * Прыжок
+   */
+  jump() {
+    if (this.onGround && this.velocity.y <= 0) {
+      this.velocity.y = JUMP_VELOCITY;
+      this.onGround = false;
+    }
+  }
+
+  /**
+   * Переключить режим полета
+   */
+  toggleFly() {
+    this.isFlying = !this.isFlying;
+    if (!this.isFlying) {
+      this.velocity.set(0, 0, 0);
+    }
+  }
+
+  /**
+   * Установить режим полета
+   */
+  setFlying(flying) {
+    this.isFlying = flying;
+    if (!flying) {
+      this.velocity.set(0, 0, 0);
+    }
+  }
+
+  /**
+   * Телепортация игрока
+   */
+  teleport(x, y, z) {
+    this.position.set(x, y, z);
+    this.velocity.set(0, 0, 0);
+  }
+
+  /**
+   * Установить точку спавна
+   */
+  setSpawnPoint(x, y, z) {
+    this.spawnPoint = { x, y, z };
+  }
+
+  /**
+   * Респавн игрока (при смерти)
+   */
+  respawnPlayer() {
+    // Вызываем базовый respawn
+    this.respawn();
+
+    // Телепортируем в точку спавна
+    this.teleport(this.spawnPoint.x, this.spawnPoint.y, this.spawnPoint.z);
+
+    // Сбрасываем состояние
+    this.isFlying = false;
+    this.noclipMode = false;
+    this.isInWater = false;
+    this.isHeadUnderwater = false;
+    this.isSwimming = false;
+    this.fallDistance = 0;
+  }
+
+  /**
+   * Переопределяем update для добавления логики LivingEntity
    */
   update(deltaTime, chunks, isChatOpen = false) {
+    // Если мертв - не обновляем движение
+    if (this.isDead) {
+      return;
+    }
+
+    // Вызов оригинальной логики движения (но не super.update!)
+    this.updateMovement(deltaTime, chunks, isChatOpen);
+
+    // Обновляем систему здоровья (invulnerableTime и fallDistance)
+    // Примечание: fallDistance обрабатывается в LivingEntity.update
+    if (this.invulnerableTime > 0) {
+      this.invulnerableTime -= deltaTime;
+      if (this.invulnerableTime < 0) {
+        this.invulnerableTime = 0;
+      }
+    }
+  }
+
+  /**
+   * Логика движения (вынесена из update)
+   */
+  updateMovement(deltaTime, chunks, isChatOpen = false) {
     const dt = Math.min(deltaTime, 0.05);
+
+    // Отслеживание падения для урона
+    const prevY = this.position.y;
+    const wasOnGround = this.onGround;
 
     // === ОБНОВЛЕНИЕ СОСТОЯНИЯ ВОДЫ ===
     this.isInWater = this.checkInWater(chunks);
@@ -418,6 +529,36 @@ export class Player extends Entity {
       this.velocity.set(0, 0, 0);
     }
 
+    // === УРОН ОТ ПАДЕНИЯ ===
+    // Проверяем урон от падения только если приземлились
+    // В креативном режиме (canFly) урон от падения отключен
+    // Используем getCanFly() callback для получения актуального значения из React state
+    const actualCanFly = this.getCanFly ? this.getCanFly() : this.canFly;
+    
+    if (!wasOnGround && this.onGround && !actualCanFly && !this.isFlying && !this.noclipMode && !this.isInWater) {
+      const fallDist = prevY - this.position.y;
+      if (fallDist > 0) {
+        this.fallDistance += fallDist;
+      }
+      // Урон от падения (> 3 блоков)
+      if (this.fallDistance > 3) {
+        const damage = Math.floor(this.fallDistance - 3);
+        if (damage > 0) {
+          this.damage(damage, DamageSource.FALL);
+        }
+      }
+      this.fallDistance = 0;
+    } else if (!this.onGround && this.velocity.y < 0 && !actualCanFly && !this.isFlying && !this.noclipMode && !this.isInWater) {
+      // Накапливаем дистанцию падения
+      const fallDist = prevY - this.position.y;
+      if (fallDist > 0) {
+        this.fallDistance += fallDist;
+      }
+    } else if (actualCanFly || this.isFlying || this.noclipMode || this.isInWater) {
+      // Сбрасываем при полете/воде/креативе
+      this.fallDistance = 0;
+    }
+
     // Уведомляем об изменениях
     if (this.onMove) {
       this.onMove({
@@ -430,58 +571,10 @@ export class Player extends Entity {
         isFlying: this.isFlying || this.noclipMode,
         isInWater: this.isInWater,
         isHeadUnderwater: this.isHeadUnderwater,
-        isSwimming: this.isSwimming
+        isSwimming: this.isSwimming,
+        health: this.health,
+        maxHealth: this.maxHealth
       });
     }
-  }
-
-  /**
-   * Вращение камеры
-   */
-  rotate(deltaYaw, deltaPitch) {
-    this.rotation.yaw -= deltaYaw;
-    this.rotation.pitch -= deltaPitch;
-    this.rotation.pitch = Math.max(
-      -Math.PI / 2 + 0.01,
-      Math.min(Math.PI / 2 - 0.01, this.rotation.pitch)
-    );
-  }
-
-  /**
-   * Прыжок
-   */
-  jump() {
-    if (this.onGround && this.velocity.y <= 0) {
-      this.velocity.y = JUMP_VELOCITY;
-      this.onGround = false;
-    }
-  }
-
-  /**
-   * Переключить режим полета
-   */
-  toggleFly() {
-    this.isFlying = !this.isFlying;
-    if (!this.isFlying) {
-      this.velocity.set(0, 0, 0);
-    }
-  }
-
-  /**
-   * Установить режим полета
-   */
-  setFlying(flying) {
-    this.isFlying = flying;
-    if (!flying) {
-      this.velocity.set(0, 0, 0);
-    }
-  }
-
-  /**
-   * Телепортация игрока
-   */
-  teleport(x, y, z) {
-    this.position.set(x, y, z);
-    this.velocity.set(0, 0, 0);
   }
 }

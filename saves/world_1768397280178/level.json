@@ -1,0 +1,60 @@
+{
+  "id": "world_1768397280178",
+  "name": "xzvc",
+  "seed": 123123,
+  "gameMode": 0,
+  "createdAt": 1768397280178,
+  "lastPlayed": 1768398110841,
+  "playerPos": {
+    "x": -20,
+    "y": 66,
+    "z": 155
+  },
+  "inventory": [
+    {
+      "type": 2,
+      "count": 6
+    },
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    {
+      "type": 6,
+      "count": 4
+    },
+    {
+      "type": 16,
+      "count": 1
+    },
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+  ]
+}

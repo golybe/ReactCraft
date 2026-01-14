@@ -19,12 +19,17 @@ const getSlotData = (slot) => {
 const HotbarSlot = memo(({ slot, isSelected, index, onSelect, showCount = true }) => {
   const { type, count } = getSlotData(slot);
   
+  // Определяем размер: предметы (items) 32px, блоки 24px
+  const block = type ? BlockRegistry.get(type) : null;
+  const isItem = block?.isPlaceable === false;
+  const iconSize = isItem ? 36 : 24;
+  
   return (
     <div
       onClick={() => onSelect(index)}
       className="hotbar-slot"
     >
-      {type ? <BlockIcon blockId={type} size={24} /> : null}
+      {type ? <BlockIcon blockId={type} size={iconSize} /> : null}
       
       {/* Stack count (only show if > 1) */}
       {type && showCount && count > 1 && (

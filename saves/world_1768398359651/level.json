@@ -1,22 +1,22 @@
 {
-  "id": "world_1768389396974",
-  "name": "фывс",
-  "seed": 799604864,
-  "gameMode": 1,
-  "createdAt": 1768389396974,
-  "lastPlayed": 1768389413651,
+  "id": "world_1768398359651",
+  "name": "241",
+  "seed": 234,
+  "gameMode": 0,
+  "createdAt": 1768398359651,
+  "lastPlayed": 1768398576376,
   "playerPos": {
-    "x": 6.075934406194004,
-    "y": 41,
-    "z": 0.7097871642144059
+    "x": 43.09582596498912,
+    "y": 48,
+    "z": -10.463484598424625
   },
   "inventory": [
-    null,
-    null,
     {
-      "type": 14,
-      "count": 64
+      "type": 2,
+      "count": 4
     },
+    null,
+    null,
     null,
     null,
     null,

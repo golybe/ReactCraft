@@ -43,7 +43,7 @@ const HAND_SKIN_SVG = `
 </svg>
 `;
 
-const HeldItem = ({ selectedBlock, lightLevel = 15, lastPunchTime, isFlying, isMining = false }) => {
+const HeldItem = ({ selectedBlock, lightLevel = 15, lastPunchTime, isFlying, isMining = false, isEating = false, eatingProgress = 0 }) => {
   const meshRef = useRef();
   const [materials, setMaterials] = useState(null);
   const lastLightLevel = useRef(lightLevel);
@@ -240,11 +240,53 @@ const HeldItem = ({ selectedBlock, lightLevel = 15, lastPunchTime, isFlying, isM
         meshRef.current.rotateY(bobX * 0.2);
     }
 
-    // 4. Анимация удара (одиночный)
+    // 4. Анимация поедания еды (приоритет выше всех)
+    if (isEating && isItem) {
+        // Анимация поедания в стиле Minecraft
+        // 1. Предмет перемещается в центр экрана ко рту
+        const eatTargetX = -0.5; // Центр экрана по X
+        const eatTargetY = -0.10; // Уровень рта (чуть ниже центра)
+        const eatTargetZ = -0.15; // Очень близко к камере
+        
+        // Интерполяция позиции (быстрый вход в анимацию)
+        const moveFactor = Math.min(eatingProgress * 15, 1);
+        
+        // Базовая позиция предмета (справа снизу)
+        const startX = 0.6;
+        const startY = -0.4;
+        const startZ = -0.7;
+        
+        const curX = THREE.MathUtils.lerp(startX, eatTargetX, moveFactor);
+        const curY = THREE.MathUtils.lerp(startY, eatTargetY, moveFactor);
+        const curZ = THREE.MathUtils.lerp(startZ, eatTargetZ, moveFactor);
+        
+        // 2. Интенсивная тряска (shake) вверх-вниз + мелкий шум
+        // В майнкрафте тряска очень быстрая и хаотичная
+        const shakeFreq = 15; 
+        const shakeAmp = 0.04;
+        const shakeY = Math.sin(eatingProgress * Math.PI * shakeFreq) * shakeAmp;
+        const noiseX = (Math.random() - 0.5) * 0.01;
+        const noiseY = (Math.random() - 0.5) * 0.01;
+        
+        meshRef.current.translateX(curX + noiseX);
+        meshRef.current.translateY(curY + shakeY + noiseY);
+        meshRef.current.translateZ(curZ);
+        
+        // 3. Поворот предмета (лицом к игроку, с наклоном)
+        // Не добавляем дополнительные повороты - используем базовую ориентацию предмета
+        meshRef.current.rotateY(THREE.MathUtils.degToRad(180)); 
+        meshRef.current.rotateX(THREE.MathUtils.degToRad(-10));
+        // Наклон вперед-назад в такт тряске
+        meshRef.current.rotateX(THREE.MathUtils.degToRad(shakeY * 100));
+        
+        return; // Не применяем другие анимации во время поедания
+    }
+
+    // 5. Анимация удара (одиночный)
     const punchDuration = isHand ? 250 : 300;
     const punchProgress = (Date.now() - punchStartTime.current) / punchDuration;
     
-    // 5. Анимация добычи (непрерывная при зажатом ЛКМ)
+    // 6. Анимация добычи (непрерывная при зажатом ЛКМ)
     if (isMining) {
         // Покачивание при добыче (как в Minecraft) - ~4 удара в секунду
         miningAnimTime.current += delta * 4;

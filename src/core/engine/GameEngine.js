@@ -5,9 +5,13 @@
 import { World } from '../world/World';
 import { BlockMiningManager } from '../physics/BlockMining';
 import { Inventory } from '../inventory/Inventory';
+import { EntityManager } from '../entities/EntityManager';
+import { Mob } from '../entities/Mob';
+import { MobRegistry } from '../entities/MobRegistry';
 import { BLOCK_TYPES } from '../../constants/blocks';
 import { GAME_MODES } from '../../constants/gameMode';
 import { TOTAL_INVENTORY_SIZE } from '../../utils/inventory';
+import { registerDefaultMobs } from '../../constants/mobs';
 
 export class GameEngine {
   constructor(worldInfo, initialChunks, initialPlayerPos) {
@@ -19,6 +23,10 @@ export class GameEngine {
     this.world = null;
     this.miningManager = null;
     this.inventory = null;
+    this.entityManager = new EntityManager();
+
+    // Регистрируем типы мобов
+    registerDefaultMobs();
     
     // Состояние игры
     this.gameMode = worldInfo?.gameMode ?? GAME_MODES.SURVIVAL;
@@ -95,11 +103,71 @@ export class GameEngine {
    */
   update(deltaTime) {
     if (this.isPaused || this.isLoading) return;
-    
+
     // Обновление мира (чанки и физика жидкости)
     if (this.world) {
       this.world.update(this.playerPos);
     }
+
+    // Обновление сущностей (мобов)
+    if (this.entityManager) {
+      this.entityManager.update(deltaTime, this.world?.chunks, {
+        player: this.playerRef, // Ссылка на игрока для AI
+        playerPos: this.playerPos
+      });
+    }
+  }
+
+  /**
+   * Спавн моба в мире
+   * @param {string} mobType - тип моба из MOB_TYPES
+   * @param {number} x - X координата
+   * @param {number} y - Y координата
+   * @param {number} z - Z координата
+   * @returns {Mob|null} - созданный моб или null при ошибке
+   */
+  spawnMob(mobType, x, y, z) {
+    if (!MobRegistry.exists(mobType)) {
+      console.error(`[GameEngine] Unknown mob type: ${mobType}`);
+      return null;
+    }
+
+    const mob = new Mob(x, y, z, mobType);
+
+    // Если есть PhysicsEngine, устанавливаем его
+    if (this.physicsEngine) {
+      mob.setPhysicsEngine(this.physicsEngine);
+    }
+
+    this.entityManager.spawn(mob);
+    this.notifyStateChange();
+
+    return mob;
+  }
+
+  /**
+   * Удалить моба
+   * @param {string} mobId - ID моба
+   */
+  despawnMob(mobId) {
+    this.entityManager.despawn(mobId);
+    this.notifyStateChange();
+  }
+
+  /**
+   * Получить всех мобов
+   * @returns {Mob[]}
+   */
+  getMobs() {
+    return this.entityManager.getAll().filter(e => e instanceof Mob);
+  }
+
+  /**
+   * Установить ссылку на игрока (для AI мобов)
+   * @param {Player} player
+   */
+  setPlayerRef(player) {
+    this.playerRef = player;
   }
 
   /**
@@ -253,6 +321,9 @@ export class GameEngine {
     if (this.miningManager) {
       this.miningManager.reset();
     }
+    if (this.entityManager) {
+      this.entityManager.clear();
+    }
   }
   
   /**
@@ -274,5 +345,12 @@ export class GameEngine {
    */
   getMiningManager() {
     return this.miningManager;
+  }
+
+  /**
+   * Получить EntityManager экземпляр
+   */
+  getEntityManager() {
+    return this.entityManager;
   }
 }

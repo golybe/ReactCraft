@@ -14,6 +14,7 @@ import HeldItem from '../entities/HeldItem';
 import Debris from '../entities/Debris';
 import BlockBreakOverlay from '../world/BlockBreakOverlay';
 import { DroppedItemsManager } from '../entities/DroppedItemRenderer';
+import { MobsRenderer } from '../entities/MobRenderer';
 import { PerformanceMetrics } from '../../utils/performance';
 import { BlockInteraction } from './BlockInteraction';
 
@@ -75,6 +76,7 @@ export const GameCanvas = ({
   chunkManager,
   liquidSimulator,
   miningManager,
+  entityManager,
   gameMode,
   isMouseDown,
   miningState,
@@ -86,12 +88,13 @@ export const GameCanvas = ({
   lastPunchTime,
   initialPlayerPos,
   noclipMode,
-    canFly,
-    speedMultiplier,
-    isChatOpen,
-    isInventoryOpen,
-    teleportPos,
-    onPlayerMove,
+  canFly,
+  speedMultiplier,
+  isChatOpen,
+  isInventoryOpen,
+  isDead,
+  teleportPos,
+  onPlayerMove,
   onBlocksCount,
   onBlockDestroy,
   onBlockPlace,
@@ -101,7 +104,13 @@ export const GameCanvas = ({
   onLookingAtBlock,
   onItemPickup,
   getBlockAt,
-  onChunksUpdate
+  onChunksUpdate,
+  onPlayerDeath,
+  onPlayerRef,
+  onStartEating,
+  onStopEating,
+  isEating,
+  eatingProgress
 }) => {
   return (
     <Canvas
@@ -160,7 +169,10 @@ export const GameCanvas = ({
             speedMultiplier={speedMultiplier}
             isChatOpen={isChatOpen}
             isInventoryOpen={isInventoryOpen}
+            isDead={isDead}
             teleportPos={teleportPos}
+            onDeath={onPlayerDeath}
+            onPlayerRef={onPlayerRef}
           />
           <BlockHighlight chunks={chunks} />
 
@@ -182,6 +194,11 @@ export const GameCanvas = ({
             />
           )}
 
+          {/* Рендеринг мобов */}
+          {entityManager && (
+            <MobsRenderer entityManager={entityManager} />
+          )}
+
           {/* Рендеринг эффектов разрушения */}
           {debrisList && debrisList.map(debris => (
             <Debris key={debris.id} {...debris} />
@@ -197,6 +214,9 @@ export const GameCanvas = ({
             onStopMining={onStopMining}
             onLookingAtBlock={onLookingAtBlock}
             isMouseDown={isMouseDown}
+            isDead={isDead}
+            onStartEating={onStartEating}
+            onStopEating={onStopEating}
           />
 
           <HeldItem
@@ -204,6 +224,8 @@ export const GameCanvas = ({
             isMining={gameMode === GAME_MODES.SURVIVAL && isMouseDown && miningState?.target !== null}
             lastPunchTime={lastPunchTime}
             isFlying={isFlying}
+            isEating={isEating}
+            eatingProgress={eatingProgress}
             lightLevel={chunkManager ?
               chunkManager.getLightLevel(
                 Math.floor(playerPos?.x || 0),

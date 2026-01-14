@@ -41,6 +41,14 @@ export class Block {
     this.drops = settings.drops !== undefined ? settings.drops : id; // По умолчанию дропает себя
     this.dropCount = settings.dropCount || 1;
     this.xp = settings.xp || 0; // Опыт за добычу (для будущего)
+    
+    // Кастомные дропы с шансом (например, яблоки с листвы)
+    // Формат: [{ type: blockId, chance: 0.05, count: 1 }]
+    this.customDrops = settings.customDrops || [];
+    
+    // Свойства для еды
+    this.isFood = settings.isFood || false;
+    this.healAmount = settings.healAmount || 0;
   }
 
   /**
@@ -105,8 +113,27 @@ export class Block {
    * @returns {{ type: number, count: number }[]}
    */
   getDrops() {
-    if (this.drops === null || this.drops === 0) return [];
-    return [{ type: this.drops, count: this.dropCount }];
+    const drops = [];
+    
+    // Основной дроп
+    if (this.drops !== null && this.drops !== 0) {
+      drops.push({ type: this.drops, count: this.dropCount });
+    }
+    
+    // Кастомные дропы с шансом (например, яблоки с листвы)
+    if (this.customDrops && this.customDrops.length > 0) {
+      this.customDrops.forEach(customDrop => {
+        const chance = customDrop.chance || 1.0;
+        if (Math.random() < chance) {
+          drops.push({
+            type: customDrop.type,
+            count: customDrop.count || 1
+          });
+        }
+      });
+    }
+    
+    return drops;
   }
 
   /**

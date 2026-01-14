@@ -5,6 +5,7 @@ import React, { useRef, useEffect, useCallback } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { REACH_DISTANCE } from '../../constants/world';
+import { BlockRegistry } from '../../core/blocks/BlockRegistry';
 
 export const BlockInteraction = ({
   chunks,
@@ -15,11 +16,43 @@ export const BlockInteraction = ({
   onMouseStateChange,
   onStopMining,
   onLookingAtBlock,
-  isMouseDown
+  isMouseDown,
+  isDead,
+  onStartEating,
+  onStopEating
 }) => {
   const { camera, scene } = useThree();
   const raycaster = useRef(new THREE.Raycaster());
   const lastLookTarget = useRef(null);
+
+  // Используем рефы для пропсов, чтобы не пересоздавать обработчики событий слишком часто
+  const propsRef = useRef({
+    isDead,
+    selectedBlock,
+    onPunch,
+    onMouseStateChange,
+    onStopMining,
+    onBlockDestroy,
+    onBlockPlace,
+    onStartEating,
+    onStopEating,
+    onLookingAtBlock
+  });
+
+  useEffect(() => {
+    propsRef.current = {
+      isDead,
+      selectedBlock,
+      onPunch,
+      onMouseStateChange,
+      onStopMining,
+      onBlockDestroy,
+      onBlockPlace,
+      onStartEating,
+      onStopEating,
+      onLookingAtBlock
+    };
+  }, [isDead, selectedBlock, onPunch, onMouseStateChange, onStopMining, onBlockDestroy, onBlockPlace, onStartEating, onStopEating, onLookingAtBlock]);
 
   useEffect(() => {
     raycaster.current.far = REACH_DISTANCE;
@@ -58,7 +91,8 @@ export const BlockInteraction = ({
 
   // Continuous raycast while mining (useFrame)
   useFrame(() => {
-    if (!isMouseDown) {
+    // Блокируем взаимодействие если игрок мертв
+    if (propsRef.current.isDead || !isMouseDown) {
       lastLookTarget.current = null;
       return;
     }
@@ -74,22 +108,25 @@ export const BlockInteraction = ({
       // If looking at a different block, notify
       if (lastLookTarget.current !== key) {
         lastLookTarget.current = key;
-        if (onLookingAtBlock) {
-          onLookingAtBlock(breakPos.x, breakPos.y, breakPos.z);
+        if (propsRef.current.onLookingAtBlock) {
+          propsRef.current.onLookingAtBlock(breakPos.x, breakPos.y, breakPos.z);
         }
       }
     } else {
       // Looking at nothing
       if (lastLookTarget.current !== null) {
         lastLookTarget.current = null;
-        if (onStopMining) onStopMining();
+        if (propsRef.current.onStopMining) propsRef.current.onStopMining();
       }
     }
   });
 
   useEffect(() => {
     const handleMouseDown = (e) => {
-      if (document.pointerLockElement !== document.body) return;
+      const { isDead, onPunch, onMouseStateChange, selectedBlock, onStartEating, onBlockDestroy } = propsRef.current;
+      
+      // Блокируем взаимодействие если игрок мертв
+      if (isDead || document.pointerLockElement !== document.body) return;
 
       if (e.button === 0) {
         if (onPunch) onPunch();
@@ -101,19 +138,37 @@ export const BlockInteraction = ({
           onBlockDestroy(target.breakPos.x, target.breakPos.y, target.breakPos.z);
         }
       } else if (e.button === 2) {
-        const target = doRaycast();
-        if (target) {
-          // Pass both positions: breakPos (block clicked) and placePos (where to place)
-          onBlockPlace(target.placePos.x, target.placePos.y, target.placePos.z, target.breakPos);
+        // Проверяем, является ли выбранный предмет едой
+        const block = BlockRegistry.get(selectedBlock);
+        if (block && block.isFood) {
+          // Начинаем поедание еды (требуется удержание ПКМ)
+          if (onStartEating) {
+            onStartEating(selectedBlock, block.healAmount || 0);
+          }
+        } else {
+          // Размещаем блок
+          const target = doRaycast();
+          if (target) {
+            const { onBlockPlace } = propsRef.current;
+            // Pass both positions: breakPos (block clicked) and placePos (where to place)
+            onBlockPlace(target.placePos.x, target.placePos.y, target.placePos.z, target.breakPos);
+          }
         }
       }
     };
 
     const handleMouseUp = (e) => {
+      const { onMouseStateChange, onStopMining, onStopEating } = propsRef.current;
+      
       if (e.button === 0) {
         if (onMouseStateChange) onMouseStateChange(false);
         if (onStopMining) onStopMining();
         lastLookTarget.current = null;
+      } else if (e.button === 2) {
+        // Отпустили ПКМ - прекращаем поедание
+        if (onStopEating) {
+          onStopEating();
+        }
       }
     };
 
@@ -132,7 +187,10 @@ export const BlockInteraction = ({
       document.removeEventListener('mouseup', handleMouseUp);
       document.removeEventListener('contextmenu', handleContextMenu);
     };
-  }, [camera, scene, onBlockDestroy, onBlockPlace, onMouseStateChange, onStopMining, doRaycast, onPunch]);
+  }, [camera, scene, doRaycast]); // Теперь только стабильные зависимости
+
+  return null;
+};
 
   return null;
 };
