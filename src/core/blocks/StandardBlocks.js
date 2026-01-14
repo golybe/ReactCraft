@@ -57,3 +57,20 @@ export class Item extends Block {
     this.isPlaceable = false;
   }
 }
+
+/**
+ * Инструмент (топор, кирка, лопата и т.д.)
+ */
+export class Tool extends Item {
+  constructor(id, settings) {
+    super(id, {
+      ...settings,
+      isTool: true
+    });
+    this.isTool = true;
+    this.toolType = settings.toolType || 'hand'; // тип инструмента (axe, pickaxe, shovel)
+    this.toolEfficiency = settings.toolEfficiency || 1.0; // множитель скорости добычи
+    this.durability = settings.durability || -1; // прочность (-1 = неломаемый)
+    this.maxDurability = settings.durability || -1;
+  }
+}

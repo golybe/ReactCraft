@@ -23,6 +23,7 @@ export const textures = {
   bedrock: texPath('bedrock.png'),
   stick: texPath('stick.png'),
   apple: texPath('apple.png'),
+  woodenAxe: texPath('wooden_axe.png'),
   // Workbench textures
   craftingTableTop: texPath('crafting_table_top.png'),
   craftingTableSide: texPath('crafting_table_side.png'),
@@ -51,6 +52,7 @@ const blockTextureMap = {
   [BLOCK_TYPES.BEDROCK]: { all: 'bedrock' },
   [BLOCK_TYPES.STICK]: { all: 'stick', isItem: true },
   [BLOCK_TYPES.APPLE]: { all: 'apple', isItem: true },
+  [BLOCK_TYPES.WOODEN_AXE]: { all: 'woodenAxe', isItem: true },
   [BLOCK_TYPES.CRAFTING_TABLE]: {
     top: 'craftingTableTop',
     side: 'craftingTableSide',

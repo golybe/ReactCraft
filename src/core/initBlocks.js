@@ -1,5 +1,5 @@
 import { BlockRegistry } from './blocks/BlockRegistry';
-import { AirBlock, SolidBlock, TransparentBlock, LiquidBlock, Item } from './blocks/StandardBlocks';
+import { AirBlock, SolidBlock, TransparentBlock, LiquidBlock, Item, Tool } from './blocks/StandardBlocks';
 import { TOOL_TYPES } from './blocks/Block';
 import { BLOCK_TYPES } from '../constants/blockTypes';
 
@@ -187,5 +187,19 @@ export const initBlocks = () => {
     color: 0xff0000,
     isFood: true,
     healAmount: 4
+  }));
+
+  // =========================================================
+  // TOOLS (520+)
+  // =========================================================
+
+  // 520: WOODEN_AXE
+  BlockRegistry.register(new Tool(BLOCK_TYPES.WOODEN_AXE, {
+    name: 'wooden_axe',
+    texture: 'wooden_axe',
+    color: 0x8B4513,
+    toolType: TOOL_TYPES.AXE,
+    toolEfficiency: 2.0, // В 2 раза быстрее чем рукой
+    durability: 59 // Как в Minecraft
   }));
 };

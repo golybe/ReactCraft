@@ -4,6 +4,7 @@ import { BLOCK_TYPES } from '../constants/blockTypes';
 import { CHUNK_HEIGHT, REACH_DISTANCE, PLAYER_WIDTH, PLAYER_HEIGHT } from '../constants/world';
 import { GAME_MODES } from '../constants/gameMode';
 import { BlockMiningManager } from '../core/physics/BlockMining';
+import { TOOL_TYPES } from '../core/blocks/Block';
 
 /**
  * Hook for managing block interaction (mining, placing, debris, dropped items)
@@ -120,16 +121,24 @@ export function useBlockInteraction({
       return;
     }
 
-    // Survival Mode: Start mining
+    // Survival Mode: Start mining with tool
     if (miningManagerRef.current) {
+      // Определяем тип и эффективность инструмента
+      const heldItem = inventoryRef?.current?.getSlots()[selectedSlot];
+      const heldBlockId = heldItem?.type;
+      const heldBlock = heldBlockId ? BlockRegistry.get(heldBlockId) : null;
+      
+      const toolType = heldBlock?.toolType || TOOL_TYPES.HAND;
+      const toolEfficiency = heldBlock?.toolEfficiency || 1.0;
+      
       miningManagerRef.current.onBlockBroken = (bx, by, bz, bid) => {
         destroyBlock(bx, by, bz, bid);
       };
-      miningManagerRef.current.startMining(x, y, z, blockId);
+      miningManagerRef.current.startMining(x, y, z, blockId, toolType, toolEfficiency);
     }
 
     setLastPunchTime(Date.now());
-  }, [playerPos, gameMode, destroyBlock, worldRef]);
+  }, [playerPos, gameMode, destroyBlock, worldRef, inventoryRef, selectedSlot]);
 
   const handleBlockPlace = useCallback((x, y, z) => {
     if (!worldRef?.current) return;

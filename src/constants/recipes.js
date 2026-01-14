@@ -33,6 +33,17 @@ export const RECIPES = [
       [BLOCK_TYPES.PLANKS, BLOCK_TYPES.PLANKS]
     ],
     type: 'shaped'
+  },
+  // 3 Planks + 2 Sticks -> Wooden Axe
+  {
+    id: 'wooden_axe',
+    result: { type: BLOCK_TYPES.WOODEN_AXE, count: 1 },
+    pattern: [
+      [BLOCK_TYPES.PLANKS, BLOCK_TYPES.PLANKS, null],
+      [BLOCK_TYPES.PLANKS, BLOCK_TYPES.STICK, null],
+      [null, BLOCK_TYPES.STICK, null]
+    ],
+    type: 'shaped'
   }
 ];
 

@@ -29,7 +29,10 @@ export const BLOCK_TYPES = {
 
   // ITEMS (Non-block entities): 512+
   STICK: 512,
-  APPLE: 513
+  APPLE: 513,
+  
+  // TOOLS: 520+
+  WOODEN_AXE: 520
 };
 
 export default BLOCK_TYPES;
