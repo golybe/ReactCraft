@@ -6,11 +6,11 @@ import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { REACH_DISTANCE } from '../../constants/world';
 
-export const BlockInteraction = ({ 
-  chunks, 
-  onBlockDestroy, 
-  onBlockPlace, 
-  selectedBlock, 
+export const BlockInteraction = ({
+  chunks,
+  onBlockDestroy,
+  onBlockPlace,
+  selectedBlock,
   onPunch,
   onMouseStateChange,
   onStopMining,
@@ -62,15 +62,15 @@ export const BlockInteraction = ({
       lastLookTarget.current = null;
       return;
     }
-    
+
     if (document.pointerLockElement !== document.body) return;
 
     const target = doRaycast();
-    
+
     if (target) {
       const { breakPos } = target;
       const key = `${breakPos.x},${breakPos.y},${breakPos.z}`;
-      
+
       // If looking at a different block, notify
       if (lastLookTarget.current !== key) {
         lastLookTarget.current = key;
@@ -94,7 +94,7 @@ export const BlockInteraction = ({
       if (e.button === 0) {
         if (onPunch) onPunch();
         if (onMouseStateChange) onMouseStateChange(true);
-        
+
         // Initial raycast on mousedown
         const target = doRaycast();
         if (target) {
@@ -103,7 +103,8 @@ export const BlockInteraction = ({
       } else if (e.button === 2) {
         const target = doRaycast();
         if (target) {
-          onBlockPlace(target.placePos.x, target.placePos.y, target.placePos.z);
+          // Pass both positions: breakPos (block clicked) and placePos (where to place)
+          onBlockPlace(target.placePos.x, target.placePos.y, target.placePos.z, target.breakPos);
         }
       }
     };

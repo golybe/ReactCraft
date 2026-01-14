@@ -191,10 +191,13 @@
   width: 24px;
   height: 48px;
   background: linear-gradient(to bottom,
-    #5d4a3d 0%, #5d4a3d 25%,  /* head */
-    #3d7d49 25%, #3d7d49 50%, /* torso */
-    #3b3bab 50%, #3b3bab 100% /* legs */
-  );
+      #5d4a3d 0%, #5d4a3d 25%,
+      /* head */
+      #3d7d49 25%, #3d7d49 50%,
+      /* torso */
+      #3b3bab 50%, #3b3bab 100%
+      /* legs */
+    );
   image-rendering: pixelated;
 }
 
@@ -276,4 +279,42 @@
   font-family: 'VT323', monospace;
   text-shadow: 1.5px 1.5px 0 #3f3f3f;
   line-height: 1;
+}
+
+/* ===== CRAFTING TABLE (3x3) ===== */
+.mc-window.crafting-table {
+  width: 352px;
+}
+
+.mc-crafting-interface {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mc-crafting-area-3x3 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 0;
+  border-bottom: 2px solid #8b8b8b;
+  margin-bottom: 8px;
+}
+
+.mc-crafting-grid-3x3 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mc-crafting-slots-3x3 {
+  display: grid;
+  grid-template-columns: repeat(3, 36px);
+  gap: 0;
+}
+
+.mc-result-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }

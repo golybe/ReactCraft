@@ -22,10 +22,13 @@ const files = {
   'coal_ore.png': 'block/coal_ore.png',
   'iron_ore.png': 'block/iron_ore.png',
   'gold_ore.png': 'block/gold_ore.png',
-    'diamond_ore.png': 'block/diamond_ore.png',
-    'brick.png': 'block/bricks.png',
-    'stick.png': 'item/stick.png'
-  };
+  'diamond_ore.png': 'block/diamond_ore.png',
+  'brick.png': 'block/bricks.png',
+  'stick.png': 'item/stick.png',
+  'crafting_table_top.png': 'block/crafting_table_top.png',
+  'crafting_table_side.png': 'block/crafting_table_side.png',
+  'crafting_table_front.png': 'block/crafting_table_front.png'
+};
 
 const downloadFile = (filename, remotePath) => {
   const url = BASE_URL + remotePath;
@@ -34,10 +37,10 @@ const downloadFile = (filename, remotePath) => {
 
   https.get(url, (response) => {
     if (response.statusCode !== 200) {
-        console.error(`Failed to download ${filename}: ${response.statusCode}`);
-        file.close();
-        fs.unlink(filePath, () => {}); 
-        return;
+      console.error(`Failed to download ${filename}: ${response.statusCode}`);
+      file.close();
+      fs.unlink(filePath, () => { });
+      return;
     }
     response.pipe(file);
     file.on('finish', () => {
@@ -45,7 +48,7 @@ const downloadFile = (filename, remotePath) => {
       console.log(`Downloaded ${filename}`);
     });
   }).on('error', (err) => {
-    fs.unlink(filePath, () => {});
+    fs.unlink(filePath, () => { });
     console.error(`Error downloading ${filename}: ${err.message}`);
   });
 };

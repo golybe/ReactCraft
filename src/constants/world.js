@@ -13,7 +13,7 @@ export const SEA_LEVEL = 40; // Чуть выше дна
 // Настройки генерации
 export const TERRAIN_SCALE = 0.003; // Очень плавные изменения (масштаб континентов)
 export const TERRAIN_HEIGHT_SCALE = 40; // Высокие горы
-export const CAVE_SCALE = 0.05; 
+export const CAVE_SCALE = 0.05;
 export const CAVE_THRESHOLD = 0.6;
 export const BIOME_SCALE = 0.002; // Огромные биомы
 
@@ -59,6 +59,13 @@ export const PHYSICS_GRAVITY = 28; // ускорение падения
 export const MAX_FALL_SPEED = 50; // максимальная скорость падения
 export const GROUND_CHECK_DIST = 0.05; // расстояние проверки земли
 
+// Константы для воды (настроены как в Minecraft)
+export const WATER_GRAVITY = 1.8; // очень слабая гравитация (игрок почти не тонет)
+export const WATER_MAX_FALL_SPEED = 1.5; // медленное погружение
+export const WATER_SWIM_SPEED = 3.5; // быстрое всплытие при Space
+export const WATER_DRAG = 0.65; // небольшое замедление (0.5-0.7 = Minecraft-like)
+export const WATER_BUOYANCY = 8.0; // сильная плавучесть
+
 // Дальность взаимодействия (в блоках)
 export const REACH_DISTANCE = 5;
 
@@ -85,5 +92,10 @@ export default {
   PHYSICS_GRAVITY,
   MAX_FALL_SPEED,
   GROUND_CHECK_DIST,
+  WATER_GRAVITY,
+  WATER_MAX_FALL_SPEED,
+  WATER_SWIM_SPEED,
+  WATER_DRAG,
+  WATER_BUOYANCY,
   REACH_DISTANCE
 };

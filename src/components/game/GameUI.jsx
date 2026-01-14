@@ -55,11 +55,11 @@ export const LoadingScreen = ({ worldName, progress }) => {
 /**
  * Меню паузы
  */
-export const PauseMenu = ({ 
-  onResume, 
-  onSaveAndExit, 
+export const PauseMenu = ({
+  onResume,
+  onSaveAndExit,
   onExitToMenu,
-  onSaveWorld 
+  onSaveWorld
 }) => {
   return (
     <div style={{
@@ -83,9 +83,9 @@ export const PauseMenu = ({
         width: '100%',
         maxWidth: '350px'
       }}>
-        <h2 style={{ 
-          marginBottom: '20px', 
-          color: '#fff', 
+        <h2 style={{
+          marginBottom: '20px',
+          color: '#fff',
           fontSize: '40px',
           fontFamily: "'VT323', monospace",
           textShadow: '2px 2px 0 #000'
@@ -131,7 +131,7 @@ export const PauseMenu = ({
  */
 export const SaveMessage = ({ message }) => {
   if (!message) return null;
-  
+
   return (
     <div style={{
       position: 'fixed',
@@ -155,13 +155,15 @@ export const SaveMessage = ({ message }) => {
 /**
  * Debug информация
  */
-export const DebugInfo = ({ 
-  fps, 
-  playerPos, 
-  chunksCount, 
-  blocksCount, 
-  biome, 
-  gameMode 
+export const DebugInfo = ({
+  fps,
+  playerPos,
+  chunksCount,
+  blocksCount,
+  biome,
+  gameMode,
+  isInWater,
+  isHeadUnderwater
 }) => {
   return (
     <div style={{
@@ -185,6 +187,11 @@ export const DebugInfo = ({
       <div style={{ color: gameMode === GAME_MODES.CREATIVE ? '#6aadbd' : '#6abd6e' }}>
         Mode: {GAME_MODE_NAMES[gameMode]}
       </div>
+      {isInWater && (
+        <div style={{ color: isHeadUnderwater ? '#4488ff' : '#66aaff' }}>
+          {isHeadUnderwater ? '🌊 Underwater' : '💧 In water'}
+        </div>
+      )}
     </div>
   );
 };

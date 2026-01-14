@@ -22,6 +22,10 @@ export function usePlayerMovement({
   const [speedMultiplier, setSpeedMultiplier] = useState(1);
   const [teleportPos, setTeleportPos] = useState(null);
 
+  // Water states
+  const [isInWater, setIsInWater] = useState(false);
+  const [isHeadUnderwater, setIsHeadUnderwater] = useState(false);
+
   // Update canFly when game mode changes
   useEffect(() => {
     const defaults = getGameModeDefaults(gameMode);
@@ -34,6 +38,10 @@ export function usePlayerMovement({
       setIsFlying(data.isFlying);
       if (data.yaw !== undefined) setPlayerYaw(data.yaw);
       if (data.pitch !== undefined) setPlayerPitch(data.pitch);
+
+      // Update water states
+      if (data.isInWater !== undefined) setIsInWater(data.isInWater);
+      if (data.isHeadUnderwater !== undefined) setIsHeadUnderwater(data.isHeadUnderwater);
     }
   }, []);
 
@@ -69,6 +77,8 @@ export function usePlayerMovement({
     setSpeedMultiplier,
     teleportPos,
     setTeleportPos,
+    isInWater,
+    isHeadUnderwater,
     handlePlayerMove,
     teleportTo,
     toggleNoclip,

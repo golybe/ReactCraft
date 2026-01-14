@@ -12,17 +12,22 @@ import {
   PLAYER_HEIGHT,
   PLAYER_WIDTH,
   MOVE_SPEED,
-  JUMP_VELOCITY
+  JUMP_VELOCITY,
+  WATER_GRAVITY,
+  WATER_MAX_FALL_SPEED,
+  WATER_SWIM_SPEED,
+  WATER_DRAG,
+  WATER_BUOYANCY
 } from '../../constants/world';
 import { PhysicsEngine } from '../physics/PhysicsEngine';
 
 export class Player extends Entity {
   constructor(x = 0, y = 64, z = 0) {
     super(x, y, z);
-    
+
     this.width = PLAYER_WIDTH;
     this.height = PLAYER_HEIGHT;
-    
+
     // Управление
     this.keys = {
       forward: false,
@@ -32,15 +37,20 @@ export class Player extends Entity {
       jump: false,
       shift: false
     };
-    
+
     // Режимы
     this.noclipMode = false;
     this.canFly = false;
     this.speedMultiplier = 1;
-    
+
+    // Состояние воды
+    this.isInWater = false; // Тело находится в воде (любая часть)
+    this.isHeadUnderwater = false; // Голова под водой (для визуального эффекта)
+    this.isSwimming = false; // Активно плывёт
+
     // Callback для уведомления об изменениях
     this.onMove = null;
-    
+
     // PhysicsEngine будет установлен извне
     this.physicsEngine = null;
   }
@@ -50,6 +60,43 @@ export class Player extends Entity {
    */
   setPhysicsEngine(physicsEngine) {
     this.physicsEngine = physicsEngine;
+  }
+
+  /**
+   * Проверка, находится ли точка в воде
+   */
+  isBlockWater(chunks, x, y, z) {
+    if (!chunks) return false;
+    const block = getBlock(chunks, Math.floor(x), Math.floor(y), Math.floor(z));
+    return block === BLOCK_TYPES.WATER;
+  }
+
+  /**
+   * Проверка нахождения игрока в воде (тело)
+   */
+  checkInWater(chunks) {
+    if (!chunks) return false;
+
+    // Проверяем несколько точек на теле игрока
+    const feetY = this.position.y;
+    const bodyY = this.position.y + this.height / 2;
+    const headY = this.position.y + this.height - 0.2;
+
+    const inWaterFeet = this.isBlockWater(chunks, this.position.x, feetY, this.position.z);
+    const inWaterBody = this.isBlockWater(chunks, this.position.x, bodyY, this.position.z);
+
+    return inWaterFeet || inWaterBody;
+  }
+
+  /**
+   * Проверка, находится ли голова под водой
+   */
+  checkHeadUnderwater(chunks) {
+    if (!chunks) return false;
+
+    // Уровень глаз игрока
+    const eyeY = this.position.y + this.height - 0.3;
+    return this.isBlockWater(chunks, this.position.x, eyeY, this.position.z);
   }
 
   /**
@@ -114,11 +161,21 @@ export class Player extends Entity {
    */
   update(deltaTime, chunks, isChatOpen = false) {
     const dt = Math.min(deltaTime, 0.05);
+
+    // === ОБНОВЛЕНИЕ СОСТОЯНИЯ ВОДЫ ===
+    this.isInWater = this.checkInWater(chunks);
+    this.isHeadUnderwater = this.checkHeadUnderwater(chunks);
+
     let currentSpeed = MOVE_SPEED * this.speedMultiplier;
-    
+
     // При полете скорость в 3 раза выше
     if (this.isFlying) {
       currentSpeed *= 3.0;
+    }
+
+    // В воде замедляем скорость
+    if (this.isInWater && !this.noclipMode && !this.isFlying) {
+      currentSpeed *= WATER_DRAG;
     }
 
     // === ГОРИЗОНТАЛЬНОЕ ДВИЖЕНИЕ ===
@@ -158,12 +215,13 @@ export class Player extends Entity {
     if (this.noclipMode) {
       this.position.x += moveX * 3;
       this.position.z += moveZ * 3;
-      
+
       // Вертикальное перемещение
       if (this.keys.jump) this.position.y += currentSpeed * dt * 2;
       if (this.keys.shift) this.position.y -= currentSpeed * dt * 2;
-      
+
       this.velocity.set(0, 0, 0);
+      this.isSwimming = false;
     }
     // === РЕЖИМ ПОЛЕТА (Creative) ===
     else if (this.isFlying) {
@@ -189,11 +247,86 @@ export class Player extends Entity {
           this.position.y = newY;
         }
       }
-      
+
       this.velocity.set(0, 0, 0);
+      this.isSwimming = false;
+    }
+    // === ФИЗИКА В ВОДЕ ===
+    else if (this.isInWater) {
+      // Горизонтальное движение (замедленное, с коллизиями)
+      const newX = this.position.x + moveX;
+      if (!this.checkCollision(chunks, newX, this.position.y, this.position.z)) {
+        this.position.x = newX;
+      }
+
+      const newZ = this.position.z + moveZ;
+      if (!this.checkCollision(chunks, this.position.x, this.position.y, newZ)) {
+        this.position.z = newZ;
+      }
+
+      // === ВЕРТИКАЛЬНОЕ ДВИЖЕНИЕ В ВОДЕ ===
+      // Лёгкая гравитация (игрок медленно тонет)
+      this.velocity.y -= WATER_GRAVITY * dt;
+
+      // Ограничиваем скорость погружения
+      if (this.velocity.y < -WATER_MAX_FALL_SPEED) {
+        this.velocity.y = -WATER_MAX_FALL_SPEED;
+      }
+
+      // Плавание вверх при нажатии Space
+      if (this.keys.jump && !isChatOpen) {
+        this.velocity.y += WATER_BUOYANCY * dt;
+        this.isSwimming = true;
+
+        // Ограничиваем скорость всплытия
+        if (this.velocity.y > WATER_SWIM_SPEED) {
+          this.velocity.y = WATER_SWIM_SPEED;
+        }
+      } else {
+        this.isSwimming = false;
+      }
+
+      // Погружение при нажатии Shift
+      if (this.keys.shift && !isChatOpen) {
+        this.velocity.y -= WATER_BUOYANCY * 0.5 * dt;
+      }
+
+      // Применяем вертикальное движение
+      if (this.velocity.y !== 0) {
+        const newY = this.position.y + this.velocity.y * dt;
+
+        // Проверяем коллизию с твёрдыми блоками (не с водой)
+        if (this.physicsEngine) {
+          if (!this.physicsEngine.checkCollision(this, this.position.x, newY, this.position.z)) {
+            this.position.y = newY;
+          } else {
+            // Коллизия с землёй
+            if (this.velocity.y < 0) {
+              this.onGround = true;
+              this.velocity.y = 0;
+              const groundY = this.physicsEngine.findGroundY(
+                this,
+                this.position.x,
+                this.position.y,
+                this.position.z
+              );
+              this.position.y = groundY;
+            } else {
+              this.velocity.y = 0;
+            }
+          }
+        } else {
+          this.position.y = newY;
+        }
+      }
+
+      // Сбрасываем onGround в воде (мы плаваем, а не стоим)
+      this.onGround = false;
     }
     // === ОБЫЧНАЯ ФИЗИКА ===
     else {
+      this.isSwimming = false;
+
       // Пробуем двигаться по X
       const newX = this.position.x + moveX;
       if (!this.checkCollision(chunks, newX, this.position.y, this.position.z)) {
@@ -211,7 +344,7 @@ export class Player extends Entity {
       if (this.physicsEngine) {
         // Обновляем чанки в PhysicsEngine
         this.physicsEngine.setChunks(chunks);
-        
+
         // Проверяем землю
         const onGround = this.physicsEngine.checkGround(
           this,
@@ -294,7 +427,10 @@ export class Player extends Entity {
         z: this.position.z,
         yaw: this.rotation.yaw,
         pitch: this.rotation.pitch,
-        isFlying: this.isFlying || this.noclipMode
+        isFlying: this.isFlying || this.noclipMode,
+        isInWater: this.isInWater,
+        isHeadUnderwater: this.isHeadUnderwater,
+        isSwimming: this.isSwimming
       });
     }
   }
