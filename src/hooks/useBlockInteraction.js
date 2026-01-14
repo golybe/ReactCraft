@@ -282,6 +282,63 @@ export function useBlockInteraction({
     return worldRef.current.getBlock(x, y, z);
   }, [worldRef]);
 
+  // Устанавливаем callback для обработки дропов при осыпании листвы
+  useEffect(() => {
+    if (!worldRef?.current) return;
+    
+    const handleLeafDecay = (x, y, z, blockId) => {
+      const block = BlockRegistry.get(blockId);
+      
+      // Удаляем блок
+      worldRef.current.getChunkManager().setBlock(x, y, z, BLOCK_TYPES.AIR);
+      setChunks({ ...worldRef.current.getChunks() });
+      
+      // Создаем частицы debris
+      if (blockId) {
+        const lightLevel = worldRef.current.getLightLevel(x, y, z);
+        const id = Date.now() + Math.random();
+        setDebrisList(prev => [...prev, { id, x, y, z, blockType: blockId, lightLevel }]);
+        setTimeout(() => {
+          setDebrisList(prev => prev.filter(d => d.id !== id));
+        }, 1000);
+      }
+      
+      // В Survival режиме создаем дропы (яблоки с шансом 5%)
+      if (gameMode === GAME_MODES.SURVIVAL && block) {
+        const drops = block.getDrops();
+        drops.forEach(drop => {
+          if (drop.type && drop.count > 0) {
+            const itemId = Date.now() + Math.random();
+            const angle = Math.random() * Math.PI * 2;
+            const offsetDist = 0.25;
+            const offsetX = Math.cos(angle) * offsetDist;
+            const offsetZ = Math.sin(angle) * offsetDist;
+            const hSpeed = 0.5 + Math.random() * 0.5;
+
+            setDroppedItems(prev => [...prev, {
+              id: itemId,
+              blockType: drop.type,
+              count: drop.count,
+              position: {
+                x: x + 0.5 + offsetX,
+                y: y + 0.3,
+                z: z + 0.5 + offsetZ
+              },
+              velocity: {
+                x: Math.cos(angle) * hSpeed,
+                y: 0,
+                z: Math.sin(angle) * hSpeed
+              },
+              noPickupTime: 0.3
+            }]);
+          }
+        });
+      }
+    };
+    
+    worldRef.current.setLeafDecayCallback(handleLeafDecay);
+  }, [worldRef, gameMode, setChunks, setDebrisList, setDroppedItems]);
+
   return {
     miningState,
     isMouseDown,

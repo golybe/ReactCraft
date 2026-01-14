@@ -25,6 +25,9 @@ export class LeafDecaySimulator {
     this.MAX_CHECKS_PER_FRAME = 50; 
     
     this.lastUpdateTime = performance.now();
+    
+    // Callback для обработки дропов при осыпании листвы
+    this.onLeafDecay = null;
   }
 
   /**
@@ -87,7 +90,13 @@ export class LeafDecaySimulator {
       const blockId = this.chunkManager.getBlock(x, y, z);
       
       if (blockId === BLOCK_TYPES.LEAVES) {
-        this.chunkManager.setBlock(x, y, z, BLOCK_TYPES.AIR);
+        // Вызываем callback для обработки дропов (яблоки с шансом 5%)
+        if (this.onLeafDecay) {
+          this.onLeafDecay(x, y, z, blockId);
+        } else {
+          // Fallback: просто удаляем блок без дропов
+          this.chunkManager.setBlock(x, y, z, BLOCK_TYPES.AIR);
+        }
         hasChanges = true;
 
         // Самое важное: когда лист пропадает, соседние листья должны проверить себя!

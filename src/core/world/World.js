@@ -15,6 +15,10 @@ export class World {
     this.liquidSimulator = new LiquidSimulator(this.chunkManager);
     this.leafDecaySimulator = new LeafDecaySimulator(this.chunkManager);
     
+    // Устанавливаем callback для обработки дропов листвы
+    // Этот callback должен быть установлен извне через setLeafDecayCallback
+    this.leafDecayCallback = null;
+    
     // Callback для оповещения об обновлениях
     this.onChunksUpdate = null;
     this.onStateChange = null;
@@ -195,5 +199,15 @@ export class World {
    */
   getLeafDecaySimulator() {
     return this.leafDecaySimulator;
+  }
+
+  /**
+   * Установить callback для обработки дропов листвы
+   */
+  setLeafDecayCallback(callback) {
+    this.leafDecayCallback = callback;
+    if (this.leafDecaySimulator) {
+      this.leafDecaySimulator.onLeafDecay = callback;
+    }
   }
 }
