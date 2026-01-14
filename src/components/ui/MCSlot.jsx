@@ -23,7 +23,7 @@ export const MCSlot = ({
     onHover,
     isHovered = false,
     showCount = true,
-    size = 36,
+    size = 54,
     disabled = false,
     className = ''
 }) => {
@@ -73,7 +73,7 @@ export const MCGrid = ({
     onSlotRightClick,
     onSlotHover,
     startIndex = 0,
-    size = 36,
+    size = 54,
     showCount = true,
     className = ''
 }) => {
@@ -113,7 +113,7 @@ export const MCCursorItem = React.forwardRef(({ item }, ref) => {
         >
             {type && (
                 <>
-                    <BlockIcon blockId={type} size={32} />
+                    <BlockIcon blockId={type} size={48} />
                     {count > 1 && (
                         <div className="mc-cursor-count">{count}</div>
                     )}

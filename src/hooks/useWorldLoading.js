@@ -18,11 +18,17 @@ export function useWorldLoading({
 
   const worldRef = useRef(null);
   const isLoadingRef = useRef(true);
+  const playerPosRef = useRef(playerPos);
 
   // Sync loading ref
   useEffect(() => {
     isLoadingRef.current = isLoading;
   }, [isLoading]);
+
+  // Sync player position ref
+  useEffect(() => {
+    playerPosRef.current = playerPos;
+  }, [playerPos]);
 
   // Initialize World
   useEffect(() => {
@@ -76,9 +82,9 @@ export function useWorldLoading({
   // Periodic chunk check
   useEffect(() => {
     const checkChunks = () => {
-      if (!worldRef.current) return;
+      if (!worldRef.current || !playerPosRef.current) return;
 
-      const { hasChanges, activeChunks } = worldRef.current.update(playerPos);
+      const { hasChanges, activeChunks } = worldRef.current.update(playerPosRef.current);
       if (hasChanges) {
         setChunks(activeChunks);
         if (onChunksCountChange) {
@@ -90,16 +96,16 @@ export function useWorldLoading({
     const intervalId = setInterval(checkChunks, 1000);
     checkChunks();
     return () => clearInterval(intervalId);
-  }, [playerPos, onChunksCountChange]);
+  }, [onChunksCountChange]); // Убираем playerPos из зависимостей, используем ref
 
   // Update current biome
   useEffect(() => {
     const updateBiome = () => {
-      if (!playerPos || !worldRef.current) return;
+      if (!playerPosRef.current || !worldRef.current) return;
 
       const biome = worldRef.current.getBiome(
-        Math.floor(playerPos.x),
-        Math.floor(playerPos.z)
+        Math.floor(playerPosRef.current.x),
+        Math.floor(playerPosRef.current.z)
       );
       if (biome && biome.name) {
         setCurrentBiome(biome.name);
@@ -109,7 +115,7 @@ export function useWorldLoading({
     const interval = setInterval(updateBiome, 500);
     updateBiome();
     return () => clearInterval(interval);
-  }, [playerPos]);
+  }, []); // Убираем playerPos из зависимостей, используем ref
 
   // Block operations
   const setBlock = useCallback((x, y, z, blockType) => {

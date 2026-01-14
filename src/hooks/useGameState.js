@@ -10,7 +10,6 @@ export function useGameState({
   initialGameMode = GAME_MODES.SURVIVAL,
   onSaveWorld,
   worldRef,
-  playerPos,
   inventoryRef,
   onExitToMenu
 }) {
@@ -28,7 +27,7 @@ export function useGameState({
     document.body.requestPointerLock();
   }, []);
 
-  const handleSaveGame = useCallback(async (inventory) => {
+  const handleSaveGame = useCallback(async (inventory, playerPos) => {
     if (worldRef?.current && onSaveWorld) {
       setSaveMessage('Сохранение...');
       const modifiedData = worldRef.current.getSaveData();
@@ -37,9 +36,9 @@ export function useGameState({
       setSaveMessage('Мир сохранён!');
       setTimeout(() => setSaveMessage(''), 2000);
     }
-  }, [worldRef, onSaveWorld, playerPos, gameMode, inventoryRef]);
+  }, [worldRef, onSaveWorld, gameMode, inventoryRef]);
 
-  const handleSaveAndExit = useCallback(async (inventory) => {
+  const handleSaveAndExit = useCallback(async (inventory, playerPos) => {
     if (worldRef?.current && onSaveWorld) {
       setSaveMessage('Сохранение...');
       const modifiedData = worldRef.current.getSaveData();
@@ -50,10 +49,10 @@ export function useGameState({
         onExitToMenu();
       }
     }
-  }, [worldRef, onSaveWorld, playerPos, gameMode, inventoryRef, onExitToMenu]);
+  }, [worldRef, onSaveWorld, gameMode, inventoryRef, onExitToMenu]);
 
-  const handleExitToMenu = useCallback((inventory) => {
-    handleSaveGame(inventory);
+  const handleExitToMenu = useCallback((inventory, playerPos) => {
+    handleSaveGame(inventory, playerPos);
     if (onExitToMenu) {
       onExitToMenu();
     }

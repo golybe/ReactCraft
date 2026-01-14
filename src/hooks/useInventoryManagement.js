@@ -80,20 +80,24 @@ export function useInventoryManagement({
       const currentRecipeResult = CraftingManager.checkRecipe(currentGrid);
       if (!currentRecipeResult || currentRecipeResult.type !== resultType) break;
 
+      // Проверяем, можем ли добавить предметы в инвентарь
       const { remaining } = inventoryRef.current.addToFullInventory(resultType, resultCountPerCraft);
+      
       if (remaining > 0) {
-        if (remaining < resultCountPerCraft) {
-          inventoryRef.current.removeItem(resultType, resultCountPerCraft - remaining);
-        }
+        // Инвентарь заполнен - откатываем добавление и останавливаемся
+        inventoryRef.current.removeItem(resultType, resultCountPerCraft - remaining);
         break;
       }
 
+      // Успешно добавили - уменьшаем ингредиенты в сетке
       currentGrid = currentGrid.map(item => {
         if (!item) return null;
         const newCount = item.count - 1;
         return newCount > 0 ? { ...item, count: newCount } : null;
       });
       totalAdded += resultCountPerCraft;
+      
+      // Защита от бесконечного цикла
       if (totalAdded > 1000) break;
     }
 
@@ -130,20 +134,24 @@ export function useInventoryManagement({
       const currentRecipeResult = CraftingManager.checkRecipe(currentGrid);
       if (!currentRecipeResult || currentRecipeResult.type !== resultType) break;
 
+      // Проверяем, можем ли добавить предметы в инвентарь
       const { remaining } = inventoryRef.current.addToFullInventory(resultType, resultCountPerCraft);
+      
       if (remaining > 0) {
-        if (remaining < resultCountPerCraft) {
-          inventoryRef.current.removeItem(resultType, resultCountPerCraft - remaining);
-        }
+        // Инвентарь заполнен - откатываем добавление и останавливаемся
+        inventoryRef.current.removeItem(resultType, resultCountPerCraft - remaining);
         break;
       }
 
+      // Успешно добавили - уменьшаем ингредиенты в сетке
       currentGrid = currentGrid.map(item => {
         if (!item) return null;
         const newCount = item.count - 1;
         return newCount > 0 ? { ...item, count: newCount } : null;
       });
       totalAdded += resultCountPerCraft;
+      
+      // Защита от бесконечного цикла
       if (totalAdded > 1000) break;
     }
 

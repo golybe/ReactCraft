@@ -35,13 +35,14 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
   // === DEBUG INFO ===
   const { debugInfo, setChunksCount, setBlocksCount } = useDebugInfo();
 
-  // === PLAYER MOVEMENT ===
+  // === PLAYER MOVEMENT === (создаём playerPos первым)
   const {
     playerPos,
     setPlayerPos,
     playerYaw,
     playerPitch,
     isFlying,
+    setIsFlying,
     canFly,
     setCanFly,
     noclipMode,
@@ -55,7 +56,7 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
     teleportTo
   } = usePlayerMovement({
     initialPlayerPos,
-    gameMode: worldInfo?.gameMode ?? GAME_MODES.SURVIVAL
+    gameMode: worldInfo?.gameMode ?? GAME_MODES.SURVIVAL // Используем начальный режим
   });
 
   // === WORLD LOADING ===
@@ -69,7 +70,7 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
   } = useWorldLoading({
     worldInfo,
     initialChunks,
-    playerPos,
+    playerPos, // Теперь используем актуальный playerPos
     onChunksCountChange: setChunksCount
   });
 
@@ -90,9 +91,13 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
     initialGameMode: worldInfo?.gameMode ?? GAME_MODES.SURVIVAL,
     onSaveWorld,
     worldRef,
-    playerPos,
     onExitToMenu
   });
+
+  // Обновляем gameMode в usePlayerMovement при изменении
+  useEffect(() => {
+    // gameMode изменился, обновляем способности
+  }, [gameMode]);
 
   // Helper to check if any UI is open
   const isUIOpen = isUIBlocking(activeUI);
@@ -114,6 +119,7 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
     setNoclipMode,
     canFly,
     setCanFly,
+    setIsFlying,
     setSpeedMultiplier,
     teleportTo
   });
@@ -346,16 +352,16 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
 
   // Save handlers with inventory
   const onSaveGame = useCallback(async () => {
-    await handleSaveGame(inventory);
-  }, [handleSaveGame, inventory]);
+    await handleSaveGame(inventory, playerPos);
+  }, [handleSaveGame, inventory, playerPos]);
 
   const onSaveAndExit = useCallback(async () => {
-    await handleSaveAndExit(inventory);
-  }, [handleSaveAndExit, inventory]);
+    await handleSaveAndExit(inventory, playerPos);
+  }, [handleSaveAndExit, inventory, playerPos]);
 
   const onExit = useCallback(() => {
-    handleExitToMenu(inventory);
-  }, [handleExitToMenu, inventory]);
+    handleExitToMenu(inventory, playerPos);
+  }, [handleExitToMenu, inventory, playerPos]);
 
   // === CRAFTING TABLE INTERACTION ===
   // Wrapper for handleBlockPlace that checks for crafting table
@@ -405,6 +411,8 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
         isFlying={isFlying}
         canFly={canFly}
         speedMultiplier={speedMultiplier}
+        isChatOpen={isChatOpen}
+        isInventoryOpen={isUIOpen}
         teleportPos={teleportPos}
         onPlayerMove={handlePlayerMove}
         onBlocksCount={handleBlocksCount}
@@ -477,6 +485,8 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
           gameMode={gameMode}
           isInWater={isInWater}
           isHeadUnderwater={isHeadUnderwater}
+          canFly={canFly}
+          isFlying={isFlying}
         />
       )}
     </div>

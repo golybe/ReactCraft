@@ -12,6 +12,7 @@ export function useChatCommands({
   setNoclipMode,
   canFly,
   setCanFly,
+  setIsFlying,
   setSpeedMultiplier,
   teleportTo
 }) {
@@ -104,9 +105,13 @@ export function useChatCommands({
           const modeArg = args[0];
           if (modeArg === '0' || modeArg?.toLowerCase() === 'survival' || modeArg?.toLowerCase() === 's') {
             setGameMode(GAME_MODES.SURVIVAL);
+            setCanFly(false);
+            setIsFlying(false);
             addMessage(`Режим игры изменен на: ${GAME_MODE_NAMES[GAME_MODES.SURVIVAL]}`, 'success');
           } else if (modeArg === '1' || modeArg?.toLowerCase() === 'creative' || modeArg?.toLowerCase() === 'c') {
             setGameMode(GAME_MODES.CREATIVE);
+            setCanFly(true);
+            setIsFlying(true);
             addMessage(`Режим игры изменен на: ${GAME_MODE_NAMES[GAME_MODES.CREATIVE]}`, 'success');
           } else {
             addMessage('Usage: /gm <0|1|survival|creative>', 'error');
@@ -121,7 +126,7 @@ export function useChatCommands({
           addMessage(`Unknown command: ${cmd}`, 'error');
       }
     }
-  }, [playerPos, worldInfo, teleportTo, setGameMode, noclipMode, setNoclipMode, canFly, setCanFly, setSpeedMultiplier, addMessage]);
+  }, [playerPos, worldInfo, teleportTo, setGameMode, noclipMode, setNoclipMode, canFly, setCanFly, setIsFlying, setSpeedMultiplier, addMessage]);
 
   return {
     isChatOpen,

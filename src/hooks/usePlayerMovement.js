@@ -30,7 +30,18 @@ export function usePlayerMovement({
   useEffect(() => {
     const defaults = getGameModeDefaults(gameMode);
     setCanFly(defaults.canFly);
+    // If new mode doesn't allow flying, disable flight state
+    if (!defaults.canFly) {
+      setIsFlying(false);
+    }
   }, [gameMode]);
+
+  // Auto-disable flying if capability is lost
+  useEffect(() => {
+    if (!canFly && isFlying) {
+      setIsFlying(false);
+    }
+  }, [canFly, isFlying]);
 
   const handlePlayerMove = useCallback((data) => {
     if (data.type === 'position') {

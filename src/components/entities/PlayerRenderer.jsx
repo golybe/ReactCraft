@@ -6,7 +6,7 @@ import { PhysicsEngine } from '../../core/physics/PhysicsEngine';
 import { PLAYER_HEIGHT } from '../../constants/world';
 import { log } from '../../utils/logger';
 
-const Player = ({ onMove, chunks, initialPosition, noclipMode, canFly, isFlying, speedMultiplier, isChatOpen, teleportPos }) => {
+const Player = ({ onMove, chunks, initialPosition, noclipMode, canFly, isFlying, speedMultiplier, isChatOpen, isInventoryOpen, teleportPos }) => {
   const { camera } = useThree();
   const playerRef = useRef(null);
   const physicsEngineRef = useRef(null);
@@ -67,11 +67,29 @@ const Player = ({ onMove, chunks, initialPosition, noclipMode, canFly, isFlying,
     }
   }, [teleportPos]);
 
+  // Сброс всех клавиш при открытии чата
+  useEffect(() => {
+    if (isChatOpen && playerRef.current) {
+      // Сбрасываем все зажатые клавиши
+      playerRef.current.keys.forward = false;
+      playerRef.current.keys.backward = false;
+      playerRef.current.keys.left = false;
+      playerRef.current.keys.right = false;
+      playerRef.current.keys.jump = false;
+      playerRef.current.keys.shift = false;
+    }
+  }, [isChatOpen]);
+
   // Обработка клавиатуры
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // КРИТИЧЕСКИ ВАЖНО: Если фокус в чате или инвентаре (любой input), блокируем движение
+      if (isChatOpen || isInventoryOpen || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+        return;
+      }
+
       if (e.repeat) return;
-      if (isChatOpen || !playerRef.current) return;
+      if (!playerRef.current) return;
 
       if (e.code === 'Space' && canFly) {
         const now = Date.now();
@@ -96,6 +114,8 @@ const Player = ({ onMove, chunks, initialPosition, noclipMode, canFly, isFlying,
     const handleKeyUp = (e) => {
       if (!playerRef.current) return;
 
+      // Всегда обрабатываем keyup, чтобы сбрасывать зажатые клавиши
+      // даже если чат открыт
       switch (e.code) {
         case 'KeyW': case 'ArrowUp': playerRef.current.keys.forward = false; break;
         case 'KeyS': case 'ArrowDown': playerRef.current.keys.backward = false; break;
@@ -113,7 +133,7 @@ const Player = ({ onMove, chunks, initialPosition, noclipMode, canFly, isFlying,
       document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('keyup', handleKeyUp);
     };
-  }, [isChatOpen, canFly, isFlying]);
+  }, [isChatOpen, isInventoryOpen, canFly, isFlying]);
 
   // Обработка мыши
   useEffect(() => {

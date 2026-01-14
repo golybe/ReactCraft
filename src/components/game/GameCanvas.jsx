@@ -86,11 +86,12 @@ export const GameCanvas = ({
   lastPunchTime,
   initialPlayerPos,
   noclipMode,
-  canFly,
-  speedMultiplier,
-  isChatOpen,
-  teleportPos,
-  onPlayerMove,
+    canFly,
+    speedMultiplier,
+    isChatOpen,
+    isInventoryOpen,
+    teleportPos,
+    onPlayerMove,
   onBlocksCount,
   onBlockDestroy,
   onBlockPlace,
@@ -158,6 +159,7 @@ export const GameCanvas = ({
             isFlying={isFlying}
             speedMultiplier={speedMultiplier}
             isChatOpen={isChatOpen}
+            isInventoryOpen={isInventoryOpen}
             teleportPos={teleportPos}
           />
           <BlockHighlight chunks={chunks} />

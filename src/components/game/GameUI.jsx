@@ -163,7 +163,9 @@ export const DebugInfo = ({
   biome,
   gameMode,
   isInWater,
-  isHeadUnderwater
+  isHeadUnderwater,
+  canFly,
+  isFlying
 }) => {
   return (
     <div style={{
@@ -187,6 +189,11 @@ export const DebugInfo = ({
       <div style={{ color: gameMode === GAME_MODES.CREATIVE ? '#6aadbd' : '#6abd6e' }}>
         Mode: {GAME_MODE_NAMES[gameMode]}
       </div>
+      {(canFly || isFlying) && (
+        <div style={{ color: isFlying ? '#f1c40f' : '#bdc3c7' }}>
+          Fly: {isFlying ? 'ON' : 'OFF'} {canFly && !isFlying && '(Ability)'}
+        </div>
+      )}
       {isInWater && (
         <div style={{ color: isHeadUnderwater ? '#4488ff' : '#66aaff' }}>
           {isHeadUnderwater ? '🌊 Underwater' : '💧 In water'}

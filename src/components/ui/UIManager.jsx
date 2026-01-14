@@ -34,12 +34,19 @@ const useSlotInteraction = () => {
     }, []);
 
     // Левый клик по слоту
-    const handleSlotClick = useCallback((slots, setSlots, index, isResultSlot = false, onCraftPickup = null, shiftKey = false) => {
+    const handleSlotClick = useCallback((slots, setSlots, index, isResultSlot = false, onCraftPickup = null, onShiftCraftFunc = null, shiftKey = false) => {
         if (isResultSlot) {
             if (!onCraftPickup) return;
 
-            const result = onCraftPickup(shiftKey);
-            if (result && !shiftKey) {
+            // Если зажат Shift - крафтим всё возможное в инвентарь
+            if (shiftKey && onShiftCraftFunc) {
+                onShiftCraftFunc();
+                return;
+            }
+
+            // Обычный клик - берём результат на курсор
+            const result = onCraftPickup();
+            if (result) {
                 const cursorData = cursorItem ? getSlotData(cursorItem) : null;
 
                 if (cursorData && cursorData.type === result.type && cursorData.count + result.count <= MAX_STACK_SIZE) {
@@ -233,7 +240,7 @@ const InventoryUI = ({
                         <MCSlot
                             key={index}
                             slot={inventory[index]}
-                            onClick={(e) => handleSlotClick(inventory, onInventoryChange, index, false, null, e.shiftKey)}
+                            onClick={(e) => handleSlotClick(inventory, onInventoryChange, index, false, null, null, e.shiftKey)}
                             onRightClick={() => handleSlotRightClick(inventory, onInventoryChange, index)}
                             onHover={(hovered) => handleSlotHover(index, hovered, inventory[index])}
                         />
@@ -257,7 +264,7 @@ const InventoryUI = ({
                             <MCSlot
                                 key={`craft-${i}`}
                                 slot={slot}
-                                onClick={(e) => handleSlotClick(craftingGrid, onCraftingGridChange, i, false, null, e.shiftKey)}
+                                onClick={(e) => handleSlotClick(craftingGrid, onCraftingGridChange, i, false, null, null, e.shiftKey)}
                                 onRightClick={() => handleSlotRightClick(craftingGrid, onCraftingGridChange, i)}
                                 onHover={(hovered) => handleSlotHover(i, hovered, slot)}
                             />
@@ -266,7 +273,7 @@ const InventoryUI = ({
                     <div className="mc-crafting-arrow">→</div>
                     <MCSlot
                         slot={craftingResult}
-                        onClick={(e) => handleSlotClick(null, null, 0, true, () => onCraftResultPickup(), e.shiftKey)}
+                        onClick={(e) => handleSlotClick(null, null, 0, true, onCraftResultPickup, onShiftCraft, e.shiftKey)}
                         onHover={(hovered) => handleSlotHover(-1, hovered, craftingResult)}
                     />
                 </div>
@@ -333,7 +340,7 @@ const CraftingUI = ({
                             <MCSlot
                                 key={`craft-${i}`}
                                 slot={slot}
-                                onClick={(e) => handleSlotClick(craftingGrid, onCraftingGridChange, i, false, null, e.shiftKey)}
+                                onClick={(e) => handleSlotClick(craftingGrid, onCraftingGridChange, i, false, null, null, e.shiftKey)}
                                 onRightClick={() => handleSlotRightClick(craftingGrid, onCraftingGridChange, i)}
                                 onHover={(hovered) => handleSlotHover(i, hovered, slot)}
                             />
@@ -343,7 +350,7 @@ const CraftingUI = ({
                     <div className="mc-result-slot">
                         <MCSlot
                             slot={craftingResult}
-                            onClick={(e) => handleSlotClick(null, null, 0, true, () => onCraftResultPickup(), e.shiftKey)}
+                            onClick={(e) => handleSlotClick(null, null, 0, true, onCraftResultPickup, onShiftCraft, e.shiftKey)}
                             onHover={(hovered) => handleSlotHover(-1, hovered, craftingResult)}
                         />
                     </div>
