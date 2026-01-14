@@ -32,6 +32,7 @@ export function useGameState({
       setSaveMessage('Сохранение...');
       const modifiedData = worldRef.current.getSaveData();
       const inventoryData = inventoryRef?.current ? inventoryRef.current.serialize() : inventory;
+      console.log('[SAVE] Saving player position:', playerPos);
       await onSaveWorld(modifiedData, playerPos, { gameMode, inventory: inventoryData });
       setSaveMessage('Мир сохранён!');
       setTimeout(() => setSaveMessage(''), 2000);

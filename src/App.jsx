@@ -42,6 +42,8 @@ function App() {
     const chunks = await loadWorldData(world.id);
 
     // Позиция игрока хранится в метаданных мира (world.playerPos)
+    console.log('[LOAD] Loading world:', world.name);
+    console.log('[LOAD] Player position from save:', world.playerPos);
     setInitialChunks(chunks || {});
     setInitialPlayerPos(world.playerPos || null);
 
