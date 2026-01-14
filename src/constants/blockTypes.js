@@ -32,7 +32,9 @@ export const BLOCK_TYPES = {
   APPLE: 513,
   
   // TOOLS: 520+
-  WOODEN_AXE: 520
+  WOODEN_AXE: 520,
+  WOODEN_PICKAXE: 521,
+  WOODEN_SHOVEL: 522
 };
 
 export default BLOCK_TYPES;

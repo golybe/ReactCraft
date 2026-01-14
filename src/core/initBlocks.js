@@ -199,7 +199,27 @@ export const initBlocks = () => {
     texture: 'wooden_axe',
     color: 0x8B4513,
     toolType: TOOL_TYPES.AXE,
-    toolEfficiency: 2.0, // В 2 раза быстрее чем рукой
-    durability: 59 // Как в Minecraft
+    toolEfficiency: 2.0,
+    durability: 59
+  }));
+
+  // 521: WOODEN_PICKAXE
+  BlockRegistry.register(new Tool(BLOCK_TYPES.WOODEN_PICKAXE, {
+    name: 'wooden_pickaxe',
+    texture: 'wooden_pickaxe',
+    color: 0x8B4513,
+    toolType: TOOL_TYPES.PICKAXE,
+    toolEfficiency: 2.0,
+    durability: 59
+  }));
+
+  // 522: WOODEN_SHOVEL
+  BlockRegistry.register(new Tool(BLOCK_TYPES.WOODEN_SHOVEL, {
+    name: 'wooden_shovel',
+    texture: 'wooden_shovel',
+    color: 0x8B4513,
+    toolType: TOOL_TYPES.SHOVEL,
+    toolEfficiency: 2.0,
+    durability: 59
   }));
 };

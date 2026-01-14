@@ -37,11 +37,19 @@ export class BlockMiningManager {
     // Calculate break time
     const breakTime = block.getBreakTime(toolType, toolEfficiency);
     
-    // If same block, continue mining
+    // If same block, continue mining but update break time (in case tool changed)
     if (this.currentTarget && 
         this.currentTarget.x === x && 
         this.currentTarget.y === y && 
         this.currentTarget.z === z) {
+      
+      // Если время добычи изменилось (сменили инструмент), нужно скорректировать прогресс
+      if (this.breakTime !== breakTime && breakTime > 0) {
+        // Сохраняем текущий прогресс в процентах, чтобы он не прыгал
+        const currentProgress = this.elapsedTime / this.breakTime;
+        this.breakTime = breakTime;
+        this.elapsedTime = currentProgress * breakTime;
+      }
       return true;
     }
     

@@ -89,18 +89,28 @@ export class Block {
     // Применяем множитель инструмента
     let multiplier = 1.0;
     
-    if (toolType === this.preferredTool) {
-      // Правильный инструмент дает бонус материала + бонус эффективности самого инструмента
+    // ВАЖНО: эффективность инструмента (toolEfficiency) должна применяться 
+    // ТОЛЬКО если это правильный инструмент для этого блока.
+    if (this.preferredTool !== TOOL_TYPES.HAND && toolType === this.preferredTool) {
+      // Правильный инструмент (например, кирка по камню)
       multiplier = (TOOL_MULTIPLIERS[toolType] || 1.0) * toolEfficiency;
-    } else if (toolType !== TOOL_TYPES.HAND) {
-      // Неправильный инструмент (например, топор по камню) ломает как рука (1.0)
-      // В Minecraft инструменты даже чуть медленнее руки для не тех блоков, но оставим 1.0
-      multiplier = 1.0;
+    } else if (this.preferredTool === TOOL_TYPES.HAND && toolType !== TOOL_TYPES.HAND) {
+      // Если блок можно копать рукой (земля/трава), но мы используем инструмент
+      // Проверяем, подходит ли этот инструмент (например, лопата для земли)
+      if (toolType === this.preferredTool) { // Это условие выше уже покрыто, но для ясности
+         multiplier = (TOOL_MULTIPLIERS[toolType] || 1.0) * toolEfficiency;
+      } else {
+         // Инструмент не предназначен для этого (топор по земле) -> как рука
+         multiplier = 1.0;
+      }
+    } else if (toolType !== TOOL_TYPES.HAND && toolType === this.preferredTool) {
+       // Любой другой случай совпадения инструмента
+       multiplier = (TOOL_MULTIPLIERS[toolType] || 1.0) * toolEfficiency;
     }
     
-    // Если блок требует инструмент (например, золото требует кирку), но его нет - ломаем в 3 раза медленнее
-    if (this.requiresTool && toolType === TOOL_TYPES.HAND) {
-      multiplier = 0.3;
+    // Если блок требует инструмент (requiresTool), а мы бьем не тем или рукой
+    if (this.requiresTool && toolType !== this.preferredTool) {
+      multiplier = 0.3; // В 3 раза медленнее
     }
     
     return Math.max(0.05, baseTime / multiplier); // Минимум 50мс

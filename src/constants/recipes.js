@@ -44,6 +44,28 @@ export const RECIPES = [
       [null, BLOCK_TYPES.STICK, null]
     ],
     type: 'shaped'
+  },
+  // 3 Planks + 2 Sticks -> Wooden Pickaxe
+  {
+    id: 'wooden_pickaxe',
+    result: { type: BLOCK_TYPES.WOODEN_PICKAXE, count: 1 },
+    pattern: [
+      [BLOCK_TYPES.PLANKS, BLOCK_TYPES.PLANKS, BLOCK_TYPES.PLANKS],
+      [null, BLOCK_TYPES.STICK, null],
+      [null, BLOCK_TYPES.STICK, null]
+    ],
+    type: 'shaped'
+  },
+  // 1 Plank + 2 Sticks -> Wooden Shovel
+  {
+    id: 'wooden_shovel',
+    result: { type: BLOCK_TYPES.WOODEN_SHOVEL, count: 1 },
+    pattern: [
+      [null, BLOCK_TYPES.PLANKS, null],
+      [null, BLOCK_TYPES.STICK, null],
+      [null, BLOCK_TYPES.STICK, null]
+    ],
+    type: 'shaped'
   }
 ];
 
