@@ -90,18 +90,17 @@ export class Block {
     let multiplier = 1.0;
     
     if (toolType === this.preferredTool) {
-      // Правильный инструмент дает большой бонус
-      multiplier = TOOL_MULTIPLIERS[toolType] || 1.0;
-      // Применяем эффективность ТОЛЬКО для правильного инструмента
-      multiplier *= toolEfficiency;
+      // Правильный инструмент дает бонус материала + бонус эффективности самого инструмента
+      multiplier = (TOOL_MULTIPLIERS[toolType] || 1.0) * toolEfficiency;
     } else if (toolType !== TOOL_TYPES.HAND) {
-      // Неправильный инструмент дает небольшой бонус (но без toolEfficiency!)
-      multiplier = 1.5;
+      // Неправильный инструмент (например, топор по камню) ломает как рука (1.0)
+      // В Minecraft инструменты даже чуть медленнее руки для не тех блоков, но оставим 1.0
+      multiplier = 1.0;
     }
     
-    // Если блок требует инструмент, но его нет - ломаем очень медленно
+    // Если блок требует инструмент (например, золото требует кирку), но его нет - ломаем в 3 раза медленнее
     if (this.requiresTool && toolType === TOOL_TYPES.HAND) {
-      multiplier = 0.3; // В 3 раза медленнее
+      multiplier = 0.3;
     }
     
     return Math.max(0.05, baseTime / multiplier); // Минимум 50мс

@@ -228,12 +228,20 @@ export function useBlockInteraction({
 
     // Start/continue mining this block
     if (miningManagerRef.current) {
+      // Определяем тип и эффективность инструмента
+      const heldItem = inventoryRef?.current?.getSlots()[selectedSlot];
+      const heldBlockId = heldItem?.type;
+      const heldBlock = heldBlockId ? BlockRegistry.get(heldBlockId) : null;
+      
+      const toolType = heldBlock?.toolType || TOOL_TYPES.HAND;
+      const toolEfficiency = heldBlock?.toolEfficiency || 1.0;
+
       miningManagerRef.current.onBlockBroken = (bx, by, bz, bid) => {
         destroyBlock(bx, by, bz, bid);
       };
-      miningManagerRef.current.startMining(x, y, z, blockId);
+      miningManagerRef.current.startMining(x, y, z, blockId, toolType, toolEfficiency);
     }
-  }, [gameMode, destroyBlock, handleStopMining, worldRef]);
+  }, [gameMode, destroyBlock, handleStopMining, worldRef, inventoryRef, selectedSlot]);
 
   const handleItemPickup = useCallback((itemId, count, blockType) => {
     // Защита от дюпликации: проверяем, не обрабатывался ли уже этот предмет
