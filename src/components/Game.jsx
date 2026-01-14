@@ -552,6 +552,7 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
         isInventoryOpen={isUIOpen}
         isDead={isDead}
         teleportPos={teleportPos}
+        initialPlayerPos={initialPlayerPos}
         onPlayerMove={handlePlayerMove}
         onBlocksCount={handleBlocksCount}
         onBlockDestroy={handleBlockBreak}
