@@ -105,7 +105,24 @@ export function useWorldLoading({
     const intervalId = setInterval(checkChunks, 1000);
     checkChunks();
     return () => clearInterval(intervalId);
-  }, [onChunksCountChange]); // Убираем playerPos из зависимостей, используем ref
+  }, [onChunksCountChange]);
+
+  // Physics update loop (leaves decay, liquids, etc.)
+  useEffect(() => {
+    const updatePhysics = () => {
+      if (!worldRef.current) return;
+      
+      const hasChanges = worldRef.current.updatePhysics();
+      if (hasChanges) {
+        // Force chunks update
+        setChunks({ ...worldRef.current.getChunks() });
+      }
+    };
+
+    // Run physics every frame for smooth animations
+    const animationId = setInterval(updatePhysics, 16); // ~60 FPS
+    return () => clearInterval(animationId);
+  }, []); // Убираем playerPos из зависимостей, используем ref
 
   // Update current biome
   useEffect(() => {
