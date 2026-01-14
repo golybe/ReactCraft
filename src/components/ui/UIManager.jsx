@@ -3,6 +3,7 @@ import { BlockRegistry } from '../../core/blocks/BlockRegistry';
 import { MCSlot, MCGrid, MCCursorItem, MCTooltip, getSlotData } from './MCSlot';
 import { UI_TYPES, UI_CONFIG } from '../../constants/uiTypes';
 import { MAX_STACK_SIZE, HOTBAR_SIZE } from '../../utils/inventory';
+import { Inventory } from '../../core/inventory/Inventory';
 import '../../styles/inventory.css';
 
 /**
@@ -14,6 +15,7 @@ const useSlotInteraction = () => {
     const [cursorItem, setCursorItem] = useState(null);
     const [hoveredSlot, setHoveredSlot] = useState(null);
     const [hoveredBlockName, setHoveredBlockName] = useState(null);
+    const [hoveredItemDurability, setHoveredItemDurability] = useState(null);
 
     const cursorRef = useRef(null);
     const tooltipRef = useRef(null);
@@ -48,50 +50,60 @@ const useSlotInteraction = () => {
             const result = onCraftPickup();
             if (result) {
                 const cursorData = cursorItem ? getSlotData(cursorItem) : null;
+                const maxStack = Inventory.getMaxStackSize(result.type);
 
-                if (cursorData && cursorData.type === result.type && cursorData.count + result.count <= MAX_STACK_SIZE) {
-                    setCursorItem({ type: cursorData.type, count: cursorData.count + result.count });
+                if (cursorData && cursorData.type === result.type && cursorData.count + result.count <= maxStack) {
+                    setCursorItem({ ...cursorData, count: cursorData.count + result.count });
                 } else if (!cursorData) {
-                    setCursorItem({ type: result.type, count: result.count });
+                    setCursorItem(result);
                 }
             }
             return;
         }
 
         const currentSlot = slots[index];
-        const { type: currentType, count: currentCount } = getSlotData(currentSlot);
+        const { type: currentType, count: currentCount, durability: currentDurability } = getSlotData(currentSlot);
 
         if (cursorItem) {
             const cursorData = getSlotData(cursorItem);
+            const maxStack = Inventory.getMaxStackSize(cursorData.type);
 
             if (!currentType) {
                 // Пустой слот - кладём всё
                 const newSlots = [...slots];
-                newSlots[index] = { type: cursorData.type, count: cursorData.count };
+                newSlots[index] = cursorData;
                 setSlots(newSlots);
                 setCursorItem(null);
             } else if (currentType === cursorData.type) {
-                // Тот же тип - объединяем
-                const totalCount = currentCount + cursorData.count;
-                const newSlotCount = Math.min(totalCount, MAX_STACK_SIZE);
-                const remaining = totalCount - newSlotCount;
+                // Тот же тип - объединяем (если позволяет стак)
+                if (maxStack === 1) {
+                    // Если предмет не стакается (инструмент), меняем местами
+                    const newSlots = [...slots];
+                    newSlots[index] = cursorData;
+                    setSlots(newSlots);
+                    setCursorItem({ type: currentType, count: currentCount, durability: currentDurability });
+                } else {
+                    const totalCount = currentCount + cursorData.count;
+                    const newSlotCount = Math.min(totalCount, maxStack);
+                    const remaining = totalCount - newSlotCount;
 
-                const newSlots = [...slots];
-                newSlots[index] = { type: currentType, count: newSlotCount };
-                setSlots(newSlots);
+                    const newSlots = [...slots];
+                    newSlots[index] = { ...cursorData, count: newSlotCount };
+                    setSlots(newSlots);
 
-                setCursorItem(remaining > 0 ? { type: cursorData.type, count: remaining } : null);
+                    setCursorItem(remaining > 0 ? { ...cursorData, count: remaining } : null);
+                }
             } else {
                 // Разные типы - обмен
                 const newSlots = [...slots];
-                newSlots[index] = { type: cursorData.type, count: cursorData.count };
+                newSlots[index] = cursorData;
                 setSlots(newSlots);
-                setCursorItem({ type: currentType, count: currentCount });
+                setCursorItem({ type: currentType, count: currentCount, durability: currentDurability });
             }
         } else {
             // Берём предмет
             if (currentType) {
-                setCursorItem({ type: currentType, count: currentCount });
+                setCursorItem({ type: currentType, count: currentCount, durability: currentDurability });
                 const newSlots = [...slots];
                 newSlots[index] = null;
                 setSlots(newSlots);
@@ -104,33 +116,37 @@ const useSlotInteraction = () => {
         if (isResultSlot) return;
 
         const currentSlot = slots[index];
-        const { type: currentType, count: currentCount } = getSlotData(currentSlot);
+        const { type: currentType, count: currentCount, durability: currentDurability } = getSlotData(currentSlot);
 
         if (cursorItem) {
             const cursorData = getSlotData(cursorItem);
+            const maxStack = Inventory.getMaxStackSize(cursorData.type);
 
             if (!currentType) {
                 // Пустой слот - кладём 1
                 const newSlots = [...slots];
-                newSlots[index] = { type: cursorData.type, count: 1 };
+                newSlots[index] = { ...cursorData, count: 1 };
                 setSlots(newSlots);
 
                 if (cursorData.count > 1) {
-                    setCursorItem({ type: cursorData.type, count: cursorData.count - 1 });
+                    setCursorItem({ ...cursorData, count: cursorData.count - 1 });
                 } else {
                     setCursorItem(null);
                 }
-            } else if (currentType === cursorData.type && currentCount < MAX_STACK_SIZE) {
+            } else if (currentType === cursorData.type && currentCount < maxStack) {
                 // Тот же тип - добавляем 1
                 const newSlots = [...slots];
-                newSlots[index] = { type: currentType, count: currentCount + 1 };
+                newSlots[index] = { ...currentSlot, count: currentCount + 1 };
                 setSlots(newSlots);
 
                 if (cursorData.count > 1) {
-                    setCursorItem({ type: cursorData.type, count: cursorData.count - 1 });
+                    setCursorItem({ ...cursorData, count: cursorData.count - 1 });
                 } else {
                     setCursorItem(null);
                 }
+            } else if (currentType !== cursorData.type) {
+                 // Swap if trying to right click on different item (standard Minecraft behavior is actually strict, but swapping is often better UX for web)
+                 // But let's keep it simple: do nothing or swap? Minecraft doesn't swap on right click usually.
             }
         } else {
             // Берём половину
@@ -138,10 +154,10 @@ const useSlotInteraction = () => {
                 const takeCount = Math.ceil(currentCount / 2);
                 const leaveCount = currentCount - takeCount;
 
-                setCursorItem({ type: currentType, count: takeCount });
+                setCursorItem({ type: currentType, count: takeCount, durability: currentDurability });
 
                 const newSlots = [...slots];
-                newSlots[index] = leaveCount > 0 ? { type: currentType, count: leaveCount } : null;
+                newSlots[index] = leaveCount > 0 ? { type: currentType, count: leaveCount, durability: currentDurability } : null;
                 setSlots(newSlots);
             }
         }
@@ -150,14 +166,23 @@ const useSlotInteraction = () => {
     // Обновление подсказки при наведении
     const handleSlotHover = useCallback((index, hovered, slot) => {
         if (hovered && slot) {
-            const { type } = getSlotData(slot);
+            const { type, durability } = getSlotData(slot);
             if (type) {
                 const block = BlockRegistry.get(type);
                 setHoveredBlockName(block?.name || null);
+                
+                // Проверяем прочность
+                if (durability !== undefined && block?.maxDurability > 0) {
+                    setHoveredItemDurability(`${durability} / ${block.maxDurability}`);
+                } else {
+                    setHoveredItemDurability(null);
+                }
+                
                 setHoveredSlot(index);
             }
         } else if (!hovered && hoveredSlot === index) {
             setHoveredBlockName(null);
+            setHoveredItemDurability(null);
             setHoveredSlot(null);
         }
     }, [hoveredSlot]);
@@ -166,6 +191,7 @@ const useSlotInteraction = () => {
     const reset = useCallback(() => {
         setCursorItem(null);
         setHoveredBlockName(null);
+        setHoveredItemDurability(null);
         setHoveredSlot(null);
     }, []);
 
@@ -173,6 +199,7 @@ const useSlotInteraction = () => {
         cursorItem,
         setCursorItem,
         hoveredBlockName,
+        hoveredItemDurability, // Экспортируем
         cursorRef,
         tooltipRef,
         handleSlotClick,
@@ -420,7 +447,7 @@ const UIManager = ({
     onShiftCraft3x3
 }) => {
     const slotInteraction = useSlotInteraction();
-    const { cursorItem, hoveredBlockName, cursorRef, tooltipRef, reset } = slotInteraction;
+    const { cursorItem, hoveredBlockName, hoveredItemDurability, cursorRef, tooltipRef, reset } = slotInteraction;
 
     // Сброс при закрытии UI
     useEffect(() => {
@@ -500,6 +527,7 @@ const UIManager = ({
                 <MCTooltip
                     ref={tooltipRef}
                     text={hoveredBlockName}
+                    durability={hoveredItemDurability}
                     visible={!!hoveredBlockName && !cursorItem}
                 />
 

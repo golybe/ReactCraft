@@ -79,7 +79,7 @@ export const MCSlot = ({
             )}
 
             {/* Durability Bar */}
-            {type && maxDurability > 0 && (
+            {type && maxDurability > 0 && (durability === undefined || durability < maxDurability) && (
                 <div className="durability-bar-container" style={{
                     position: 'absolute',
                     bottom: '4px',
@@ -168,7 +168,7 @@ MCCursorItem.displayName = 'MCCursorItem';
 /**
  * MCTooltip - Всплывающая подсказка
  */
-export const MCTooltip = React.forwardRef(({ text, visible }, ref) => {
+export const MCTooltip = React.forwardRef(({ text, durability, visible }, ref) => {
     if (!visible || !text) return null;
 
     return (
@@ -177,7 +177,12 @@ export const MCTooltip = React.forwardRef(({ text, visible }, ref) => {
             className="mc-tooltip"
             style={{ display: 'block', left: 0, top: 0 }}
         >
-            {text}
+            <div className="mc-tooltip-name">{text}</div>
+            {durability && (
+                <div className="mc-tooltip-durability" style={{ color: '#aaaaaa', fontSize: '0.8em', marginTop: '2px' }}>
+                    Durability: {durability}
+                </div>
+            )}
         </div>
     );
 });
