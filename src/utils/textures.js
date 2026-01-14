@@ -33,7 +33,11 @@ export const textures = {
   // Workbench textures
   craftingTableTop: texPath('crafting_table_top.png'),
   craftingTableSide: texPath('crafting_table_side.png'),
-  craftingTableFront: texPath('crafting_table_front.png')
+  craftingTableFront: texPath('crafting_table_front.png'),
+  // New textures
+  gravel: texPath('gravel.png'),
+  sandstone: texPath('sandstone.png'),
+  lapisOre: texPath('lapis_ore.png')
 };
 
 export const getBlockTexture = (name) => {
@@ -68,6 +72,9 @@ const blockTextureMap = {
     bottom: 'planks'
   },
   [BLOCK_TYPES.COBBLESTONE]: { all: 'cobblestone' },
+  [BLOCK_TYPES.GRAVEL]: { all: 'gravel' },
+  [BLOCK_TYPES.SANDSTONE]: { all: 'sandstone' },
+  [BLOCK_TYPES.LAPIS_ORE]: { all: 'lapisOre' },
   [BLOCK_TYPES.STONE_AXE]: { all: 'stoneAxe', isItem: true },
   [BLOCK_TYPES.STONE_PICKAXE]: { all: 'stonePickaxe', isItem: true },
   [BLOCK_TYPES.STONE_SHOVEL]: { all: 'stoneShovel', isItem: true }

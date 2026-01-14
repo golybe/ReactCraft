@@ -85,8 +85,12 @@ function generateChunk(chunkX, chunkZ, seed) {
       // Get terrain data for this column
       const terrainData = terrainSampler.getTerrainAt(densityField, x, z);
       const biome = terrainData?.biome || BIOMES[BIOME_IDS.PLAINS];
+      const cliffFactor = terrainData?.cliffFactor || 0;
+      const surfaceDetail = terrainData?.surfaceDetail || 0;
+      const beachNoise = terrainData?.beachNoise || 0;
+      const isOceanBiome = terrainData?.isOceanBiome || false;
 
-      // Find surface height
+      // Find surface height by scanning from top
       let surfaceY = 0;
       for (let y = CHUNK_HEIGHT - 1; y >= 0; y--) {
         const density = terrainSampler.interpolateDensity(densityField, x, y, z);
@@ -100,13 +104,33 @@ function generateChunk(chunkX, chunkZ, seed) {
       surfaceHeights[x * CHUNK_SIZE + z] = surfaceY;
       surfaceBiomes[x * CHUNK_SIZE + z] = biome;
 
+      // Calculate slope (gradient) for cliff detection
+      // Sample neighbors to detect steep terrain
+      let slope = 0;
+      if (x > 0 && x < CHUNK_SIZE - 1 && z > 0 && z < CHUNK_SIZE - 1) {
+        const neighborData = [
+          terrainSampler.getTerrainAt(densityField, x - 1, z),
+          terrainSampler.getTerrainAt(densityField, x + 1, z),
+          terrainSampler.getTerrainAt(densityField, x, z - 1),
+          terrainSampler.getTerrainAt(densityField, x, z + 1)
+        ];
+        const heights = neighborData.map(d => d?.baseHeight || surfaceY);
+        const maxDiff = Math.max(
+          Math.abs(heights[0] - heights[1]),
+          Math.abs(heights[2] - heights[3])
+        );
+        slope = maxDiff / 8; // Normalize: 8 blocks difference = slope 1.0
+      }
+
       // Generate column
       for (let y = 0; y < CHUNK_HEIGHT; y++) {
         let block = BLOCK_TYPES.AIR;
         let meta = 0;
 
-        // Bedrock layer
+        // Bedrock layer (with variation)
         if (y === 0) {
+          block = BLOCK_TYPES.BEDROCK;
+        } else if (y < 3 && Math.random() < 0.5) {
           block = BLOCK_TYPES.BEDROCK;
         }
         // Below or at surface
@@ -127,19 +151,57 @@ function generateChunk(chunkX, chunkZ, seed) {
                 block = BLOCK_TYPES.AIR;
               }
             } else {
-              // Solid terrain
+              // Solid terrain - determine block type
+              const depthFromSurface = surfaceY - y;
+              const isUnderwater = surfaceY < SEA_LEVEL;
+
               if (y === surfaceY) {
-                // Surface block
-                if (surfaceY < SEA_LEVEL + 2) {
-                  block = BLOCK_TYPES.SAND; // Beach/underwater
+                // === SURFACE BLOCK ===
+                if (isUnderwater) {
+                  // Underwater surface
+                  if (beachNoise > 0.3) {
+                    block = BLOCK_TYPES.GRAVEL; // Gravel patches underwater
+                  } else {
+                    block = BLOCK_TYPES.SAND;
+                  }
+                } else if (surfaceY < SEA_LEVEL + 3) {
+                  // Beach zone
+                  if (beachNoise > 0.6) {
+                    block = BLOCK_TYPES.GRAVEL; // Gravel beach patches
+                  } else {
+                    block = BLOCK_TYPES.SAND;
+                  }
+                } else if (slope > 0.6 || cliffFactor > 0.7) {
+                  // Steep cliff - exposed stone
+                  block = BLOCK_TYPES.STONE;
+                } else if (slope > 0.35 && surfaceDetail > 0.4) {
+                  // Moderate slope - stone patches
+                  block = BLOCK_TYPES.STONE;
+                } else if (surfaceDetail > 0.7 && biome.surfaceBlock === BLOCK_TYPES.GRASS) {
+                  // Random dirt patches in grass biomes
+                  block = BLOCK_TYPES.DIRT;
                 } else {
+                  // Normal surface
                   block = biome.surfaceBlock || BLOCK_TYPES.GRASS;
                 }
-              } else if (y > surfaceY - 4) {
-                // Subsurface (1-3 blocks below surface)
-                block = biome.subsurfaceBlock || BLOCK_TYPES.DIRT;
+              } else if (depthFromSurface <= 3) {
+                // === SUBSURFACE (1-3 blocks below) ===
+                if (isUnderwater || surfaceY < SEA_LEVEL + 3) {
+                  // Beach/underwater subsurface
+                  if (depthFromSurface <= 2) {
+                    block = BLOCK_TYPES.SAND;
+                  } else {
+                    block = BLOCK_TYPES.SANDSTONE;
+                  }
+                } else if (slope > 0.5 || cliffFactor > 0.6) {
+                  // Cliff subsurface - stone
+                  block = BLOCK_TYPES.STONE;
+                } else {
+                  // Normal subsurface
+                  block = biome.subsurfaceBlock || BLOCK_TYPES.DIRT;
+                }
               } else {
-                // Deep stone
+                // === DEEP STONE ===
                 block = BLOCK_TYPES.STONE;
 
                 // Check for ore replacement
@@ -152,7 +214,7 @@ function generateChunk(chunkX, chunkZ, seed) {
             }
           }
         }
-        // Above surface but at/below sea level
+        // Above surface but at/below sea level = WATER
         else if (y <= SEA_LEVEL) {
           block = BLOCK_TYPES.WATER;
           meta = 255;
@@ -162,7 +224,7 @@ function generateChunk(chunkX, chunkZ, seed) {
           setBlock(x, y, z, block, meta);
         }
       }
-      
+
       // Определяем реальную высоту поверхности ПОСЛЕ генерации (сверху вниз)
       let realSurfaceY = -1;
       for (let y = Math.min(surfaceY + 5, CHUNK_HEIGHT - 1); y >= 0; y--) {
@@ -174,7 +236,7 @@ function generateChunk(chunkX, chunkZ, seed) {
           break;
         }
       }
-      
+
       surfaceHeights[x * CHUNK_SIZE + z] = realSurfaceY;
       surfaceBiomes[x * CHUNK_SIZE + z] = biome;
     }

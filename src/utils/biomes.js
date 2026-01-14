@@ -61,9 +61,9 @@ export const BIOMES = {
     surfaceBlock: BLOCK_TYPES.SAND,
     subsurfaceBlock: BLOCK_TYPES.SAND,
     stoneBlock: BLOCK_TYPES.STONE,
-    depth: 0.5,      // Positive to ensure solid ocean floor
-    scale: 0.05,     // Low variation for flat ocean floor
-    heightOffset: -25,
+    depth: 0.6,      // Solid ocean floor
+    scale: 0.03,     // Very low variation for flat floor
+    heightOffset: 0, // Height is handled by continentalness spline
     treeChance: 0,
     temperature: 0.5,
     humidity: 0.5,
@@ -76,9 +76,9 @@ export const BIOMES = {
     surfaceBlock: BLOCK_TYPES.SAND,
     subsurfaceBlock: BLOCK_TYPES.SAND,
     stoneBlock: BLOCK_TYPES.STONE,
-    depth: 0.5,      // Positive to ensure solid ocean floor
-    scale: 0.05,     // Low variation for flat ocean floor
-    heightOffset: -15,
+    depth: 0.5,      // Solid ocean floor
+    scale: 0.04,     // Low variation
+    heightOffset: 0, // Height is handled by continentalness spline
     treeChance: 0,
     temperature: 0.5,
     humidity: 0.5,
@@ -91,9 +91,9 @@ export const BIOMES = {
     surfaceBlock: BLOCK_TYPES.SAND,
     subsurfaceBlock: BLOCK_TYPES.SAND,
     stoneBlock: BLOCK_TYPES.STONE,
-    depth: 0.5,      // Positive to ensure solid ocean floor
-    scale: 0.05,     // Low variation for flat ocean floor
-    heightOffset: -12,
+    depth: 0.5,      // Solid ocean floor
+    scale: 0.04,     // Low variation
+    heightOffset: 0, // Height is handled by continentalness spline
     treeChance: 0,
     temperature: 0.8,
     humidity: 0.5,
@@ -331,9 +331,9 @@ export const BIOMES = {
     surfaceBlock: BLOCK_TYPES.STONE,
     subsurfaceBlock: BLOCK_TYPES.STONE,
     stoneBlock: BLOCK_TYPES.STONE,
-    depth: 1.0,
-    scale: 0.5,
-    heightOffset: 30,
+    depth: 1.2,       // More dramatic terrain
+    scale: 0.6,       // Higher variation
+    heightOffset: 15, // Reduced - height comes from splines now
     treeChance: 0.01,
     temperature: 0.3,
     humidity: 0.3,
@@ -346,9 +346,9 @@ export const BIOMES = {
     surfaceBlock: BLOCK_TYPES.SNOW,
     subsurfaceBlock: BLOCK_TYPES.STONE,
     stoneBlock: BLOCK_TYPES.STONE,
-    depth: 1.0,
-    scale: 0.5,
-    heightOffset: 35,
+    depth: 1.2,
+    scale: 0.6,
+    heightOffset: 18,
     treeChance: 0.005,
     temperature: 0.0,
     humidity: 0.3,
@@ -361,9 +361,9 @@ export const BIOMES = {
     surfaceBlock: BLOCK_TYPES.STONE,
     subsurfaceBlock: BLOCK_TYPES.STONE,
     stoneBlock: BLOCK_TYPES.STONE,
-    depth: 1.5,
-    scale: 0.8,
-    heightOffset: 50,
+    depth: 1.8,       // Very dramatic
+    scale: 0.9,       // High variation for jagged look
+    heightOffset: 20, // Reduced - height comes from splines
     treeChance: 0,
     temperature: 0.2,
     humidity: 0.2,
@@ -376,9 +376,9 @@ export const BIOMES = {
     surfaceBlock: BLOCK_TYPES.SNOW,
     subsurfaceBlock: BLOCK_TYPES.STONE,
     stoneBlock: BLOCK_TYPES.STONE,
-    depth: 1.5,
-    scale: 0.8,
-    heightOffset: 55,
+    depth: 1.8,
+    scale: 0.9,
+    heightOffset: 22,
     treeChance: 0,
     temperature: 0.0,
     humidity: 0.2,
@@ -451,28 +451,28 @@ function euclideanDistance(t1, h1, t2, h2) {
 }
 
 export function getBiomeId(temperature, humidity, continentalness) {
-  // Deep ocean
-  if (continentalness < -0.55) {
+  // Deep ocean (aligned with spline: < -0.5 is deep underwater)
+  if (continentalness < -0.5) {
     return BIOME_IDS.DEEP_OCEAN;
   }
 
-  // Ocean
-  if (continentalness < -0.35) {
+  // Ocean (aligned with spline: -0.5 to -0.3)
+  if (continentalness < -0.3) {
     return temperature < 0.3 ? BIOME_IDS.OCEAN : BIOME_IDS.WARM_OCEAN;
   }
 
-  // Beach
-  if (continentalness < -0.15) {
+  // Beach (aligned with spline: -0.3 to -0.05)
+  if (continentalness < -0.05) {
     return temperature < 0.3 ? BIOME_IDS.STONY_BEACH : BIOME_IDS.BEACH;
   }
 
-  // Frozen peaks
-  if (continentalness > 0.75 && temperature < -0.3) {
+  // Frozen peaks (very high continentalness + cold)
+  if (continentalness > 0.7 && temperature < -0.3) {
     return BIOME_IDS.FROZEN_PEAKS;
   }
 
-  // Peaks
-  if (continentalness > 0.75) {
+  // Peaks (very high continentalness)
+  if (continentalness > 0.7) {
     return BIOME_IDS.PEAKS;
   }
 
@@ -486,7 +486,7 @@ export function getBiomeId(temperature, humidity, continentalness) {
     return BIOME_IDS.MOUNTAINS;
   }
 
-  // Matrix lookup
+  // Matrix lookup for regular land biomes
   const tempIndex = normalizeToIndex(temperature, 5);
   const humIndex = normalizeToIndex(humidity, 5);
 

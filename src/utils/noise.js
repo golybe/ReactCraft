@@ -286,17 +286,23 @@ export class NoiseGenerators {
   constructor(worldSeed) {
     this.seed = worldSeed;
 
-    // Large-scale terrain (6 octaves)
-    this.continentalnessNoise = new FBMNoise(worldSeed + 0, 6, 0.5, 2.0);
-    this.erosionNoise = new FBMNoise(worldSeed + 1000, 4, 0.5, 2.0);
-    this.peaksValleysNoise = new FBMNoise(worldSeed + 2000, 4, 0.6, 2.0);
+    // Large-scale terrain (6 octaves) - more dramatic variation
+    this.continentalnessNoise = new FBMNoise(worldSeed + 0, 6, 0.55, 2.0);
+    this.erosionNoise = new FBMNoise(worldSeed + 1000, 5, 0.5, 2.0);
+    this.peaksValleysNoise = new FBMNoise(worldSeed + 2000, 5, 0.6, 2.0);
 
     // Climate (4 octaves)
     this.temperatureNoise = new FBMNoise(worldSeed + 3000, 4, 0.5, 2.0);
     this.humidityNoise = new FBMNoise(worldSeed + 4000, 4, 0.5, 2.0);
 
-    // 3D terrain density
-    this.terrainNoise3D = new FBMNoise(worldSeed + 5000, 4, 0.5, 2.0);
+    // 3D terrain density - stronger for overhangs
+    this.terrainNoise3D = new FBMNoise(worldSeed + 5000, 5, 0.55, 2.0);
+
+    // Overhang noise - creates cliff faces and cave entrances
+    this.overhangNoise = new FBMNoise(worldSeed + 5500, 4, 0.6, 2.0);
+
+    // Cliff noise - ridge-based for sharp transitions
+    this.cliffNoise = new RidgeNoise(worldSeed + 5700, 4, 0.5, 2.0);
 
     // Cave systems
     this.caveNoise = new FBMNoise(worldSeed + 6000, 3, 0.5, 2.0);
@@ -306,24 +312,33 @@ export class NoiseGenerators {
     // Ore distribution
     this.oreNoise = new PerlinNoise(worldSeed + 8000);
 
-    // Surface detail
-    this.detailNoise = new FBMNoise(worldSeed + 9000, 2, 0.5, 2.0);
+    // Surface detail - stone patches, gravel, etc.
+    this.detailNoise = new FBMNoise(worldSeed + 9000, 3, 0.5, 2.0);
+    this.surfaceNoise = new FBMNoise(worldSeed + 9500, 2, 0.6, 2.0);
 
     // River paths (ridge noise)
     this.riverNoise = new RidgeNoise(worldSeed + 10000, 3, 0.5, 2.0);
+
+    // Beach variation
+    this.beachNoise = new FBMNoise(worldSeed + 11000, 2, 0.5, 2.0);
   }
 
   static SCALES = {
-    CONTINENTALNESS: 0.0008,
-    EROSION: 0.002,
-    PEAKS_VALLEYS: 0.003,
-    TEMPERATURE: 0.001,
-    HUMIDITY: 0.001,
-    TERRAIN_3D: 0.02,
-    TERRAIN_3D_Y: 0.03,
+    // Increased scales = smaller features = more variety
+    CONTINENTALNESS: 0.0015,    // Was 0.0008 - now ~2x smaller continents
+    EROSION: 0.003,             // Was 0.002
+    PEAKS_VALLEYS: 0.005,       // Was 0.003 - more varied peaks
+    TEMPERATURE: 0.0015,        // Was 0.001
+    HUMIDITY: 0.0015,           // Was 0.001
+    TERRAIN_3D: 0.035,          // Was 0.02 - stronger 3D variation
+    TERRAIN_3D_Y: 0.025,        // Was 0.03 - less vertical squish
+    OVERHANG: 0.06,             // New - for cliff overhangs
+    CLIFF: 0.008,               // New - for cliff detection
     CAVE: 0.04,
-    RIVER: 0.002,
-    DETAIL: 0.05
+    RIVER: 0.003,               // Was 0.002
+    DETAIL: 0.08,               // Was 0.05 - finer surface detail
+    SURFACE: 0.1,               // New - stone patches etc
+    BEACH: 0.05                 // New - beach variation
   };
 
   sampleTerrainParams(worldX, worldZ) {
@@ -385,6 +400,43 @@ export class NoiseGenerators {
     return this.riverNoise.sample2D(
       worldX * S.RIVER,
       worldZ * S.RIVER
+    );
+  }
+
+  // Sample overhang noise for cliff faces
+  sampleOverhang(worldX, worldY, worldZ) {
+    const S = NoiseGenerators.SCALES;
+    return this.overhangNoise.sample3D(
+      worldX * S.OVERHANG,
+      worldY * S.OVERHANG * 0.7,
+      worldZ * S.OVERHANG
+    );
+  }
+
+  // Sample cliff noise for sharp terrain transitions
+  sampleCliff(worldX, worldZ) {
+    const S = NoiseGenerators.SCALES;
+    return this.cliffNoise.sample2D(
+      worldX * S.CLIFF,
+      worldZ * S.CLIFF
+    );
+  }
+
+  // Sample surface detail for stone patches, gravel etc
+  sampleSurfaceDetail(worldX, worldZ) {
+    const S = NoiseGenerators.SCALES;
+    return this.surfaceNoise.sample2D(
+      worldX * S.SURFACE,
+      worldZ * S.SURFACE
+    );
+  }
+
+  // Sample beach variation
+  sampleBeach(worldX, worldZ) {
+    const S = NoiseGenerators.SCALES;
+    return this.beachNoise.sample2D(
+      worldX * S.BEACH,
+      worldZ * S.BEACH
     );
   }
 }

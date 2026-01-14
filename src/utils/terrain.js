@@ -14,39 +14,58 @@ import { getBiome, BIOMES, BIOME_IDS } from './biomes.js';
 import { CHUNK_SIZE, CHUNK_HEIGHT, SEA_LEVEL } from '../constants/world.js';
 
 // =====================================================
-// HEIGHT SPLINES (Minecraft 1.12 style)
+// HEIGHT SPLINES (Minecraft-style with better ocean/cliff support)
 // =====================================================
 
 // Continentalness -> Base Height (relative to SEA_LEVEL)
+// More dramatic transitions, deeper oceans
 export const CONTINENTALNESS_SPLINE = new CubicSpline([
-  [-1.1, -60],   // Deep ocean floor
-  [-0.7, -30],   // Ocean
-  [-0.45, -10],  // Shallow ocean
-  [-0.2, 0],     // Beach/coast
-  [0.0, 5],      // Low plains
-  [0.3, 10],     // Hills
-  [0.5, 30],     // Mountains base
-  [0.7, 50],     // High mountains
-  [1.0, 80]      // Peaks
+  [-1.1, -50],   // Deep ocean floor (deeper!)
+  [-0.6, -35],   // Ocean
+  [-0.4, -20],   // Shallow ocean
+  [-0.25, -8],   // Ocean shelf
+  [-0.1, 2],     // Beach/coast (narrower transition)
+  [0.0, 6],      // Low plains
+  [0.2, 12],     // Plains
+  [0.4, 25],     // Hills (steeper rise)
+  [0.55, 45],    // Mountains base
+  [0.7, 60],     // High mountains
+  [0.85, 75],    // Very high
+  [1.0, 90]      // Extreme peaks
 ]);
 
-// Erosion -> Height modifier
+// Erosion -> Height modifier (stronger effect)
 export const EROSION_SPLINE = new CubicSpline([
-  [-1.0, 15],    // Plateau (erosion-resistant)
-  [-0.5, 8],
+  [-1.0, 20],    // Plateau (erosion-resistant) - creates flat-topped mountains
+  [-0.6, 12],
+  [-0.3, 5],
   [0.0, 0],      // Normal
-  [0.5, -8],     // Eroded valleys
-  [1.0, -20]     // Deep erosion
+  [0.3, -5],
+  [0.6, -15],    // Eroded valleys
+  [1.0, -30]     // Deep erosion - creates canyons
 ]);
 
-// Peaks/Valleys -> Fine detail
+// Peaks/Valleys -> Fine detail (more extreme)
 export const PV_SPLINE = new CubicSpline([
-  [-1.0, -15],   // Valley
-  [-0.5, -5],
+  [-1.0, -20],   // Deep valley
+  [-0.7, -12],
+  [-0.4, -5],
   [0.0, 0],
-  [0.5, 10],
-  [0.8, 25],
-  [1.0, 40]      // Peak
+  [0.3, 8],
+  [0.5, 18],
+  [0.7, 35],
+  [0.85, 50],
+  [1.0, 65]      // Extreme peak
+]);
+
+// Cliff factor spline - how much cliff noise affects terrain
+export const CLIFF_SPLINE = new CubicSpline([
+  [0.0, 0],      // No cliff
+  [0.3, 0],      // Still flat
+  [0.5, 0.3],    // Starting cliff
+  [0.7, 0.7],    // Strong cliff
+  [0.85, 1.0],   // Maximum cliff
+  [1.0, 1.0]
 ]);
 
 // =====================================================
@@ -77,36 +96,56 @@ export class TerrainDensitySampler {
       // Get biome
       const biome = getBiome(params.temperature, params.humidity, params.continentalness);
 
+      // Sample cliff noise for dramatic terrain
+      const cliffNoise = this.noise.sampleCliff(gridX, gridZ);
+      const cliffFactor = CLIFF_SPLINE.getValue(cliffNoise);
+
       // Calculate base terrain height from splines
       let baseHeight = SEA_LEVEL + CONTINENTALNESS_SPLINE.getValue(params.continentalness);
-      baseHeight += EROSION_SPLINE.getValue(params.erosion);
 
-      // Apply PV only on land with continent weight
-      if (params.continentalness > -0.2) {
-        const pvWeight = Math.min(1, (params.continentalness + 0.2) / 0.5);
-        baseHeight += PV_SPLINE.getValue(params.pv) * pvWeight;
+      // Apply erosion with cliff influence
+      const erosionVal = EROSION_SPLINE.getValue(params.erosion);
+      baseHeight += erosionVal * (1 - cliffFactor * 0.5); // Cliffs resist erosion
+
+      // Apply PV on land with continent weight
+      if (params.continentalness > -0.15) {
+        const pvWeight = Math.min(1, (params.continentalness + 0.15) / 0.4);
+        const pvVal = PV_SPLINE.getValue(params.pv);
+        // Cliffs amplify peaks
+        baseHeight += pvVal * pvWeight * (1 + cliffFactor * 0.5);
       }
 
-      // Apply biome height offset
-      baseHeight += biome.heightOffset || 0;
+      // Apply biome height offset (reduced for ocean biomes - they handle it via continentalness)
+      const isOceanBiome = biome.id === 'deep_ocean' || biome.id === 'ocean' || biome.id === 'warm_ocean';
+      if (!isOceanBiome) {
+        baseHeight += biome.heightOffset || 0;
+      }
 
       // Check for river
       const riverVal = this.noise.sampleRiver(gridX, gridZ);
-      const riverThreshold = 0.85; // High values = river
-      const isRiver = riverVal > riverThreshold && baseHeight > SEA_LEVEL - 2;
+      const riverThreshold = 0.82; // Slightly lower threshold = more rivers
+      const isRiver = riverVal > riverThreshold && baseHeight > SEA_LEVEL - 2 && !isOceanBiome;
 
       if (isRiver) {
         // River cuts into terrain
         const riverDepth = (riverVal - riverThreshold) / (1 - riverThreshold);
-        const riverBed = SEA_LEVEL - 4;
-        baseHeight = riverBed + (baseHeight - riverBed) * (1 - riverDepth * 0.8);
+        const riverBed = SEA_LEVEL - 5;
+        baseHeight = riverBed + (baseHeight - riverBed) * (1 - riverDepth * 0.85);
       }
+
+      // Sample surface detail noise for later use
+      const surfaceDetail = this.noise.sampleSurfaceDetail(gridX, gridZ);
+      const beachNoise = this.noise.sampleBeach(gridX, gridZ);
 
       this.terrainCache.set(key, {
         ...params,
         biome,
         baseHeight: Math.floor(baseHeight),
-        isRiver
+        isRiver,
+        cliffFactor,
+        surfaceDetail,
+        beachNoise,
+        isOceanBiome
       });
     }
 
@@ -134,6 +173,11 @@ export class TerrainDensitySampler {
     const h1 = c01.baseHeight + (c11.baseHeight - c01.baseHeight) * fx;
     const baseHeight = h0 + (h1 - h0) * fz;
 
+    // Interpolate cliff factor for smoother transitions
+    const cf0 = c00.cliffFactor + (c10.cliffFactor - c00.cliffFactor) * fx;
+    const cf1 = c01.cliffFactor + (c11.cliffFactor - c01.cliffFactor) * fx;
+    const cliffFactor = cf0 + (cf1 - cf0) * fz;
+
     // Use nearest biome for block decisions
     const nearestTerrain = fx < 0.5
       ? (fz < 0.5 ? c00 : c01)
@@ -143,7 +187,11 @@ export class TerrainDensitySampler {
       baseHeight: Math.floor(baseHeight),
       biome: nearestTerrain.biome,
       continentalness: nearestTerrain.continentalness,
-      isRiver: nearestTerrain.isRiver
+      isRiver: nearestTerrain.isRiver,
+      cliffFactor,
+      surfaceDetail: nearestTerrain.surfaceDetail,
+      beachNoise: nearestTerrain.beachNoise,
+      isOceanBiome: nearestTerrain.isOceanBiome
     };
   }
 
@@ -153,6 +201,7 @@ export class TerrainDensitySampler {
    */
   sampleDensity3D(worldX, worldY, worldZ, terrainData) {
     const biome = terrainData.biome;
+    const cliffFactor = terrainData.cliffFactor || 0;
 
     // Base density from height difference
     let density = terrainData.baseHeight - worldY;
@@ -161,11 +210,47 @@ export class TerrainDensitySampler {
     const noiseScale = biome.scale || 0.1;
     const noise3d = this.noise.sampleDensityNoise(worldX, worldY, worldZ);
 
-    // Scale noise by biome parameters
-    density += noise3d * noiseScale * 20;
+    // Scale noise by biome parameters - stronger effect
+    density += noise3d * noiseScale * 25;
 
     // Apply depth modifier
     density += (biome.depth || 0) * 10;
+
+    // === OVERHANG GENERATION ===
+    // Only apply overhangs in mountainous/cliffy terrain
+    if (cliffFactor > 0.2 && worldY > SEA_LEVEL + 5) {
+      const overhangNoise = this.noise.sampleOverhang(worldX, worldY, worldZ);
+
+      // Height above base affects overhang probability
+      const heightAboveBase = worldY - terrainData.baseHeight;
+
+      // Overhangs are more likely slightly below the surface
+      if (heightAboveBase > -15 && heightAboveBase < 5) {
+        // Create overhangs by carving into positive density
+        const overhangStrength = cliffFactor * 15;
+        const overhangThreshold = 0.3;
+
+        if (overhangNoise > overhangThreshold) {
+          const carveAmount = (overhangNoise - overhangThreshold) * overhangStrength;
+          density -= carveAmount;
+        }
+      }
+
+      // Also add some bulges for cliff faces
+      if (heightAboveBase > -25 && heightAboveBase < -5) {
+        const bulgeNoise = this.noise.sampleOverhang(worldX + 1000, worldY, worldZ + 1000);
+        if (bulgeNoise > 0.4) {
+          density += (bulgeNoise - 0.4) * cliffFactor * 10;
+        }
+      }
+    }
+
+    // === OCEAN FLOOR VARIATION ===
+    // Add some variation to ocean floors so they're not perfectly flat
+    if (terrainData.isOceanBiome && worldY < SEA_LEVEL - 10) {
+      const oceanFloorNoise = noise3d * 3;
+      density += oceanFloorNoise;
+    }
 
     return density;
   }
@@ -352,5 +437,6 @@ export default {
   clearTerrainCache,
   CONTINENTALNESS_SPLINE,
   EROSION_SPLINE,
-  PV_SPLINE
+  PV_SPLINE,
+  CLIFF_SPLINE
 };

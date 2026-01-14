@@ -180,6 +180,35 @@ export const initBlocks = () => {
     requiresTool: true
   }));
 
+  // 18: GRAVEL (лопата, может дропнуть кремень)
+  BlockRegistry.register(new SolidBlock(18, {
+    name: 'gravel',
+    texture: 'gravel',
+    color: 0x857b7b,
+    hardness: 0.6,
+    preferredTool: TOOL_TYPES.SHOVEL
+  }));
+
+  // 19: SANDSTONE (кирка)
+  BlockRegistry.register(new SolidBlock(19, {
+    name: 'sandstone',
+    texture: 'sandstone',
+    color: 0xd9ca8f,
+    hardness: 0.8,
+    preferredTool: TOOL_TYPES.PICKAXE
+  }));
+
+  // 20: LAPIS_ORE (кирка)
+  BlockRegistry.register(new SolidBlock(20, {
+    name: 'lapis_ore',
+    texture: 'lapisOre',
+    color: 0x4668a3,
+    hardness: 3.0,
+    preferredTool: TOOL_TYPES.PICKAXE,
+    requiresTool: true,
+    xp: 3
+  }));
+
   // =========================================================
   // ITEMS (512+)
   // =========================================================
