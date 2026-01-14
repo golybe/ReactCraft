@@ -8,7 +8,9 @@ export function useChatCommands({
   worldInfo,
   playerPos,
   setGameMode,
+  noclipMode,
   setNoclipMode,
+  canFly,
   setCanFly,
   setSpeedMultiplier,
   teleportTo
@@ -65,19 +67,15 @@ export function useChatCommands({
           break;
 
         case 'noclip':
-          setNoclipMode(prev => {
-            const newVal = !prev;
-            addMessage(`Noclip mode ${newVal ? 'enabled' : 'disabled'}`, 'info');
-            return newVal;
-          });
+          const nextNoclip = !noclipMode;
+          setNoclipMode(nextNoclip);
+          addMessage(`Noclip mode ${nextNoclip ? 'enabled' : 'disabled'}`, 'info');
           break;
 
         case 'fly':
-          setCanFly(prev => {
-            const newVal = !prev;
-            addMessage(`Flight capability ${newVal ? 'enabled' : 'disabled'} (Double-tap SPACE to fly)`, 'info');
-            return newVal;
-          });
+          const nextFly = !canFly;
+          setCanFly(nextFly);
+          addMessage(`Flight capability ${nextFly ? 'enabled' : 'disabled'} (Double-tap SPACE to fly)`, 'info');
           break;
 
         case 'speed':
@@ -123,7 +121,7 @@ export function useChatCommands({
           addMessage(`Unknown command: ${cmd}`, 'error');
       }
     }
-  }, [playerPos, worldInfo, teleportTo, setGameMode, setNoclipMode, setCanFly, setSpeedMultiplier, addMessage]);
+  }, [playerPos, worldInfo, teleportTo, setGameMode, noclipMode, setNoclipMode, canFly, setCanFly, setSpeedMultiplier, addMessage]);
 
   return {
     isChatOpen,

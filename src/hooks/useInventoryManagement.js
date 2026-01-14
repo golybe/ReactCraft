@@ -33,21 +33,30 @@ export function useInventoryManagement({
 
   const [selectedSlot, setSelectedSlot] = useState(0);
 
-  // Crafting state
-  const [craftingGrid, setCraftingGrid] = useState(Array(CRAFTING_GRID_SIZE).fill(null));
+  // --- Crafting states ---
+  // 2x2 Crafting (Survival Inventory)
+  const [craftingGrid, setCraftingGrid] = useState(Array(4).fill(null));
   const [craftingResult, setCraftingResult] = useState(null);
 
-  // Update crafting result when grid changes
+  // 3x3 Crafting (Workbench)
+  const [craftingGrid3x3, setCraftingGrid3x3] = useState(Array(9).fill(null));
+  const [craftingResult3x3, setCraftingResult3x3] = useState(null);
+
+  // Update crafting results when grids change
   useEffect(() => {
     const result = CraftingManager.checkRecipe(craftingGrid);
     setCraftingResult(result);
   }, [craftingGrid]);
 
-  // Handle crafting result pickup
-  const handleCraftResultPickup = useCallback(() => {
-    if (!craftingResult) return;
+  useEffect(() => {
+    const result = CraftingManager.checkRecipe(craftingGrid3x3);
+    setCraftingResult3x3(result);
+  }, [craftingGrid3x3]);
 
-    // 1. Consume 1 item from each slot in crafting grid
+  // Handle crafting result pickup (Survival 2x2)
+  const handleCraftResultPickup = useCallback(() => {
+    if (!craftingResult) return null;
+
     const newGrid = craftingGrid.map(item => {
       if (!item) return null;
       const newCount = item.count - 1;
@@ -55,12 +64,10 @@ export function useInventoryManagement({
     });
     setCraftingGrid(newGrid);
 
-    // 2. Result is picked up by cursor logic (handled in Inventory component)
-    // Here we just return the result to be used by the caller
     return { ...craftingResult };
   }, [craftingGrid, craftingResult]);
 
-  // Handle Shift + Click (Craft all possible and move to inventory)
+  // Handle Shift + Click (Craft all possible - Survival 2x2)
   const handleShiftCraftResult = useCallback(() => {
     if (!craftingResult || !inventoryRef.current) return;
 
@@ -69,35 +76,24 @@ export function useInventoryManagement({
     const resultCountPerCraft = craftingResult.count;
     let totalAdded = 0;
 
-    // Цикл крафта: продолжаем, пока рецепт совпадает и есть место в инвентаре
     while (true) {
       const currentRecipeResult = CraftingManager.checkRecipe(currentGrid);
       if (!currentRecipeResult || currentRecipeResult.type !== resultType) break;
 
-      // Пытаемся добавить результат в инвентарь
       const { remaining } = inventoryRef.current.addToFullInventory(resultType, resultCountPerCraft);
-      
-      // Если не смогли добавить все предметы из этого цикла крафта — значит инвентарь полон
       if (remaining > 0) {
-        // Если что-то добавилось (частично), нужно вернуть "лишнее" из инвентаря обратно? 
-        // В Minecraft просто останавливается, если стак не влезает целиком.
         if (remaining < resultCountPerCraft) {
-          // Откатываем частичное добавление (для простоты реализации)
           inventoryRef.current.removeItem(resultType, resultCountPerCraft - remaining);
         }
         break;
       }
 
-      // Потребляем ингредиенты
       currentGrid = currentGrid.map(item => {
         if (!item) return null;
         const newCount = item.count - 1;
         return newCount > 0 ? { ...item, count: newCount } : null;
       });
-      
       totalAdded += resultCountPerCraft;
-      
-      // Ограничитель, чтобы не зависнуть (на случай бесконечных рецептов)
       if (totalAdded > 1000) break;
     }
 
@@ -107,18 +103,66 @@ export function useInventoryManagement({
     }
   }, [craftingGrid, craftingResult]);
 
-  // Return items from crafting grid to main inventory when inventory closes
+  // Handle crafting result pickup (Workbench 3x3)
+  const handleCraftResult3x3Pickup = useCallback(() => {
+    if (!craftingResult3x3) return null;
+
+    const newGrid = craftingGrid3x3.map(item => {
+      if (!item) return null;
+      const newCount = item.count - 1;
+      return newCount > 0 ? { ...item, count: newCount } : null;
+    });
+    setCraftingGrid3x3(newGrid);
+
+    return { ...craftingResult3x3 };
+  }, [craftingGrid3x3, craftingResult3x3]);
+
+  // Handle Shift + Click (Workbench 3x3)
+  const handleShiftCraftResult3x3 = useCallback(() => {
+    if (!craftingResult3x3 || !inventoryRef.current) return;
+
+    let currentGrid = [...craftingGrid3x3];
+    const resultType = craftingResult3x3.type;
+    const resultCountPerCraft = craftingResult3x3.count;
+    let totalAdded = 0;
+
+    while (true) {
+      const currentRecipeResult = CraftingManager.checkRecipe(currentGrid);
+      if (!currentRecipeResult || currentRecipeResult.type !== resultType) break;
+
+      const { remaining } = inventoryRef.current.addToFullInventory(resultType, resultCountPerCraft);
+      if (remaining > 0) {
+        if (remaining < resultCountPerCraft) {
+          inventoryRef.current.removeItem(resultType, resultCountPerCraft - remaining);
+        }
+        break;
+      }
+
+      currentGrid = currentGrid.map(item => {
+        if (!item) return null;
+        const newCount = item.count - 1;
+        return newCount > 0 ? { ...item, count: newCount } : null;
+      });
+      totalAdded += resultCountPerCraft;
+      if (totalAdded > 1000) break;
+    }
+
+    if (totalAdded > 0) {
+      setInventory(inventoryRef.current.getSlots());
+      setCraftingGrid3x3(currentGrid);
+    }
+  }, [craftingGrid3x3, craftingResult3x3]);
+
+  // Return items from 2x2 crafting grid when inventory closes
   useEffect(() => {
     if (!isInventoryOpen) {
       const itemsToReturn = craftingGrid.filter(item => item && item.count > 0);
-      if (itemsToReturn.length > 0) {
-        if (inventoryRef.current) {
-          itemsToReturn.forEach(item => {
-            inventoryRef.current.addToFullInventory(item.type, item.count);
-          });
-          setInventory(inventoryRef.current.getSlots());
-          setCraftingGrid(Array(CRAFTING_GRID_SIZE).fill(null));
-        }
+      if (itemsToReturn.length > 0 && inventoryRef.current) {
+        itemsToReturn.forEach(item => {
+          inventoryRef.current.addToFullInventory(item.type, item.count);
+        });
+        setInventory(inventoryRef.current.getSlots());
+        setCraftingGrid(Array(4).fill(null));
       }
     }
   }, [isInventoryOpen]);
@@ -170,9 +214,9 @@ export function useInventoryManagement({
 
   const scrollHotbar = useCallback((direction) => {
     if (direction > 0) {
-      setSelectedSlot(prev => (prev + 1) % HOTBAR_BLOCKS.length);
+      setSelectedSlot(prev => (prev + 1) % HOTBAR_SIZE);
     } else {
-      setSelectedSlot(prev => (prev - 1 + HOTBAR_BLOCKS.length) % HOTBAR_BLOCKS.length);
+      setSelectedSlot(prev => (prev - 1 + HOTBAR_SIZE) % HOTBAR_SIZE);
     }
   }, []);
 
@@ -184,24 +228,20 @@ export function useInventoryManagement({
     const blockType = inventoryRef.current.getBlockType(selectedSlot);
     if (!blockType) return null;
 
-    // Shift+Q выбрасывает весь стак, Q - только один предмет
     const dropAll = data.shiftKey === true;
     const currentCount = inventoryRef.current.getSlots()[selectedSlot]?.count || 0;
     const countToRemove = dropAll ? currentCount : 1;
 
-    // Remove items from slot
     const { removed } = inventoryRef.current.removeFromSlot(selectedSlot, countToRemove);
     if (removed === 0) return null;
 
     setInventory(inventoryRef.current.getSlots());
 
-    // Calculate throw direction
     const throwSpeed = 8;
     const dirX = -Math.sin(playerYaw) * Math.cos(playerPitch);
     const dirY = Math.sin(playerPitch);
     const dirZ = -Math.cos(playerYaw) * Math.cos(playerPitch);
 
-    // Small spread
     const spread = 0.15;
     const randX = (Math.random() - 0.5) * spread;
     const randZ = (Math.random() - 0.5) * spread;
@@ -210,7 +250,7 @@ export function useInventoryManagement({
     const droppedItem = {
       id: itemId,
       blockType: blockType,
-      count: removed, // Выбрасываем столько, сколько удалили (1 или весь стак)
+      count: removed,
       position: {
         x: playerPos.x + dirX * 1.2,
         y: playerPos.y + 1.5,
@@ -245,11 +285,18 @@ export function useInventoryManagement({
     handleSelectSlot,
     scrollHotbar,
     handleDropItem,
+    // Crafting states and handlers
     craftingGrid,
     setCraftingGrid,
     craftingResult,
     handleCraftResultPickup,
-    handleShiftCraftResult
+    handleShiftCraftResult,
+    // 3x3 crafting
+    craftingGrid3x3,
+    setCraftingGrid3x3,
+    craftingResult3x3,
+    handleCraftResult3x3Pickup,
+    handleShiftCraftResult3x3
   };
 }
 

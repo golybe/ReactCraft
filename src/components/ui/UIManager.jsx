@@ -193,10 +193,51 @@ const InventoryUI = ({
 
     if (isCreativeMode) {
         // Creative mode - простой список блоков
+        const [searchQuery, setSearchQuery] = useState('');
+
+        const filteredBlocks = React.useMemo(() => {
+            const all = BlockRegistry.getAll().filter(b => b.id !== 0);
+            if (!searchQuery) return all;
+            return all.filter(b => b.name.toLowerCase().includes(searchQuery.toLowerCase()));
+        }, [searchQuery]);
+
+        const handlePaletteClick = (blockId) => {
+            slotInteraction.setCursorItem({ type: blockId, count: MAX_STACK_SIZE });
+        };
+
         return (
             <div className="mc-creative-content">
+                <div className="mc-search-bar">
+                    <input
+                        placeholder="Search items..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        autoFocus
+                    />
+                </div>
                 <div className="mc-scroll-container">
-                    {/* Тут будет список всех блоков */}
+                    <div className="mc-grid">
+                        {filteredBlocks.map(block => (
+                            <MCSlot
+                                key={block.id}
+                                slot={block.id}
+                                onClick={() => handlePaletteClick(block.id)}
+                                onHover={(hovered) => handleSlotHover(block.id, hovered, block.id)}
+                            />
+                        ))}
+                    </div>
+                </div>
+                <div className="mc-separator">Hotbar</div>
+                <div className="mc-hotbar-row">
+                    {Array.from({ length: HOTBAR_SIZE }).map((_, index) => (
+                        <MCSlot
+                            key={index}
+                            slot={inventory[index]}
+                            onClick={(e) => handleSlotClick(inventory, onInventoryChange, index, false, null, e.shiftKey)}
+                            onRightClick={() => handleSlotRightClick(inventory, onInventoryChange, index)}
+                            onHover={(hovered) => handleSlotHover(index, hovered, inventory[index])}
+                        />
+                    ))}
                 </div>
             </div>
         );

@@ -2,7 +2,7 @@ import React from 'react';
 import { BlockRegistry } from '../../core/blocks/BlockRegistry';
 import { getResolvedBlockTextures, textures } from '../../utils/textures';
 import { BLOCK_TINTS } from '../../constants/colors';
-import { BLOCK_TYPES } from '../../constants/blocks';
+import { BLOCK_TYPES } from '../../constants/blockTypes';
 
 export const BlockIcon = ({ blockId, size = 32, style }) => {
     const block = BlockRegistry.get(blockId);
@@ -10,22 +10,22 @@ export const BlockIcon = ({ blockId, size = 32, style }) => {
 
     const tex = getResolvedBlockTextures(blockId);
     const halfSize = size / 2;
-    
+
     const isGrass = blockId === BLOCK_TYPES.GRASS;
     const isLeaves = blockId === BLOCK_TYPES.LEAVES;
-    
+
     // Проверка: это предмет или блок?
     if (block.isPlaceable === false) {
         const iconUrl = tex.side || tex.top || tex.front;
         return (
-            <div style={{ 
-                width: size, 
-                height: size, 
+            <div style={{
+                width: size,
+                height: size,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 overflow: 'hidden',
-                ...style 
+                ...style
             }}>
                 <div style={{
                     width: '100%',
@@ -40,7 +40,7 @@ export const BlockIcon = ({ blockId, size = 32, style }) => {
             </div>
         );
     }
-    
+
     const tintTop = isGrass ? BLOCK_TINTS['grassTop'] : (isLeaves ? BLOCK_TINTS['leaves'] : null);
     const tintSide = isGrass ? BLOCK_TINTS['grassSide'] : (isLeaves ? BLOCK_TINTS['leaves'] : null);
 
@@ -60,7 +60,7 @@ export const BlockIcon = ({ blockId, size = 32, style }) => {
             backgroundImage: `url(${url})`,
             filter: `brightness(${brightness})`,
         };
-        
+
         if (tint) {
             s.backgroundColor = tint;
             s.backgroundBlendMode = 'multiply';
@@ -79,21 +79,21 @@ export const BlockIcon = ({ blockId, size = 32, style }) => {
         if (isGrass) {
             return (
                 <div style={{ ...faceBaseStyle, transform, filter: `brightness(${brightness})` }}>
-                     {/* База: Земля */}
-                     <div style={{ ...faceBaseStyle, width: '100%', height: '100%', backgroundImage: `url(${textures.dirt})` }} />
-                     
-                     {/* Оверлей: Трава (с маской и тинтом) */}
-                     <div style={{ 
-                         ...faceBaseStyle, 
-                         width: '100%', height: '100%',
-                         backgroundImage: `url(${tex.side})`, 
-                         backgroundColor: tintSide, 
-                         backgroundBlendMode: 'multiply',
-                         maskImage: `url(${tex.side})`,
-                         WebkitMaskImage: `url(${tex.side})`,
-                         maskSize: 'cover',
-                         WebkitMaskSize: 'cover'
-                     }} />
+                    {/* База: Земля */}
+                    <div style={{ ...faceBaseStyle, width: '100%', height: '100%', backgroundImage: `url(${textures.dirt})` }} />
+
+                    {/* Оверлей: Трава (с маской и тинтом) */}
+                    <div style={{
+                        ...faceBaseStyle,
+                        width: '100%', height: '100%',
+                        backgroundImage: `url(${tex.side})`,
+                        backgroundColor: tintSide,
+                        backgroundBlendMode: 'multiply',
+                        maskImage: `url(${tex.side})`,
+                        WebkitMaskImage: `url(${tex.side})`,
+                        maskSize: 'cover',
+                        WebkitMaskSize: 'cover'
+                    }} />
                 </div>
             );
         }
@@ -110,24 +110,24 @@ export const BlockIcon = ({ blockId, size = 32, style }) => {
     };
 
     return (
-        <div style={{ 
-            width: size, 
-            height: size, 
-            display: 'flex', 
-            justifyContent: 'center', 
+        <div style={{
+            width: size,
+            height: size,
+            display: 'flex',
+            justifyContent: 'center',
             alignItems: 'center',
-            ...style 
+            ...style
         }}>
             <div style={cubeStyle}>
                 {/* Top Face - Y- axis (up) */}
-                <div style={{ 
-                    ...getFaceStyle(tex.top, tintTop, 1.2), 
-                    transform: `rotateX(90deg) translateZ(${halfSize}px)` 
+                <div style={{
+                    ...getFaceStyle(tex.top, tintTop, 1.2),
+                    transform: `rotateX(90deg) translateZ(${halfSize}px)`
                 }} />
-                
+
                 {/* Front Face (Left side in iso) - Z+ axis */}
                 {renderSideFace(`translateZ(${halfSize}px)`, 0.8)}
-                
+
                 {/* Right Face (Right side in iso) - X+ axis */}
                 {renderSideFace(`rotateY(90deg) translateZ(${halfSize}px)`, 0.6)}
             </div>

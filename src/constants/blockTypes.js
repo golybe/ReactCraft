@@ -22,9 +22,11 @@ export const BLOCK_TYPES = {
   SNOW: 13,
   PLANKS: 14,
   BEDROCK: 15,
-  
-  // RESERVED FOR FUTURE BLOCKS: 16 - 511
-  
+
+  CRAFTING_TABLE: 16,
+
+  // RESERVED FOR FUTURE BLOCKS: 17 - 511
+
   // ITEMS (Non-block entities): 512+
   STICK: 512
 };

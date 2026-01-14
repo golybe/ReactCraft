@@ -6,21 +6,20 @@ import { PhysicsEngine } from '../../core/physics/PhysicsEngine';
 import { PLAYER_HEIGHT } from '../../constants/world';
 import { log } from '../../utils/logger';
 
-const Player = ({ onMove, chunks, initialPosition, noclipMode, canFly, speedMultiplier, isChatOpen, teleportPos }) => {
+const Player = ({ onMove, chunks, initialPosition, noclipMode, canFly, isFlying, speedMultiplier, isChatOpen, teleportPos }) => {
   const { camera } = useThree();
   const playerRef = useRef(null);
   const physicsEngineRef = useRef(null);
-  const [isFlying, setIsFlying] = useState(false);
   const lastSpaceTime = useRef(0);
   const isInitializedRef = useRef(false);
 
   // Инициализация PhysicsEngine и игрока
   useEffect(() => {
     if (isInitializedRef.current) return;
-    
+
     // Создаем PhysicsEngine
     physicsEngineRef.current = new PhysicsEngine(chunks);
-    
+
     const spawn = PlayerClass.findSpawnPoint(chunks, initialPosition);
     log('Player', 'Spawn point found:', spawn);
 
@@ -77,9 +76,7 @@ const Player = ({ onMove, chunks, initialPosition, noclipMode, canFly, speedMult
       if (e.code === 'Space' && canFly) {
         const now = Date.now();
         if (now - lastSpaceTime.current < 300) {
-          const newFlying = !isFlying;
-          setIsFlying(newFlying);
-          playerRef.current.setFlying(newFlying);
+          playerRef.current.setFlying(!isFlying);
           lastSpaceTime.current = 0;
         } else {
           lastSpaceTime.current = now;
@@ -98,7 +95,7 @@ const Player = ({ onMove, chunks, initialPosition, noclipMode, canFly, speedMult
 
     const handleKeyUp = (e) => {
       if (!playerRef.current) return;
-      
+
       switch (e.code) {
         case 'KeyW': case 'ArrowUp': playerRef.current.keys.forward = false; break;
         case 'KeyS': case 'ArrowDown': playerRef.current.keys.backward = false; break;
@@ -111,7 +108,7 @@ const Player = ({ onMove, chunks, initialPosition, noclipMode, canFly, speedMult
 
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('keyup', handleKeyUp);
-    
+
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('keyup', handleKeyUp);
@@ -133,12 +130,12 @@ const Player = ({ onMove, chunks, initialPosition, noclipMode, canFly, speedMult
   // Игровой цикл
   useFrame((_, delta) => {
     const player = playerRef.current;
-    
+
     if (!player) return;
 
     // Обновляем игрока (вся логика физики внутри класса)
     player.update(delta, chunks, isChatOpen);
-    
+
     // === ОБНОВЛЕНИЕ КАМЕРЫ ===
     camera.rotation.y = player.rotation.yaw;
     camera.rotation.x = player.rotation.pitch;

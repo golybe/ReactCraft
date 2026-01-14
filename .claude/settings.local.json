@@ -17,7 +17,8 @@
       "WebFetch(domain:nekoyue.github.io)",
       "Bash(ls:*)",
       "Bash(wc:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(tree /f \"C:\\\\tests\\\\glmtest2\\\\src\")"
     ]
   }
 }

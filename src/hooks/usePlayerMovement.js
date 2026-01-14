@@ -34,14 +34,27 @@ export function usePlayerMovement({
 
   const handlePlayerMove = useCallback((data) => {
     if (data.type === 'position') {
-      setPlayerPos({ x: data.x, y: data.y, z: data.z });
-      setIsFlying(data.isFlying);
-      if (data.yaw !== undefined) setPlayerYaw(data.yaw);
-      if (data.pitch !== undefined) setPlayerPitch(data.pitch);
+      setPlayerPos(prev => {
+        if (prev.x === data.x && prev.y === data.y && prev.z === data.z) return prev;
+        return { x: data.x, y: data.y, z: data.z };
+      });
+
+      setIsFlying(prev => prev !== data.isFlying ? data.isFlying : prev);
+
+      if (data.yaw !== undefined) {
+        setPlayerYaw(prev => prev !== data.yaw ? data.yaw : prev);
+      }
+      if (data.pitch !== undefined) {
+        setPlayerPitch(prev => prev !== data.pitch ? data.pitch : prev);
+      }
 
       // Update water states
-      if (data.isInWater !== undefined) setIsInWater(data.isInWater);
-      if (data.isHeadUnderwater !== undefined) setIsHeadUnderwater(data.isHeadUnderwater);
+      if (data.isInWater !== undefined) {
+        setIsInWater(prev => prev !== data.isInWater ? data.isInWater : prev);
+      }
+      if (data.isHeadUnderwater !== undefined) {
+        setIsHeadUnderwater(prev => prev !== data.isHeadUnderwater ? data.isHeadUnderwater : prev);
+      }
     }
   }, []);
 

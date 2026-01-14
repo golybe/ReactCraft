@@ -153,6 +153,19 @@ export const initBlocks = () => {
     drops: null
   }));
 
+  // 16: CRAFTING_TABLE
+  BlockRegistry.register(new SolidBlock(16, {
+    name: 'crafting_table',
+    textures: {
+      top: 'crafting_table_top',
+      side: 'crafting_table_side',
+      front: 'crafting_table_front'
+    },
+    color: 0x79553a,
+    hardness: 2.5,
+    preferredTool: TOOL_TYPES.AXE
+  }));
+
   // =========================================================
   // ITEMS (512+)
   // =========================================================

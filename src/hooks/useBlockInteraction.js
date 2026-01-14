@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { BLOCK_TYPES, isSolid, BlockRegistry } from '../constants/blocks';
+import { isSolid, BlockRegistry } from '../constants/blocks';
+import { BLOCK_TYPES } from '../constants/blockTypes';
 import { CHUNK_HEIGHT, REACH_DISTANCE, PLAYER_WIDTH, PLAYER_HEIGHT } from '../constants/world';
 import { GAME_MODES } from '../constants/gameMode';
 import { BlockMiningManager } from '../core/physics/BlockMining';
@@ -230,10 +231,10 @@ export function useBlockInteraction({
     if (processedItemsRef.current.has(itemId)) {
       return;
     }
-    
+
     // Отмечаем как обработанный
     processedItemsRef.current.add(itemId);
-    
+
     if (count === 0) {
       setDroppedItems(prev => prev.filter(item => item.id !== itemId));
       // Очищаем из Set после удаления

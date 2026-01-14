@@ -2,10 +2,12 @@
 import React, { useEffect, useCallback } from 'react';
 import { BLOCK_TYPES, HOTBAR_BLOCKS } from '../constants/blocks';
 import { GAME_MODES } from '../constants/gameMode';
+import { UI_TYPES, isUIBlocking } from '../constants/uiTypes';
 import Crosshair from './ui/Crosshair';
 import Hotbar from './ui/Hotbar';
 import Chat from './ui/Chat';
-import Inventory from './inventory/Inventory';
+import UIManager from './ui/UIManager';
+import WaterOverlay from './ui/WaterOverlay';
 import { GameCanvas } from './game/GameCanvas';
 import { LoadingScreen, PauseMenu, SaveMessage, DebugInfo } from './game/GameUI';
 import { InputManager, INPUT_ACTIONS } from '../core/input/InputManager';
@@ -26,6 +28,10 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
   const [droppedItems, setDroppedItems] = React.useState([]);
   const [debrisList, setDebrisList] = React.useState([]);
 
+  // === UNIFIED UI STATE ===
+  const [activeUI, setActiveUI] = React.useState(UI_TYPES.NONE);
+  const activeUIRef = React.useRef(UI_TYPES.NONE);
+
   // === DEBUG INFO ===
   const { debugInfo, setChunksCount, setBlocksCount } = useDebugInfo();
 
@@ -43,6 +49,8 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
     speedMultiplier,
     setSpeedMultiplier,
     teleportPos,
+    isInWater,
+    isHeadUnderwater,
     handlePlayerMove,
     teleportTo
   } = usePlayerMovement({
@@ -73,9 +81,6 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
     setIsPaused,
     showInstructions,
     setShowInstructions,
-    isInventoryOpen,
-    setIsInventoryOpen,
-    isInventoryOpenRef,
     saveMessage,
     resumeGame,
     handleSaveGame,
@@ -88,6 +93,9 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
     playerPos,
     onExitToMenu
   });
+
+  // Helper to check if any UI is open
+  const isUIOpen = isUIBlocking(activeUI);
 
   // === CHAT COMMANDS ===
   const {
@@ -102,7 +110,9 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
     worldInfo,
     playerPos,
     setGameMode,
+    noclipMode,
     setNoclipMode,
+    canFly,
     setCanFly,
     setSpeedMultiplier,
     teleportTo
@@ -124,7 +134,13 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
     setCraftingGrid,
     craftingResult,
     handleCraftResultPickup,
-    handleShiftCraftResult
+    handleShiftCraftResult,
+    // 3x3 crafting (crafting table)
+    craftingGrid3x3,
+    setCraftingGrid3x3,
+    craftingResult3x3,
+    handleCraftResult3x3Pickup,
+    handleShiftCraftResult3x3
   } = useInventoryManagement({
     worldInfo,
     gameMode,
@@ -132,7 +148,7 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
     playerYaw,
     playerPitch,
     isChatOpen,
-    isInventoryOpen,
+    isInventoryOpen: isUIOpen, // Use unified UI state
     isPaused,
     setDroppedItems
   });
@@ -143,11 +159,11 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
     isMouseDown,
     lastPunchTime,
     miningManagerRef,
-    handleBlockDestroy,
+    handleBlockDestroy: handleBlockBreak,
     handleBlockPlace,
     handlePunch,
-    handleMouseStateChange,
     handleStopMining,
+    handleMouseStateChange,
     handleLookingAtBlock,
     handleItemPickup,
     getBlockAt
@@ -165,15 +181,52 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
     setDroppedItems
   });
 
-  // Обновляем inventoryRef в useGameState для сохранения
+  // Sync inventoryRef for save handlers
   useEffect(() => {
     if (inventoryRef.current) {
-      // Хук useGameState нуждается в доступе к inventoryRef для сохранения
+      // Hook useGameState needs access to inventoryRef for saving
     }
   }, [inventoryRef]);
 
   // === INPUT MANAGER ===
   const inputManagerRef = React.useRef(null);
+
+  // Close any open UI (returns items to inventory if needed)
+  const closeUI = useCallback(() => {
+    const prevUI = activeUIRef.current;
+
+    // Return items from crafting grids to inventory
+    if (prevUI === UI_TYPES.CRAFTING) {
+      const itemsToReturn = craftingGrid3x3.filter(item => item && item.count > 0);
+      if (itemsToReturn.length > 0 && inventoryRef.current) {
+        itemsToReturn.forEach(item => {
+          inventoryRef.current.addToFullInventory(item.type, item.count);
+        });
+        setInventory(inventoryRef.current.getSlots());
+        setCraftingGrid3x3(Array(9).fill(null));
+      }
+    } else if (prevUI === UI_TYPES.INVENTORY) {
+      const itemsToReturn = craftingGrid.filter(item => item && item.count > 0);
+      if (itemsToReturn.length > 0 && inventoryRef.current) {
+        itemsToReturn.forEach(item => {
+          inventoryRef.current.addToFullInventory(item.type, item.count);
+        });
+        setInventory(inventoryRef.current.getSlots());
+        setCraftingGrid(Array(4).fill(null));
+      }
+    }
+
+    setActiveUI(UI_TYPES.NONE);
+    activeUIRef.current = UI_TYPES.NONE;
+    document.body.requestPointerLock();
+  }, [craftingGrid3x3, craftingGrid, inventoryRef, setInventory, setCraftingGrid3x3, setCraftingGrid]);
+
+  // Open specific UI
+  const openUI = useCallback((uiType) => {
+    setActiveUI(uiType);
+    activeUIRef.current = uiType;
+    document.exitPointerLock();
+  }, []);
 
   useEffect(() => {
     const inputManager = new InputManager();
@@ -194,7 +247,7 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
     // Update UI state in InputManager
     inputManager.setUIState({
       isChatOpen,
-      isInventoryOpen,
+      isInventoryOpen: isUIOpen,
       isPaused
     });
 
@@ -212,20 +265,21 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
     inputManager.on(INPUT_ACTIONS.DROP_ITEM, handleDropItem);
 
     inputManager.on(INPUT_ACTIONS.OPEN_CHAT, () => {
-      openChat(isInventoryOpen, isPaused);
+      openChat(isUIOpen, isPaused);
     });
 
     inputManager.on(INPUT_ACTIONS.TOGGLE_INVENTORY, () => {
       if (isChatOpen) return;
 
-      if (!isInventoryOpen && !isPaused) {
-        setIsInventoryOpen(true);
-        isInventoryOpenRef.current = true;
-        document.exitPointerLock();
-      } else if (isInventoryOpen) {
-        setIsInventoryOpen(false);
-        isInventoryOpenRef.current = false;
-        document.body.requestPointerLock();
+      // If any UI is open - close it
+      if (isUIOpen) {
+        closeUI();
+        return;
+      }
+
+      // Open inventory if not paused
+      if (!isPaused) {
+        openUI(UI_TYPES.INVENTORY);
       }
     });
 
@@ -239,7 +293,7 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
     // Hotbar scroll
     inputManager.on(INPUT_ACTIONS.HOTBAR_SCROLL_DOWN, () => scrollHotbar(1));
     inputManager.on(INPUT_ACTIONS.HOTBAR_SCROLL_UP, () => scrollHotbar(-1));
-  }, [isChatOpen, isPaused, isInventoryOpen, handleDropItem, openChat, scrollHotbar, setSelectedSlot, setIsInventoryOpen, isInventoryOpenRef]);
+  }, [isChatOpen, isPaused, isUIOpen, handleDropItem, openChat, closeUI, openUI, scrollHotbar, setSelectedSlot]);
 
   // Pointer lock handling
   useEffect(() => {
@@ -254,12 +308,14 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
         setIsPaused(false);
         setShowInstructions(false);
 
-        if (isInventoryOpenRef.current) {
-          setIsInventoryOpen(false);
-          isInventoryOpenRef.current = false;
+        // Close any UI when pointer is locked
+        if (activeUIRef.current !== UI_TYPES.NONE) {
+          setActiveUI(UI_TYPES.NONE);
+          activeUIRef.current = UI_TYPES.NONE;
         }
       } else {
-        if (!isChatOpenRef.current && !isInventoryOpenRef.current) {
+        // Pause if no UI is open
+        if (!isChatOpenRef.current && activeUIRef.current === UI_TYPES.NONE) {
           setIsPaused(true);
           setShowInstructions(true);
         }
@@ -268,7 +324,7 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
 
     const handleError = () => {
       console.error('Pointer lock failed');
-      if (!isChatOpenRef.current && !isInventoryOpenRef.current) {
+      if (!isChatOpenRef.current && activeUIRef.current === UI_TYPES.NONE) {
         setIsPaused(true);
         setShowInstructions(true);
       }
@@ -281,7 +337,7 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
       document.removeEventListener('pointerlockchange', handleChange);
       document.removeEventListener('pointerlockerror', handleError);
     };
-  }, [setIsPaused, setShowInstructions, setIsInventoryOpen, isInventoryOpenRef, isChatOpenRef]);
+  }, [setIsPaused, setShowInstructions, isChatOpenRef]);
 
   // Blocks count callback
   const handleBlocksCount = useCallback((count) => {
@@ -301,6 +357,27 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
     handleExitToMenu(inventory);
   }, [handleExitToMenu, inventory]);
 
+  // === CRAFTING TABLE INTERACTION ===
+  // Wrapper for handleBlockPlace that checks for crafting table
+  const handleBlockPlaceOrInteract = useCallback((x, y, z, breakPos) => {
+    if (!worldRef?.current) return;
+
+    // If breakPos is provided, check if it's a crafting table
+    if (breakPos) {
+      const hitBlock = worldRef.current.getBlock(breakPos.x, breakPos.y, breakPos.z);
+
+      // Check if clicked block is a crafting table
+      if (hitBlock === BLOCK_TYPES.CRAFTING_TABLE) {
+        // Open crafting interface using unified UI system
+        openUI(UI_TYPES.CRAFTING);
+        return;
+      }
+    }
+
+    // Otherwise, place block as usual
+    handleBlockPlace(x, y, z);
+  }, [worldRef, handleBlockPlace, openUI]);
+
   // Loading screen
   if (isLoading) {
     return <LoadingScreen worldName={worldInfo?.name} progress={loadingProgress} />;
@@ -313,25 +390,26 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
         chunkManager={worldRef.current?.getChunkManager()}
         liquidSimulator={worldRef.current?.getLiquidSimulator()}
         miningManager={miningManagerRef.current}
-        gameMode={gameMode}
-        isMouseDown={isMouseDown}
         miningState={miningState}
+        isMouseDown={isMouseDown}
+        lastPunchTime={lastPunchTime}
+        playerPos={playerPos}
+        playerYaw={playerYaw}
+        playerPitch={playerPitch}
+        selectedSlot={selectedSlot}
+        selectedBlock={getSelectedBlockType()}
         droppedItems={droppedItems}
         debrisList={debrisList}
-        playerPos={playerPos}
-        selectedBlock={getSelectedBlockType()}
-        isFlying={isFlying}
-        lastPunchTime={lastPunchTime}
-        initialPlayerPos={initialPlayerPos}
+        gameMode={gameMode}
         noclipMode={noclipMode}
+        isFlying={isFlying}
         canFly={canFly}
         speedMultiplier={speedMultiplier}
-        isChatOpen={isChatOpen}
         teleportPos={teleportPos}
         onPlayerMove={handlePlayerMove}
         onBlocksCount={handleBlocksCount}
-        onBlockDestroy={handleBlockDestroy}
-        onBlockPlace={handleBlockPlace}
+        onBlockDestroy={handleBlockBreak}
+        onBlockPlace={handleBlockPlaceOrInteract}
         onPunch={handlePunch}
         onMouseStateChange={handleMouseStateChange}
         onStopMining={handleStopMining}
@@ -341,6 +419,9 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
         onChunksUpdate={setChunks}
       />
 
+      {/* Water effect overlay */}
+      <WaterOverlay isUnderwater={isHeadUnderwater} />
+
       <Crosshair />
       <Hotbar
         selectedSlot={selectedSlot}
@@ -349,12 +430,10 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
         showCount={gameMode === GAME_MODES.SURVIVAL}
       />
 
-      <Inventory
-        isOpen={isInventoryOpen}
-        onClose={() => {
-          setIsInventoryOpen(false);
-          document.body.requestPointerLock();
-        }}
+      {/* Unified UI Manager */}
+      <UIManager
+        activeUI={activeUI}
+        onClose={closeUI}
         inventory={inventory}
         onInventoryChange={setInventory}
         isCreativeMode={gameMode === GAME_MODES.CREATIVE}
@@ -363,6 +442,11 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
         craftingResult={craftingResult}
         onCraftResultPickup={handleCraftResultPickup}
         onShiftCraft={handleShiftCraftResult}
+        craftingGrid3x3={craftingGrid3x3}
+        onCraftingGrid3x3Change={setCraftingGrid3x3}
+        craftingResult3x3={craftingResult3x3}
+        onCraftResult3x3Pickup={handleCraftResult3x3Pickup}
+        onShiftCraft3x3={handleShiftCraftResult3x3}
       />
 
       <Chat
@@ -391,6 +475,8 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
           blocksCount={debugInfo.blocksCount}
           biome={currentBiome}
           gameMode={gameMode}
+          isInWater={isInWater}
+          isHeadUnderwater={isHeadUnderwater}
         />
       )}
     </div>

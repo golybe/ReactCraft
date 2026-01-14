@@ -5,6 +5,7 @@ import { BLOCK_TYPES } from './blockTypes';
  * Supports shaped and shapeless recipes.
  */
 export const RECIPES = [
+  // 1 Wood -> 4 Planks
   {
     id: 'oak_planks',
     result: { type: BLOCK_TYPES.PLANKS, count: 4 },
@@ -13,12 +14,23 @@ export const RECIPES = [
     ],
     type: 'shapeless'
   },
+  // 2 Planks (vertical) -> 4 Sticks
   {
     id: 'sticks',
     result: { type: BLOCK_TYPES.STICK, count: 4 },
     pattern: [
       [BLOCK_TYPES.PLANKS],
       [BLOCK_TYPES.PLANKS]
+    ],
+    type: 'shaped'
+  },
+  // 4 Planks (2x2) -> Crafting Table
+  {
+    id: 'crafting_table',
+    result: { type: BLOCK_TYPES.CRAFTING_TABLE, count: 1 },
+    pattern: [
+      [BLOCK_TYPES.PLANKS, BLOCK_TYPES.PLANKS],
+      [BLOCK_TYPES.PLANKS, BLOCK_TYPES.PLANKS]
     ],
     type: 'shaped'
   }

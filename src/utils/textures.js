@@ -1,11 +1,11 @@
-import { BLOCK_TYPES } from '../constants/blocks';
+import { BLOCK_TYPES } from '../constants/blockTypes';
 
 const texPath = (name) => `/textures/${name}`;
 
 // Пути к текстурам в папке public/textures
 export const textures = {
   grassTop: texPath('grass_top.png'),
-  grassSide: texPath('grass_side_overlay.png'), // Используем оверлей как основную текстуру для логики композитинга
+  grassSide: texPath('grass_side_overlay.png'),
   dirt: texPath('dirt.png'),
   stone: texPath('stone.png'),
   woodSide: texPath('wood_side.png'),
@@ -21,7 +21,11 @@ export const textures = {
   snow: texPath('snow.png'),
   planks: texPath('planks.png'),
   bedrock: texPath('bedrock.png'),
-  stick: texPath('stick.png')
+  stick: texPath('stick.png'),
+  // Workbench textures
+  craftingTableTop: texPath('crafting_table_top.png'),
+  craftingTableSide: texPath('crafting_table_side.png'),
+  craftingTableFront: texPath('crafting_table_front.png')
 };
 
 export const getBlockTexture = (name) => {
@@ -44,32 +48,37 @@ const blockTextureMap = {
   [BLOCK_TYPES.SNOW]: { all: 'snow' },
   [BLOCK_TYPES.PLANKS]: { all: 'planks' },
   [BLOCK_TYPES.BEDROCK]: { all: 'bedrock' },
-  [BLOCK_TYPES.STICK]: { all: 'stick', isItem: true }
+  [BLOCK_TYPES.STICK]: { all: 'stick', isItem: true },
+  [BLOCK_TYPES.CRAFTING_TABLE]: {
+    top: 'craftingTableTop',
+    side: 'craftingTableSide',
+    front: 'craftingTableFront',
+    bottom: 'planks'
+  }
 };
 
 export const getBlockTextureInfo = (blockType) => blockTextureMap[blockType];
 
 // Новая функция для получения URL всех сторон
 export const getResolvedBlockTextures = (blockType) => {
-    const mapping = blockTextureMap[blockType];
-    if (!mapping) {
-        // Fallback for unknown blocks (or air)
-        return { top: null, side: null, front: null };
-    }
+  const mapping = blockTextureMap[blockType];
+  if (!mapping) {
+    return { top: null, side: null, front: null };
+  }
 
-    const resolve = (name) => textures[name];
+  const resolve = (name) => textures[name];
 
-    if (mapping.all) {
-        const url = resolve(mapping.all);
-        return { top: url, side: url, front: url };
-    }
-    
-    return {
-        top: resolve(mapping.top),
-        side: resolve(mapping.side),
-        front: resolve(mapping.side), // Front is same as side usually
-        bottom: resolve(mapping.bottom)
-    };
+  if (mapping.all) {
+    const url = resolve(mapping.all);
+    return { top: url, side: url, front: url };
+  }
+
+  return {
+    top: resolve(mapping.top),
+    side: resolve(mapping.side),
+    front: resolve(mapping.front) || resolve(mapping.side),
+    bottom: resolve(mapping.bottom)
+  };
 };
 
 export default textures;

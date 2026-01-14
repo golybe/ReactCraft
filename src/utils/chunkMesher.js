@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { BLOCK_PROPERTIES, BLOCK_TYPES } from '../constants/blocks';
+import { BLOCK_PROPERTIES } from '../constants/blocks';
+import { BLOCK_TYPES } from '../constants/blockTypes';
 import { CHUNK_SIZE, CHUNK_HEIGHT } from '../constants/world';
 
 // Направления граней
@@ -215,9 +216,9 @@ export class ChunkMesher {
   getWaterLevel(x, y, z) {
     const block = this.getBlock(x, y, z);
     if (block !== BLOCK_TYPES.WATER) {
-        // Если блок твердый, он считается "полным" для воды, если он выше.
-        // Если воздух - 0.
-        return this.isSolid(x, y, z) ? 1.0 : 0.0;
+      // Если блок твердый, он считается "полным" для воды, если он выше.
+      // Если воздух - 0.
+      return this.isSolid(x, y, z) ? 1.0 : 0.0;
     }
     const meta = this.getMetadata(x, y, z);
     const MAX_LEVEL = 255;
@@ -262,104 +263,104 @@ export class ChunkMesher {
           let waterHeights = null; // [BL, BR, TR, TL]
 
           if (block === BLOCK_TYPES.WATER) {
-             myMeta = this.chunkData.getMetadata(x, y, z);
-             const MAX_LEVEL = 255;
-             const level = myMeta === 0 ? MAX_LEVEL : myMeta;
-             myHeight = level / MAX_LEVEL;
+            myMeta = this.chunkData.getMetadata(x, y, z);
+            const MAX_LEVEL = 255;
+            const level = myMeta === 0 ? MAX_LEVEL : myMeta;
+            myHeight = level / MAX_LEVEL;
 
-             // Для верхней грани рассчитываем высоты углов для плавности
-             // Берем среднее значение высот соседних блоков воды
-             // 4 угла:
-             // BL (x, z)     -> среднее из (x,z), (x-1,z), (x,z-1), (x-1,z-1)
-             // BR (x+1, z)   -> среднее из (x,z), (x+1,z), (x,z-1), (x+1,z-1)
-             // TR (x+1, z+1) -> среднее из (x,z), (x+1,z), (x,z+1), (x+1,z+1)
-             // TL (x, z+1)   -> среднее из (x,z), (x-1,z), (x,z+1), (x-1,z+1)
-             
-             // Функция для получения уровня в локальных координатах
-             const getLvl = (dx, dz) => {
-                 // Если это тот же самый блок (0,0) - возвращаем myHeight
-                 if (dx === 0 && dz === 0) return myHeight;
-                 return this.getWaterLevel(x + dx, y, z + dz);
-             };
+            // Для верхней грани рассчитываем высоты углов для плавности
+            // Берем среднее значение высот соседних блоков воды
+            // 4 угла:
+            // BL (x, z)     -> среднее из (x,z), (x-1,z), (x,z-1), (x-1,z-1)
+            // BR (x+1, z)   -> среднее из (x,z), (x+1,z), (x,z-1), (x+1,z-1)
+            // TR (x+1, z+1) -> среднее из (x,z), (x+1,z), (x,z+1), (x+1,z+1)
+            // TL (x, z+1)   -> среднее из (x,z), (x-1,z), (x,z+1), (x-1,z+1)
 
-             const calcCorner = (dx, dz) => {
-                 // Уровень самого блока
-                 let sum = myHeight; 
-                 let count = 1;
-                 
-                 // Соседи
-                 const v1 = getLvl(dx, 0); // По X
-                 const v2 = getLvl(0, dz); // По Z
-                 const v3 = getLvl(dx, dz); // Диагональ
-                 
-                 // Minecraft logic: если сосед - это блок воды, берем его уровень.
-                 // Если сосед - воздух, берем уровень "0" только если это сток? Нет, просто усредняем.
-                 // Для простоты: берем макс уровень из соседей
-                 // Или среднее? Среднее дает более гладкую волну.
-                 
-                 // Упрощенная логика:
-                 // Высота угла = MAX(уровни блоков, касающихся угла)
-                 // Это предотвращает появление дырок
-                 let maxH = myHeight;
-                 if (v1 > maxH) maxH = v1;
-                 if (v2 > maxH) maxH = v2;
-                 if (v3 > maxH) maxH = v3;
-                 
-                 // Но если сосед - воздух (0), он не должен тянуть воду вниз, если это полный блок.
-                 // Если текущий блок не полный, то должен.
-                 
-                 // Пробуем просто MAX.
-                 return maxH;
-             };
+            // Функция для получения уровня в локальных координатах
+            const getLvl = (dx, dz) => {
+              // Если это тот же самый блок (0,0) - возвращаем myHeight
+              if (dx === 0 && dz === 0) return myHeight;
+              return this.getWaterLevel(x + dx, y, z + dz);
+            };
 
-             // Смещения для углов относительно центра блока (x,z)
-             // BL: x, z (neighbors: -1,0; 0,-1; -1,-1) - В данном цикле мы рендерим блок (x,y,z).
-             // Его вершины:
-             // BL: x, y, z. Соседи: (x-1, z), (x, z-1), (x-1, z-1)
-             // Но getLvl берет относительно блока.
-             
-             // Внимание: getFaceVertices использует вершины:
-             // (x,z) ... (x+1,z+1)
-             // Нам нужны высоты именно в этих точках.
-             
-             // Точка (x,z) - это угол BL текущего блока. Она общая для (x,z), (x-1,z), (x,z-1), (x-1,z-1).
-             // Точка (x+1,z) - BR. Общая для (x,z), (x+1,z), (x,z-1), (x+1,z-1).
-             
-             // Реализуем функцию, которая берет координаты вершины и считает среднее 4-х блоков вокруг нее.
-             const getVertexHeight = (vx, vz) => {
-                 // vx, vz - это целые координаты узла сетки.
-                 // Блоки вокруг узла (vx, vz):
-                 // (vx-1, vz-1), (vx, vz-1), (vx-1, vz), (vx, vz)
-                 // Мы находимся в блоке (x, y, z).
-                 // Относительно (x, y, z):
-                 // BL (x, z) -> блоки (-1,-1), (0,-1), (-1,0), (0,0)
-                 
-                 const b00 = this.getWaterLevel(vx, y, vz);     // (0,0) - SE от вершины
-                 const b10 = this.getWaterLevel(vx-1, y, vz);   // (-1,0) - SW
-                 const b01 = this.getWaterLevel(vx, y, vz-1);   // (0,-1) - NE
-                 const b11 = this.getWaterLevel(vx-1, y, vz-1); // (-1,-1) - NW
-                 
-                 // Находим максимальный уровень воды, чтобы вода "тянулась" к соседу
-                 // Исключаем 0 (воздух), если есть вода > 0
-                 const levels = [b00, b10, b01, b11];
-                 let max = 0;
-                 for (let l of levels) {
-                     // 1.0 (Solid) не должен поднимать воду выше 1.0, но должен считаться как полная стена
-                     if (l > max) max = l;
-                 }
-                 
-                 // Если все 0, то 0.
-                 // Если есть вода, уровень будет по самой высокой воде.
-                 return max;
-             };
-             
-             // BL, BR, TR, TL
-             waterHeights = [
-                 getVertexHeight(x, z),         // BL
-                 getVertexHeight(x + 1, z),     // BR
-                 getVertexHeight(x + 1, z + 1), // TR
-                 getVertexHeight(x, z + 1)      // TL
-             ];
+            const calcCorner = (dx, dz) => {
+              // Уровень самого блока
+              let sum = myHeight;
+              let count = 1;
+
+              // Соседи
+              const v1 = getLvl(dx, 0); // По X
+              const v2 = getLvl(0, dz); // По Z
+              const v3 = getLvl(dx, dz); // Диагональ
+
+              // Minecraft logic: если сосед - это блок воды, берем его уровень.
+              // Если сосед - воздух, берем уровень "0" только если это сток? Нет, просто усредняем.
+              // Для простоты: берем макс уровень из соседей
+              // Или среднее? Среднее дает более гладкую волну.
+
+              // Упрощенная логика:
+              // Высота угла = MAX(уровни блоков, касающихся угла)
+              // Это предотвращает появление дырок
+              let maxH = myHeight;
+              if (v1 > maxH) maxH = v1;
+              if (v2 > maxH) maxH = v2;
+              if (v3 > maxH) maxH = v3;
+
+              // Но если сосед - воздух (0), он не должен тянуть воду вниз, если это полный блок.
+              // Если текущий блок не полный, то должен.
+
+              // Пробуем просто MAX.
+              return maxH;
+            };
+
+            // Смещения для углов относительно центра блока (x,z)
+            // BL: x, z (neighbors: -1,0; 0,-1; -1,-1) - В данном цикле мы рендерим блок (x,y,z).
+            // Его вершины:
+            // BL: x, y, z. Соседи: (x-1, z), (x, z-1), (x-1, z-1)
+            // Но getLvl берет относительно блока.
+
+            // Внимание: getFaceVertices использует вершины:
+            // (x,z) ... (x+1,z+1)
+            // Нам нужны высоты именно в этих точках.
+
+            // Точка (x,z) - это угол BL текущего блока. Она общая для (x,z), (x-1,z), (x,z-1), (x-1,z-1).
+            // Точка (x+1,z) - BR. Общая для (x,z), (x+1,z), (x,z-1), (x+1,z-1).
+
+            // Реализуем функцию, которая берет координаты вершины и считает среднее 4-х блоков вокруг нее.
+            const getVertexHeight = (vx, vz) => {
+              // vx, vz - это целые координаты узла сетки.
+              // Блоки вокруг узла (vx, vz):
+              // (vx-1, vz-1), (vx, vz-1), (vx-1, vz), (vx, vz)
+              // Мы находимся в блоке (x, y, z).
+              // Относительно (x, y, z):
+              // BL (x, z) -> блоки (-1,-1), (0,-1), (-1,0), (0,0)
+
+              const b00 = this.getWaterLevel(vx, y, vz);     // (0,0) - SE от вершины
+              const b10 = this.getWaterLevel(vx - 1, y, vz);   // (-1,0) - SW
+              const b01 = this.getWaterLevel(vx, y, vz - 1);   // (0,-1) - NE
+              const b11 = this.getWaterLevel(vx - 1, y, vz - 1); // (-1,-1) - NW
+
+              // Находим максимальный уровень воды, чтобы вода "тянулась" к соседу
+              // Исключаем 0 (воздух), если есть вода > 0
+              const levels = [b00, b10, b01, b11];
+              let max = 0;
+              for (let l of levels) {
+                // 1.0 (Solid) не должен поднимать воду выше 1.0, но должен считаться как полная стена
+                if (l > max) max = l;
+              }
+
+              // Если все 0, то 0.
+              // Если есть вода, уровень будет по самой высокой воде.
+              return max;
+            };
+
+            // BL, BR, TR, TL
+            waterHeights = [
+              getVertexHeight(x, z),         // BL
+              getVertexHeight(x + 1, z),     // BR
+              getVertexHeight(x + 1, z + 1), // TR
+              getVertexHeight(x, z + 1)      // TL
+            ];
           }
 
           // Проходим только по разрешённым граням
@@ -386,30 +387,30 @@ export class ChunkMesher {
             let shouldRenderFace = false;
 
             if (block === BLOCK_TYPES.WATER) {
-                // Для воды: рисуем только если сосед НЕ вода и при этом сосед прозрачный (воздух, листва) или это верхняя грань мира
-                // Если neighbor (ID) === WATER -> Сравниваем уровни
-                if (neighbor === BLOCK_TYPES.WATER) {
-                    // УБИРАЕМ ВНУТРЕННИЕ ГРАНИ ВОДЫ ПОЛНОСТЬЮ
-                    // Это убирает эффект "сетки" внутри объема воды.
-                    // Даже если уровни разные, мы не рисуем стенку между ними.
-                    // Переход уровней будет виден за счет наклона верхней грани (waterHeights).
-                    shouldRenderFace = false;
-                } else {
-                    // Если сосед не вода, проверяем его прозрачность
-                    // Воздух (0) -> прозрачный -> рисуем
-                    // Камень -> непрозрачный -> не рисуем
-                    if (!neighborProps || neighborProps.transparent) {
-                        shouldRenderFace = true;
-                    }
-                }
-            } else {
-                // Для остальных блоков (включая листву):
-                // Если сосед прозрачный - рисуем.
-                // Листва к листве обычно рисуется (чтобы было гуще), или нет (оптимизация). 
-                // В Minecraft Fancy: листва прозрачная, видно сквозь.
+              // Для воды: рисуем только если сосед НЕ вода и при этом сосед прозрачный (воздух, листва) или это верхняя грань мира
+              // Если neighbor (ID) === WATER -> Сравниваем уровни
+              if (neighbor === BLOCK_TYPES.WATER) {
+                // УБИРАЕМ ВНУТРЕННИЕ ГРАНИ ВОДЫ ПОЛНОСТЬЮ
+                // Это убирает эффект "сетки" внутри объема воды.
+                // Даже если уровни разные, мы не рисуем стенку между ними.
+                // Переход уровней будет виден за счет наклона верхней грани (waterHeights).
+                shouldRenderFace = false;
+              } else {
+                // Если сосед не вода, проверяем его прозрачность
+                // Воздух (0) -> прозрачный -> рисуем
+                // Камень -> непрозрачный -> не рисуем
                 if (!neighborProps || neighborProps.transparent) {
-                    shouldRenderFace = true;
+                  shouldRenderFace = true;
                 }
+              }
+            } else {
+              // Для остальных блоков (включая листву):
+              // Если сосед прозрачный - рисуем.
+              // Листва к листве обычно рисуется (чтобы было гуще), или нет (оптимизация). 
+              // В Minecraft Fancy: листва прозрачная, видно сквозь.
+              if (!neighborProps || neighborProps.transparent) {
+                shouldRenderFace = true;
+              }
             }
 
             if (shouldRenderFace) {
@@ -434,7 +435,7 @@ export class ChunkMesher {
               // 3. Мягким AO в углах
               //
               // Это даёт "тёплую", читаемую картинку без чёрных пятен.
-              
+
               const aoOffsets = AO_OFFSETS[f];
               const baseLight = this.getLight(nx, ny, nz);
 
@@ -445,7 +446,7 @@ export class ChunkMesher {
               // ещё мягче для более естественного вида.
               let faceShade;
               let warmth = 0; // цветовая температура: >0 = теплее, <0 = холоднее
-              
+
               if (f === 2) {
                 faceShade = 1.0;        // Top (Y+) — полный свет
                 warmth = 0.04;          // чуть теплее (солнечный свет)
@@ -505,21 +506,21 @@ export class ChunkMesher {
                 // ИТОГОВАЯ ЯРКОСТЬ + ЦВЕТОВАЯ ТЕМПЕРАТУРА
                 // ==========================================
                 let brightness = lightBrightness * aoMultiplier * faceShade;
-                
+
                 // Минимум 0.02 — пещеры должны быть почти чёрными!
                 brightness = Math.max(brightness, 0.01);
                 brightness = Math.min(brightness, 1.0);
-                
+
                 // НЕ применяем gamma здесь! Gamma должна быть на уровне рендера.
                 // Vertex colors должны быть линейными, чтобы пещеры оставались тёмными.
                 // MeshBasicMaterial выведет их как есть, что правильно для Minecraft-стиля.
-                
+
                 // Цветовая температура (тёплый свет сверху, холодный с боков)
                 // Применяем только для достаточно ярких поверхностей
                 let r = brightness;
                 let g = brightness;
                 let b = brightness;
-                
+
                 if (brightness > 0.15) {
                   r = Math.min(1.0, brightness * (1.0 + warmth));
                   b = Math.min(1.0, brightness * (1.0 - warmth));
@@ -534,7 +535,7 @@ export class ChunkMesher {
               // Стандартный порядок: 0,1,2 и 0,2,3
               indices.push(base, base + 1, base + 2);
               indices.push(base, base + 2, base + 3);
-              
+
               indexOffset += 4;
             }
           }
@@ -556,25 +557,25 @@ export class ChunkMesher {
     let Y0 = y;
     // Если есть waterHeights, используем их для верхних точек
     let Y1_BL, Y1_BR, Y1_TR, Y1_TL;
-    
+
     if (waterHeights) {
-        Y1_BL = y + waterHeights[0];
-        Y1_BR = y + waterHeights[1];
-        Y1_TR = y + waterHeights[2];
-        Y1_TL = y + waterHeights[3];
+      Y1_BL = y + waterHeights[0];
+      Y1_BR = y + waterHeights[1];
+      Y1_TR = y + waterHeights[2];
+      Y1_TL = y + waterHeights[3];
     } else {
-        const Y1 = y + height;
-        Y1_BL = Y1; Y1_BR = Y1; Y1_TR = Y1; Y1_TL = Y1;
+      const Y1 = y + height;
+      Y1_BL = Y1; Y1_BR = Y1; Y1_TR = Y1; Y1_TL = Y1;
     }
-    
+
     const Z0 = z, Z1 = z + 1;
 
     // Порядок: BL, BR, TR, TL (для правильного winding)
     switch (faceIndex) {
       case 0: // Right (X+)
-        return [X1,Y0,Z1, X1,Y0,Z0, X1,Y1_BR,Z0, X1,Y1_TR,Z1];
+        return [X1, Y0, Z1, X1, Y0, Z0, X1, Y1_BR, Z0, X1, Y1_TR, Z1];
       case 1: // Left (X-)
-        return [X0,Y0,Z0, X0,Y0,Z1, X0,Y1_TL,Z1, X0,Y1_BL,Z0];
+        return [X0, Y0, Z0, X0, Y0, Z1, X0, Y1_TL, Z1, X0, Y1_BL, Z0];
       case 2: // Top (Y+)
         // Верхняя грань теперь может быть не плоской!
         // Исправленный порядок вершин для соответствия высотам:
@@ -582,13 +583,13 @@ export class ChunkMesher {
         // X1,Z1 (TR) -> Y1_TR
         // X1,Z0 (BR) -> Y1_BR
         // X0,Z0 (BL) -> Y1_BL
-        return [X0,Y1_TL,Z1, X1,Y1_TR,Z1, X1,Y1_BR,Z0, X0,Y1_BL,Z0];
+        return [X0, Y1_TL, Z1, X1, Y1_TR, Z1, X1, Y1_BR, Z0, X0, Y1_BL, Z0];
       case 3: // Bottom (Y-)
-        return [X0,Y0,Z0, X1,Y0,Z0, X1,Y0,Z1, X0,Y0,Z1];
+        return [X0, Y0, Z0, X1, Y0, Z0, X1, Y0, Z1, X0, Y0, Z1];
       case 4: // Front (Z+)
-        return [X0,Y0,Z1, X1,Y0,Z1, X1,Y1_TR,Z1, X0,Y1_TL,Z1]; // Z1 -> TL, TR
+        return [X0, Y0, Z1, X1, Y0, Z1, X1, Y1_TR, Z1, X0, Y1_TL, Z1]; // Z1 -> TL, TR
       case 5: // Back (Z-)
-        return [X1,Y0,Z0, X0,Y0,Z0, X0,Y1_BL,Z0, X1,Y1_BR,Z0]; // Z0 -> BR, BL
+        return [X1, Y0, Z0, X0, Y0, Z0, X0, Y1_BL, Z0, X1, Y1_BR, Z0]; // Z0 -> BR, BL
     }
     return [];
   }
@@ -597,7 +598,7 @@ export class ChunkMesher {
     // С flipY=false: V=0 это верх текстуры в SVG
     // Для боковых граней (0,1,4,5): низ блока = низ текстуры
     // Для Top/Bottom (2,3): стандартный маппинг
-    
+
     if (faceIndex === 2 || faceIndex === 3) {
       // Top и Bottom - горизонтальные грани
       // UV не зависит от высоты, просто маппим X/Z
@@ -615,9 +616,9 @@ export class ChunkMesher {
       // Значит мы видим НИЖНЮЮ часть текстуры (дно то же самое), а верх обрезан.
       // V_bottom = 1.
       // V_top = 1 - height. (Если height=1 -> 0. Если height=0.5 -> 0.5)
-      
+
       const vTop = 1 - height;
-      
+
       return [
         0, 1,     // BL
         1, 1,     // BR  

@@ -21,13 +21,13 @@ import { BlockInteraction } from './BlockInteraction';
 const PhysicsLoop = ({ simulator, onChanges }) => {
   useFrame(() => {
     PerformanceMetrics.startFrame();
-    
+
     PerformanceMetrics.measure('physics', () => {
       if (simulator && simulator.update()) {
         PerformanceMetrics.measure('chunkUpdate', onChanges);
       }
     });
-    
+
     PerformanceMetrics.endFrame();
   });
   return null;
@@ -36,19 +36,19 @@ const PhysicsLoop = ({ simulator, onChanges }) => {
 // Компонент добычи блоков (Survival)
 const MiningLoop = ({ miningManager, isMouseDown }) => {
   const lastTimeRef = React.useRef(performance.now());
-  
+
   useFrame(() => {
     if (!miningManager) return;
-    
+
     const now = performance.now();
     const delta = (now - lastTimeRef.current) / 1000;
     lastTimeRef.current = now;
-    
+
     if (isMouseDown && miningManager.currentTarget) {
       miningManager.update(delta);
     }
   });
-  
+
   return null;
 };
 
@@ -124,51 +124,52 @@ export const GameCanvas = ({
       }}
     >
       <GameLights />
-      
-      <PhysicsLoop 
-        simulator={liquidSimulator} 
+
+      <PhysicsLoop
+        simulator={liquidSimulator}
         onChanges={() => {
           if (onChunksUpdate && chunkManager) {
             onChunksUpdate({ ...chunkManager.chunks });
           }
-        }} 
+        }}
       />
-      
+
       {/* Mining loop для Survival */}
       {gameMode === GAME_MODES.SURVIVAL && (
-        <MiningLoop 
+        <MiningLoop
           miningManager={miningManager}
           isMouseDown={isMouseDown}
         />
       )}
 
-            {chunks && (
-              <>
-                <WorldRenderer
+      {chunks && (
+        <>
+          <WorldRenderer
             chunks={chunks}
             chunkManager={chunkManager}
             onBlocksCount={onBlocksCount}
           />
-                <PlayerRenderer
+          <PlayerRenderer
             onMove={onPlayerMove}
             chunks={chunks}
             initialPosition={initialPlayerPos}
             noclipMode={noclipMode}
             canFly={canFly}
+            isFlying={isFlying}
             speedMultiplier={speedMultiplier}
             isChatOpen={isChatOpen}
             teleportPos={teleportPos}
           />
           <BlockHighlight chunks={chunks} />
-          
+
           {/* Анимация трещин при добыче (Survival) */}
           {gameMode === GAME_MODES.SURVIVAL && miningState?.target && (
-            <BlockBreakOverlay 
+            <BlockBreakOverlay
               target={miningState.target}
               stage={miningState.stage}
             />
           )}
-          
+
           {/* Выпавшие предметы (Survival) */}
           {gameMode === GAME_MODES.SURVIVAL && droppedItems && droppedItems.length > 0 && (
             <DroppedItemsManager
@@ -178,12 +179,12 @@ export const GameCanvas = ({
               getBlock={getBlockAt}
             />
           )}
-          
+
           {/* Рендеринг эффектов разрушения */}
           {debrisList && debrisList.map(debris => (
             <Debris key={debris.id} {...debris} />
           ))}
-          
+
           <BlockInteraction
             chunks={chunks}
             onBlockDestroy={onBlockDestroy}
@@ -195,16 +196,16 @@ export const GameCanvas = ({
             onLookingAtBlock={onLookingAtBlock}
             isMouseDown={isMouseDown}
           />
-          
-          <HeldItem 
+
+          <HeldItem
             selectedBlock={selectedBlock}
-            isMining={gameMode === GAME_MODES.SURVIVAL && isMouseDown && miningState?.target !== null} 
+            isMining={gameMode === GAME_MODES.SURVIVAL && isMouseDown && miningState?.target !== null}
             lastPunchTime={lastPunchTime}
             isFlying={isFlying}
-            lightLevel={chunkManager ? 
+            lightLevel={chunkManager ?
               chunkManager.getLightLevel(
-                Math.floor(playerPos?.x || 0), 
-                Math.floor(playerPos?.y || 64), 
+                Math.floor(playerPos?.x || 0),
+                Math.floor(playerPos?.y || 64),
                 Math.floor(playerPos?.z || 0)
               ) : 15
             }
