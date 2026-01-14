@@ -22,19 +22,26 @@ export const BLOCK_TYPES = {
   SNOW: 13,
   PLANKS: 14,
   BEDROCK: 15,
-
+  
   CRAFTING_TABLE: 16,
+  COBBLESTONE: 17,
 
-  // RESERVED FOR FUTURE BLOCKS: 17 - 511
+  // RESERVED FOR FUTURE BLOCKS: 18 - 511
 
   // ITEMS (Non-block entities): 512+
   STICK: 512,
   APPLE: 513,
   
   // TOOLS: 520+
+  // Wooden tools
   WOODEN_AXE: 520,
   WOODEN_PICKAXE: 521,
-  WOODEN_SHOVEL: 522
+  WOODEN_SHOVEL: 522,
+  
+  // Stone tools
+  STONE_AXE: 523,
+  STONE_PICKAXE: 524,
+  STONE_SHOVEL: 525
 };
 
 export default BLOCK_TYPES;

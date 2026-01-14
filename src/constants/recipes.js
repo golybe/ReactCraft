@@ -66,6 +66,41 @@ export const RECIPES = [
       [null, BLOCK_TYPES.STICK, null]
     ],
     type: 'shaped'
+  },
+
+  // === STONE TOOLS ===
+  // Stone Axe
+  {
+    id: 'stone_axe',
+    result: { type: BLOCK_TYPES.STONE_AXE, count: 1 },
+    pattern: [
+      [BLOCK_TYPES.COBBLESTONE, BLOCK_TYPES.COBBLESTONE, null],
+      [BLOCK_TYPES.COBBLESTONE, BLOCK_TYPES.STICK, null],
+      [null, BLOCK_TYPES.STICK, null]
+    ],
+    type: 'shaped'
+  },
+  // Stone Pickaxe
+  {
+    id: 'stone_pickaxe',
+    result: { type: BLOCK_TYPES.STONE_PICKAXE, count: 1 },
+    pattern: [
+      [BLOCK_TYPES.COBBLESTONE, BLOCK_TYPES.COBBLESTONE, BLOCK_TYPES.COBBLESTONE],
+      [null, BLOCK_TYPES.STICK, null],
+      [null, BLOCK_TYPES.STICK, null]
+    ],
+    type: 'shaped'
+  },
+  // Stone Shovel
+  {
+    id: 'stone_shovel',
+    result: { type: BLOCK_TYPES.STONE_SHOVEL, count: 1 },
+    pattern: [
+      [null, BLOCK_TYPES.COBBLESTONE, null],
+      [null, BLOCK_TYPES.STICK, null],
+      [null, BLOCK_TYPES.STICK, null]
+    ],
+    type: 'shaped'
   }
 ];
 

@@ -29,6 +29,10 @@ const files = {
   'wooden_axe.png': 'item/wooden_axe.png',
   'wooden_pickaxe.png': 'item/wooden_pickaxe.png',
   'wooden_shovel.png': 'item/wooden_shovel.png',
+  'cobblestone.png': 'block/cobblestone.png',
+  'stone_axe.png': 'item/stone_axe.png',
+  'stone_pickaxe.png': 'item/stone_pickaxe.png',
+  'stone_shovel.png': 'item/stone_shovel.png',
   'crafting_table_top.png': 'block/crafting_table_top.png',
   'crafting_table_side.png': 'block/crafting_table_side.png',
   'crafting_table_front.png': 'block/crafting_table_front.png'

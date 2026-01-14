@@ -26,6 +26,10 @@ export const textures = {
   woodenAxe: texPath('wooden_axe.png'),
   woodenPickaxe: texPath('wooden_pickaxe.png'),
   woodenShovel: texPath('wooden_shovel.png'),
+  cobblestone: texPath('cobblestone.png'),
+  stoneAxe: texPath('stone_axe.png'),
+  stonePickaxe: texPath('stone_pickaxe.png'),
+  stoneShovel: texPath('stone_shovel.png'),
   // Workbench textures
   craftingTableTop: texPath('crafting_table_top.png'),
   craftingTableSide: texPath('crafting_table_side.png'),
@@ -62,7 +66,11 @@ const blockTextureMap = {
     side: 'craftingTableSide',
     front: 'craftingTableFront',
     bottom: 'planks'
-  }
+  },
+  [BLOCK_TYPES.COBBLESTONE]: { all: 'cobblestone' },
+  [BLOCK_TYPES.STONE_AXE]: { all: 'stoneAxe', isItem: true },
+  [BLOCK_TYPES.STONE_PICKAXE]: { all: 'stonePickaxe', isItem: true },
+  [BLOCK_TYPES.STONE_SHOVEL]: { all: 'stoneShovel', isItem: true }
 };
 
 export const getBlockTextureInfo = (blockType) => blockTextureMap[blockType];

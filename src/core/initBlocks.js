@@ -27,14 +27,15 @@ export const initBlocks = () => {
     preferredTool: TOOL_TYPES.SHOVEL
   }));
 
-  // 3: STONE (требует кирку, дропает булыжник - пока себя)
+  // 3: STONE (требует кирку, дропает булыжник)
   BlockRegistry.register(new SolidBlock(3, {
     name: 'stone',
     texture: 'stone',
     color: 0x7d7d7d,
     hardness: 1.5,
     preferredTool: TOOL_TYPES.PICKAXE,
-    requiresTool: true
+    requiresTool: true,
+    drops: 17 // Дропает COBBLESTONE
   }));
 
   // 4: WOOD (топор)
@@ -169,6 +170,16 @@ export const initBlocks = () => {
     preferredTool: TOOL_TYPES.AXE
   }));
 
+  // 17: COBBLESTONE
+  BlockRegistry.register(new SolidBlock(17, {
+    name: 'cobblestone',
+    texture: 'cobblestone',
+    color: 0x7d7d7d,
+    hardness: 2.0,
+    preferredTool: TOOL_TYPES.PICKAXE,
+    requiresTool: true
+  }));
+
   // =========================================================
   // ITEMS (512+)
   // =========================================================
@@ -199,7 +210,7 @@ export const initBlocks = () => {
     texture: 'wooden_axe',
     color: 0x8B4513,
     toolType: TOOL_TYPES.AXE,
-    toolEfficiency: 2.0,
+    toolEfficiency: 1.0, // Деревянные инструменты - базовая эффективность
     durability: 59
   }));
 
@@ -209,7 +220,7 @@ export const initBlocks = () => {
     texture: 'wooden_pickaxe',
     color: 0x8B4513,
     toolType: TOOL_TYPES.PICKAXE,
-    toolEfficiency: 2.0,
+    toolEfficiency: 1.0,
     durability: 59
   }));
 
@@ -219,7 +230,37 @@ export const initBlocks = () => {
     texture: 'wooden_shovel',
     color: 0x8B4513,
     toolType: TOOL_TYPES.SHOVEL,
-    toolEfficiency: 2.0,
+    toolEfficiency: 1.0,
     durability: 59
+  }));
+
+  // 523: STONE_AXE
+  BlockRegistry.register(new Tool(BLOCK_TYPES.STONE_AXE, {
+    name: 'stone_axe',
+    texture: 'stone_axe',
+    color: 0x7d7d7d,
+    toolType: TOOL_TYPES.AXE,
+    toolEfficiency: 2.0, // Каменные инструменты - в 2 раза быстрее деревянных
+    durability: 131
+  }));
+
+  // 524: STONE_PICKAXE
+  BlockRegistry.register(new Tool(BLOCK_TYPES.STONE_PICKAXE, {
+    name: 'stone_pickaxe',
+    texture: 'stone_pickaxe',
+    color: 0x7d7d7d,
+    toolType: TOOL_TYPES.PICKAXE,
+    toolEfficiency: 2.0,
+    durability: 131
+  }));
+
+  // 525: STONE_SHOVEL
+  BlockRegistry.register(new Tool(BLOCK_TYPES.STONE_SHOVEL, {
+    name: 'stone_shovel',
+    texture: 'stone_shovel',
+    color: 0x7d7d7d,
+    toolType: TOOL_TYPES.SHOVEL,
+    toolEfficiency: 2.0,
+    durability: 131
   }));
 };
