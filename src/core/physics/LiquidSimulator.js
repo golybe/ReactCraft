@@ -53,7 +53,7 @@ export class LiquidSimulator {
         // Check budget every 5 blocks
         if (count % 5 === 0) {
             const timeBudgetExceeded = (performance.now() - startTime) > TIME_BUDGET;
-            const dirtyChunksExceeded = this.chunkManager.batchLightingDirtyKeys.size >= 2;
+            const dirtyChunksExceeded = this.chunkManager.batcher?.batchLightingDirtyKeys?.size >= 2;
             
             if (timeBudgetExceeded || dirtyChunksExceeded) {
                 // Time limit reached!

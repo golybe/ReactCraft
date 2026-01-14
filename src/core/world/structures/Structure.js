@@ -1,3 +1,5 @@
+import { BLOCK_TYPES } from '../../../constants/blockTypes.js';
+
 /**
  * Base class for all world structures (trees, houses, dungeons, etc.)
  * Inspired by Minecraft structure system.
@@ -40,13 +42,11 @@ export class Structure {
   setBlockIfReplaceable(blocks, bx, by, bz, blockId) {
     const SIZE = 16;
     const HEIGHT = 256;
-    const AIR = 0;
-    const LEAVES = 6; // В воркере LEAVES обычно 6
 
     if (bx >= 0 && bx < SIZE && bz >= 0 && bz < SIZE && by >= 0 && by < HEIGHT) {
       const index = by * SIZE * SIZE + bx * SIZE + bz;
       const current = blocks[index];
-      if (current === AIR || current === LEAVES) {
+      if (current === BLOCK_TYPES.AIR || current === BLOCK_TYPES.LEAVES) {
         blocks[index] = blockId;
         return true;
       }
@@ -61,15 +61,12 @@ export class Structure {
   setLeafBlock(blocks, bx, by, bz, blockId) {
     const SIZE = 16;
     const HEIGHT = 256;
-    const AIR = 0;
-    const LEAVES = 5; // BLOCK_TYPES.LEAVES
-    const WOOD = 4;   // BLOCK_TYPES.WOOD
 
     if (bx >= 0 && bx < SIZE && bz >= 0 && bz < SIZE && by >= 0 && by < HEIGHT) {
       const index = by * SIZE * SIZE + bx * SIZE + bz;
       const current = blocks[index];
       // Заменяем AIR, LEAVES и WOOD (чтобы покрыть верхние блоки ствола листвой)
-      if (current === AIR || current === LEAVES || current === WOOD) {
+      if (current === BLOCK_TYPES.AIR || current === BLOCK_TYPES.LEAVES || current === BLOCK_TYPES.WOOD) {
         blocks[index] = blockId;
         return true;
       }

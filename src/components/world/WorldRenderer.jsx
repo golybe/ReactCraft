@@ -223,10 +223,10 @@ const World = ({ chunks, chunkManager, onBlocksCount }) => {
   const getNeighborDataFor = useCallback((cx, cz) => {
     return {
       lightMaps: {
-        west: chunkManager?.lightMaps[`${cx-1},${cz}`],
-        east: chunkManager?.lightMaps[`${cx+1},${cz}`],
-        north: chunkManager?.lightMaps[`${cx},${cz-1}`],
-        south: chunkManager?.lightMaps[`${cx},${cz+1}`]
+        west: chunkManager?.lightingManager?.lightMaps[`${cx-1},${cz}`],
+        east: chunkManager?.lightingManager?.lightMaps[`${cx+1},${cz}`],
+        north: chunkManager?.lightingManager?.lightMaps[`${cx},${cz-1}`],
+        south: chunkManager?.lightingManager?.lightMaps[`${cx},${cz+1}`]
       },
       chunks: {
         west: chunks[`${cx-1},${cz}`],
@@ -245,7 +245,7 @@ const World = ({ chunks, chunkManager, onBlocksCount }) => {
         if (!chunkData) return null;
         
         const [x, z] = key.split(',').map(Number);
-        const lightMap = chunkManager?.lightMaps[key];
+        const lightMap = chunkManager?.lightingManager?.lightMaps[key];
 
         return (
           <ChunkRenderer

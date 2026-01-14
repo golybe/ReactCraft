@@ -83,27 +83,11 @@ export class Player extends Entity {
   }
 
   /**
-   * Проверка коллизии AABB игрока (использует PhysicsEngine)
+   * Проверка коллизии AABB игрока (делегирует PhysicsEngine)
    */
   checkCollision(chunks, x, y, z) {
     if (!this.physicsEngine) {
-      // Fallback если PhysicsEngine не установлен
-      if (!chunks) return false;
-      const hw = this.width / 2 - 0.01;
-      const height = this.height - 0.01;
-      const checkPoints = [
-        [x - hw, y, z - hw], [x + hw, y, z - hw],
-        [x - hw, y, z + hw], [x + hw, y, z + hw],
-        [x - hw, y + height / 2, z - hw], [x + hw, y + height / 2, z - hw],
-        [x - hw, y + height / 2, z + hw], [x + hw, y + height / 2, z + hw],
-        [x - hw, y + height, z - hw], [x + hw, y + height, z - hw],
-        [x - hw, y + height, z + hw], [x + hw, y + height, z + hw],
-      ];
-      for (const [px, py, pz] of checkPoints) {
-        if (isSolid(getBlock(chunks, Math.floor(px), Math.floor(py), Math.floor(pz)))) {
-          return true;
-        }
-      }
+      console.warn('[Player] PhysicsEngine not set, collision check skipped');
       return false;
     }
     return this.physicsEngine.checkCollision(this, x, y, z);
@@ -289,45 +273,8 @@ export class Player extends Entity {
           }
         }
       } else {
-        // Fallback на старую логику если PhysicsEngine не установлен
-        const onGround = this.checkGround(chunks, this.position.x, this.position.y, this.position.z);
-        if (!onGround) {
-          this.velocity.y -= 28 * dt; // GRAVITY
-          this.velocity.y = Math.max(this.velocity.y, -50); // MAX_FALL_SPEED
-          this.onGround = false;
-        } else {
-          if (this.velocity.y < 0) {
-            this.velocity.y = 0;
-            const groundY = this.findGroundY(chunks, this.position.x, this.position.y, this.position.z);
-            if (groundY > this.position.y - 0.5) {
-              this.position.y = groundY;
-            }
-          }
-          this.onGround = true;
-        }
-
-        if (this.keys.jump && this.onGround && this.velocity.y <= 0) {
-          this.velocity.y = JUMP_VELOCITY;
-          this.onGround = false;
-        }
-        
-        const newY = this.position.y + this.velocity.y * dt;
-        if (this.velocity.y > 0) {
-          if (!this.checkCollision(chunks, this.position.x, newY, this.position.z)) {
-            this.position.y = newY;
-          } else {
-            this.velocity.y = 0;
-          }
-        } else if (this.velocity.y < 0) {
-          if (!this.checkCollision(chunks, this.position.x, newY, this.position.z)) {
-            this.position.y = newY;
-          } else {
-            this.velocity.y = 0;
-            this.onGround = true;
-            const groundY = this.findGroundY(chunks, this.position.x, this.position.y, this.position.z);
-            this.position.y = groundY;
-          }
-        }
+        // PhysicsEngine is required for proper physics
+        console.warn('[Player] PhysicsEngine not set, physics disabled');
       }
     }
 

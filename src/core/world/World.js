@@ -118,7 +118,7 @@ export class World {
    * Получить карты освещения
    */
   getLightMaps() {
-    return this.chunkManager.lightMaps;
+    return this.chunkManager.lightingManager.lightMaps;
   }
 
   /**
