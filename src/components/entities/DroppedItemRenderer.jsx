@@ -53,6 +53,9 @@ const MAGNET_RADIUS = 3.0; // Чуть увеличил радиус магни�
 const MAGNET_SPEED = 8;
 const DESPAWN_TIME = 300; // 5 минут
 
+// Геометрия создаётся один раз и переиспользуется всеми DroppedItem
+const sharedBoxGeometry = createCorrectedBoxGeometry(ITEM_SIZE);
+
 const DroppedItem = ({
   id,
   blockType,
@@ -63,11 +66,14 @@ const DroppedItem = ({
   playerPos,
   onPickup,
   getBlock,
+  chunkManager, // Добавлено для освещения
   noPickupTime = 0.5 // Небольшая задержка перед подбором, чтобы не подобрать сразу как выкинул
 }) => {
   const meshRef = useRef();
   const shadowRef = useRef();
   const [isPickedUp, setIsPickedUp] = useState(false);
+  const lastLightLevel = useRef(-1);
+  const lightUpdateTick = useRef(0);
 
   const state = useRef({
     x: initialPosition.x,
@@ -86,9 +92,6 @@ const DroppedItem = ({
   const block = useMemo(() => BlockRegistry.get(blockType), [blockType]);
   const isItem = block?.isPlaceable === false;
 
-  // Создаём геометрию с исправленными UV один раз
-  const boxGeometry = useMemo(() => createCorrectedBoxGeometry(ITEM_SIZE), []);
-
   // Для блоков с разными гранями создаем массив материалов
   const [materials, setMaterials] = useState(null);
 
@@ -101,6 +104,18 @@ const DroppedItem = ({
     const textureInfo = getBlockTextureInfo(blockType);
 
     const loadMaterials = async () => {
+      // Рассчитываем начальную яркость
+      let brightness = 1.0;
+      let currentLevel = 15;
+      if (chunkManager) {
+        currentLevel = chunkManager.getLightLevel(
+          Math.floor(initialPosition.x),
+          Math.floor(initialPosition.y),
+          Math.floor(initialPosition.z)
+        );
+        brightness = Math.max(0.02, Math.pow(0.8, 15 - currentLevel));
+      }
+
       if (isItem) {
         // Для предметов (спрайтов) используем одну текстуру
         const textureName = textureInfo?.all || textureInfo?.side || textureInfo?.top;
@@ -111,7 +126,12 @@ const DroppedItem = ({
           transparent: true,
           rotation: Math.PI // Поворот на 180 градусов для исправления переворота
         });
+
+        // Устанавливаем начальную яркость
+        spriteMat.color.setScalar(brightness);
+
         setMaterials(spriteMat);
+        lastLightLevel.current = currentLevel;
         return;
       }
 
@@ -119,15 +139,21 @@ const DroppedItem = ({
       if (textureInfo?.all) {
         // У блока одинаковые текстуры на всех гранях
         const texture = await textureManager.getTexture(textureInfo.all);
-        setMaterials(new THREE.MeshBasicMaterial({
+        const mat = new THREE.MeshBasicMaterial({
           map: texture,
           color: texture ? 0xffffff : block.color
-        }));
+        });
+
+        // Устанавливаем начальную яркость
+        mat.color.setScalar(brightness);
+
+        setMaterials(mat);
+        lastLightLevel.current = currentLevel;
       } else {
         // Для блоков с разными текстурами создаем массив из 6 материалов
         const sideName = textureInfo?.side || textureInfo?.front;
         const topName = textureInfo?.top || sideName;
-        const bottomName = textureInfo?.bottom || sideName; // Нижняя грань - fallback на side, не на top!
+        const bottomName = textureInfo?.bottom || sideName;
         const frontName = textureInfo?.front || sideName;
         const backName = textureInfo?.back || sideName;
 
@@ -141,26 +167,46 @@ const DroppedItem = ({
         ]);
 
         const createMat = (tex) => {
-          return new THREE.MeshBasicMaterial({
+          const m = new THREE.MeshBasicMaterial({
             map: tex,
             color: tex ? 0xffffff : block.color
           });
+          // Устанавливаем начальную яркость
+          m.color.setScalar(brightness);
+          return m;
         };
 
         // Порядок материалов для BoxGeometry:
         // [+X, -X, +Y, -Y, +Z, -Z] = [right, left, top, bottom, front, back]
-        setMaterials([
+        const mats = [
           createMat(sideTex),   // +X (right side)
           createMat(sideTex),   // -X (left side)
           createMat(topTex),    // +Y (top)
           createMat(bottomTex), // -Y (bottom)
           createMat(frontTex),  // +Z (front)
           createMat(backTex)    // -Z (back)
-        ]);
+        ];
+
+        setMaterials(mats);
+        lastLightLevel.current = currentLevel;
       }
     };
 
     loadMaterials();
+
+    // Сброс уровня света при смене материалов, чтобы освещение обновилось сразу
+    lastLightLevel.current = -1;
+
+    // Cleanup при размонтировании или смене blockType
+    return () => {
+      if (materials) {
+        if (Array.isArray(materials)) {
+          materials.forEach(mat => mat?.dispose?.());
+        } else {
+          materials?.dispose?.();
+        }
+      }
+    };
   }, [blockType, block, isItem]);
 
   const shadowMaterial = useMemo(() => {
@@ -312,28 +358,53 @@ const DroppedItem = ({
     s.y = newY;
     s.z = newZ;
 
-    // Render Position
-    let displayY = s.y;
-    // Анимация парения (Bobbing) только если предмет лежит и не магнитится
-    // Используем abs чтобы предмет всегда был выше или на уровне базовой позиции
-    if (s.onGround && !isMagnetized && Math.abs(s.vx) < 0.1) {
-      displayY += Math.abs(Math.sin(s.time * 3)) * 0.1; // Покачивание только вверх
+    // === VISUALS UPDATE ===
+
+    // 1. Освещение (проверяем раз в 5 кадров для оптимизации)
+    lightUpdateTick.current++;
+    if (materials && chunkManager && lightUpdateTick.current % 5 === 0) {
+      const lx = Math.floor(s.x);
+      const ly = Math.floor(s.y);
+      const lz = Math.floor(s.z);
+      const level = chunkManager.getLightLevel(lx, ly, lz);
+
+      if (level !== lastLightLevel.current) {
+        lastLightLevel.current = level;
+        const brightness = Math.max(0.02, Math.pow(0.8, 15 - level));
+
+        if (Array.isArray(materials)) {
+          materials.forEach(m => m.color.setScalar(brightness));
+        } else {
+          materials.color.setScalar(brightness);
+        }
+      }
     }
 
-    meshRef.current.position.set(s.x, displayY, s.z);
+    // 2. Mesh Update
+    if (meshRef.current) {
+      // Render Position
+      let displayY = s.y;
+      // Анимация парения (Bobbing) только если предмет лежит и не магнитится
+      // Используем abs чтобы предмет всегда был выше или на уровне базовой позиции
+      if (s.onGround && !isMagnetized && Math.abs(s.vx) < 0.1) {
+        displayY += Math.abs(Math.sin(s.time * 3)) * 0.1; // Покачивание только вверх
+      }
 
-    // Rotation logic
-    if (!isItem) {
-      // Если летит - крутится хаотично, если лежит - крутится красиво вокруг оси Y
-      if (!s.onGround && !isMagnetized) {
-        meshRef.current.rotation.x += s.rotSpeed * dt;
-        meshRef.current.rotation.z += s.rotSpeed * dt;
-      } else {
-        // Выравниваем вращение при приземлении
-        meshRef.current.rotation.x *= 0.9;
-        meshRef.current.rotation.z *= 0.9;
-        s.rot += dt * 1.5;
-        meshRef.current.rotation.y = s.rot;
+      meshRef.current.position.set(s.x, displayY, s.z);
+
+      // Rotation logic
+      if (!isItem) {
+        // Если летит - крутится хаотично, если лежит - крутится красиво вокруг оси Y
+        if (!s.onGround && !isMagnetized) {
+          meshRef.current.rotation.x += s.rotSpeed * dt;
+          meshRef.current.rotation.z += s.rotSpeed * dt;
+        } else {
+          // Выравниваем вращение при приземлении
+          meshRef.current.rotation.x *= 0.9;
+          meshRef.current.rotation.z *= 0.9;
+          s.rot += dt * 1.5;
+          meshRef.current.rotation.y = s.rot;
+        }
       }
     }
 
@@ -381,14 +452,14 @@ const DroppedItem = ({
           ref={meshRef}
           position={[initialPosition.x, initialPosition.y, initialPosition.z]}
           material={materials}
-          geometry={boxGeometry}
+          geometry={sharedBoxGeometry}
         />
       )}
     </group>
   );
 };
 
-export const DroppedItemsManager = ({ items, playerPos, onPickup, getBlock }) => {
+export const DroppedItemsManager = ({ items, playerPos, onPickup, getBlock, chunkManager }) => {
   return (
     <group>
       {items.map(item => (
@@ -403,6 +474,7 @@ export const DroppedItemsManager = ({ items, playerPos, onPickup, getBlock }) =>
           playerPos={playerPos}
           onPickup={onPickup}
           getBlock={getBlock}
+          chunkManager={chunkManager}
           noPickupTime={item.noPickupTime}
         />
       ))}

@@ -244,6 +244,16 @@ export class ChunkMesher {
       allowedFaces = [3]; // Bottom (Y-)
     } else if (faceFilter === 'sides') {
       allowedFaces = [0, 1, 4, 5]; // Right, Left, Front, Back
+    } else if (faceFilter === 'front') {
+      allowedFaces = [4]; // Front (Z+)
+    } else if (faceFilter === 'back') {
+      allowedFaces = [5]; // Back (Z-)
+    } else if (faceFilter === 'left') {
+      allowedFaces = [1]; // Left (X-)
+    } else if (faceFilter === 'right') {
+      allowedFaces = [0]; // Right (X+)
+    } else if (faceFilter === 'sides-no-front') {
+      allowedFaces = [0, 1, 5]; // Right, Left, Back (без Front)
     } else {
       allowedFaces = [0, 1, 2, 3, 4, 5]; // Все
     }

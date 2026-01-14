@@ -292,9 +292,18 @@ const ChunkRenderer = React.memo(({ chunkX, chunkZ, chunkData, lightMap, getNeig
     return info && !info.all && (info.top || info.bottom || info.side);
   };
 
+  // Проверяем, нужна ли отдельная текстура для передней грани (как у верстака)
+  const needsFrontTexture = (type) => {
+    const info = getBlockTextureInfo(type);
+    return info && info.front && info.front !== info.side;
+  };
+
   return (
     <group>
       {blockTypes.map(type => {
+        const info = getBlockTextureInfo(type);
+        const hasFront = needsFrontTexture(type);
+
         if (needsMultiTexture(type)) {
           return (
             <React.Fragment key={type}>
@@ -320,17 +329,47 @@ const ChunkRenderer = React.memo(({ chunkX, chunkZ, chunkData, lightMap, getNeig
                 faceFilter="bottom"
                 texturesLoaded={texturesLoaded}
               />
-              <ChunkBlockMesh
-                key={`${type}-sides`}
-                blockType={type}
-                chunkData={chunkData}
-                lightMap={lightMap}
-                chunkX={chunkX}
-                chunkZ={chunkZ}
-                getNeighborData={getNeighborData}
-                faceFilter="sides"
-                texturesLoaded={texturesLoaded}
-              />
+              {hasFront ? (
+                <>
+                  {/* Боковые грани без front */}
+                  <ChunkBlockMesh
+                    key={`${type}-sides-no-front`}
+                    blockType={type}
+                    chunkData={chunkData}
+                    lightMap={lightMap}
+                    chunkX={chunkX}
+                    chunkZ={chunkZ}
+                    getNeighborData={getNeighborData}
+                    faceFilter="sides-no-front"
+                    texturesLoaded={texturesLoaded}
+                  />
+                  {/* Передняя грань с текстурой front */}
+                  <ChunkBlockMesh
+                    key={`${type}-front`}
+                    blockType={type}
+                    chunkData={chunkData}
+                    lightMap={lightMap}
+                    chunkX={chunkX}
+                    chunkZ={chunkZ}
+                    getNeighborData={getNeighborData}
+                    faceFilter="front"
+                    textureName={info.front}
+                    texturesLoaded={texturesLoaded}
+                  />
+                </>
+              ) : (
+                <ChunkBlockMesh
+                  key={`${type}-sides`}
+                  blockType={type}
+                  chunkData={chunkData}
+                  lightMap={lightMap}
+                  chunkX={chunkX}
+                  chunkZ={chunkZ}
+                  getNeighborData={getNeighborData}
+                  faceFilter="sides"
+                  texturesLoaded={texturesLoaded}
+                />
+              )}
             </React.Fragment>
           );
         } else {

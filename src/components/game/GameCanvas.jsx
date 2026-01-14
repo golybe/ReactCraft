@@ -191,6 +191,7 @@ export const GameCanvas = ({
               playerPos={playerPos}
               onPickup={onItemPickup}
               getBlock={getBlockAt}
+              chunkManager={chunkManager}
             />
           )}
 

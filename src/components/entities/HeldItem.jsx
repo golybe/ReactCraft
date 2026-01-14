@@ -30,6 +30,9 @@ function createCorrectedBoxGeometry(size = 1) {
   return geometry;
 }
 
+// Геометрия создаётся один раз и переиспользуется
+const sharedBoxGeometry = createCorrectedBoxGeometry(1);
+
 // Простая SVG текстура кожи (шум)
 const HAND_SKIN_SVG = `
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" shape-rendering="crispEdges">
@@ -74,9 +77,6 @@ const HeldItem = ({ selectedBlock, lightLevel = 15, lastPunchTime, isFlying, isM
   const blockProps = selectedBlock ? BlockRegistry.get(selectedBlock) : null;
   const isItem = blockProps?.isPlaceable === false;
 
-  // Создаём геометрию с исправленными UV один раз
-  const boxGeometry = useMemo(() => createCorrectedBoxGeometry(1), []);
-
   const punchStartTime = useRef(0);
   const miningAnimTime = useRef(0);
 
@@ -87,6 +87,9 @@ const HeldItem = ({ selectedBlock, lightLevel = 15, lastPunchTime, isFlying, isM
   }, [lastPunchTime]);
 
   useEffect(() => {
+    // Сбрасываем материалы перед загрузкой новых, чтобы не было 'призрака' старого блока
+    setMaterials(null);
+
     if (isHand) {
       // Загружаем SVG текстуру
       const textureUrl = `data:image/svg+xml;base64,${btoa(HAND_SKIN_SVG)}`;
@@ -103,8 +106,13 @@ const HeldItem = ({ selectedBlock, lightLevel = 15, lastPunchTime, isFlying, isM
         depthWrite: false,
         transparent: true
       });
+
+      // Сразу устанавливаем правильную яркость
+      const brightness = Math.max(0.02, Math.pow(0.8, 15 - lightLevel));
+      handMat.color.setScalar(brightness);
+
       setMaterials(handMat);
-      lastLightLevel.current = -1;
+      lastLightLevel.current = lightLevel;
       return;
     }
 
@@ -116,8 +124,7 @@ const HeldItem = ({ selectedBlock, lightLevel = 15, lastPunchTime, isFlying, isM
       const tex = await textureManager.getTexture(name);
       if (!tex) return null;
 
-      // Создаем материал для HeldItem с учетом уровня света
-      const brightness = Math.max(0.3, lightLevel / 15);
+      // Создаем материал для HeldItem (яркость устанавливается в useFrame)
       const mat = new THREE.MeshBasicMaterial({
         map: tex,
         side: isItem ? THREE.DoubleSide : THREE.FrontSide,
@@ -125,9 +132,6 @@ const HeldItem = ({ selectedBlock, lightLevel = 15, lastPunchTime, isFlying, isM
         depthWrite: false,
         transparent: true
       });
-
-      // Применяем яркость через цвет материала
-      mat.color.setRGB(brightness, brightness, brightness);
 
       return mat;
     };
@@ -144,14 +148,12 @@ const HeldItem = ({ selectedBlock, lightLevel = 15, lastPunchTime, isFlying, isM
         if (mat) mats = mat;
       } else {
         // Для блоков с разными текстурами создаем массив из 6 материалов
-        // Порядок в Three.js: +X (right), -X (left), +Y (top), -Y (bottom), +Z (front), -Z (back)
         const sideName = info.side || info.front;
         const topName = info.top || sideName;
-        const bottomName = info.bottom || sideName; // Нижняя грань - fallback на side, не на top!
+        const bottomName = info.bottom || sideName;
         const frontName = info.front || sideName;
         const backName = info.back || sideName;
 
-        // Загружаем все уникальные текстуры
         const [sideMat, topMat, bottomMat, frontMat, backMat] = await Promise.all([
           loadTex(sideName),
           loadTex(topName),
@@ -161,8 +163,6 @@ const HeldItem = ({ selectedBlock, lightLevel = 15, lastPunchTime, isFlying, isM
         ]);
 
         if (sideMat) {
-          // Порядок материалов для BoxGeometry:
-          // [+X, -X, +Y, -Y, +Z, -Z] = [right, left, top, bottom, front, back]
           mats = [
             sideMat.clone(),   // +X (right side)
             sideMat.clone(),   // -X (left side)
@@ -175,12 +175,21 @@ const HeldItem = ({ selectedBlock, lightLevel = 15, lastPunchTime, isFlying, isM
       }
 
       if (mats) {
+        // Сразу устанавливаем правильную яркость
+        const brightness = Math.max(0.02, Math.pow(0.8, 15 - lightLevel));
+        if (Array.isArray(mats)) {
+          mats.forEach(m => m.color.setScalar(brightness));
+        } else {
+          mats.color.setScalar(brightness);
+        }
+
         setMaterials(mats);
+        lastLightLevel.current = lightLevel;
       }
     };
 
     loadMaterials();
-  }, [selectedBlock, isHand, lightLevel]);
+  }, [selectedBlock, isHand, isItem]); // lightLevel специально не в зависимостях, чтобы не перезагружать текстуры. Яркость обновляется в useFrame.
 
   const bobTime = useRef(0);
   const lastPos = useRef(new THREE.Vector3());
@@ -399,7 +408,7 @@ const HeldItem = ({ selectedBlock, lightLevel = 15, lastPunchTime, isFlying, isM
       renderOrder={999}
       castShadow
       receiveShadow
-      geometry={isItem ? undefined : boxGeometry}
+      geometry={isItem ? undefined : sharedBoxGeometry}
     >
       {isItem && <planeGeometry args={[1, 1]} />}
     </mesh>
