@@ -9,6 +9,8 @@ const BlockHighlight = ({ chunks }) => {
   const { camera, scene } = useThree();
   const groupRef = useRef(null);
   const raycaster = useRef(new THREE.Raycaster());
+  // Reuse Vector2 to avoid allocation every frame
+  const screenCenter = useRef(new THREE.Vector2(0, 0));
 
   // Геометрия выделения (чуть больше блока, чтобы не мерцало)
   const geometry = useMemo(() => {
@@ -19,7 +21,7 @@ const BlockHighlight = ({ chunks }) => {
     if (!groupRef.current) return;
 
     raycaster.current.far = REACH_DISTANCE;
-    raycaster.current.setFromCamera(new THREE.Vector2(0, 0), camera);
+    raycaster.current.setFromCamera(screenCenter.current, camera);
 
     // Ищем пересечения
     const intersects = raycaster.current.intersectObjects(scene.children, true);

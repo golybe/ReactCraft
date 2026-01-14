@@ -20,6 +20,19 @@ export class PhysicsEngine {
     this.gravity = DEFAULT_GRAVITY;
     this.maxFallSpeed = DEFAULT_MAX_FALL_SPEED;
     this.groundCheckDist = DEFAULT_GROUND_CHECK_DIST;
+
+    // Pre-allocated arrays for collision checks to avoid GC pressure
+    // Each sub-array holds [x, y, z] coordinates
+    this._collisionPoints = [
+      [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], // Feet (4 corners)
+      [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], // Middle (4 corners)
+      [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]  // Head (4 corners)
+    ];
+
+    // Pre-allocated arrays for ground checks [x, z]
+    this._groundCheckPoints = [
+      [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]
+    ];
   }
 
   /**
@@ -50,28 +63,31 @@ export class PhysicsEngine {
 
     const hw = (entity.width || 0.6) / 2 - 0.01;
     const height = (entity.height || 1.8) - 0.01;
+    const halfHeight = height / 2;
 
-    // Проверяем углы и центр на разных высотах
-    const checkPoints = [
-      // Ноги
-      [x - hw, y, z - hw],
-      [x + hw, y, z - hw],
-      [x - hw, y, z + hw],
-      [x + hw, y, z + hw],
-      // Середина
-      [x - hw, y + height / 2, z - hw],
-      [x + hw, y + height / 2, z - hw],
-      [x - hw, y + height / 2, z + hw],
-      [x + hw, y + height / 2, z + hw],
-      // Голова
-      [x - hw, y + height, z - hw],
-      [x + hw, y + height, z - hw],
-      [x - hw, y + height, z + hw],
-      [x + hw, y + height, z + hw],
-    ];
+    // Reuse pre-allocated arrays to avoid GC pressure
+    const p = this._collisionPoints;
 
-    for (const [px, py, pz] of checkPoints) {
-      if (this.isBlockSolid(px, py, pz)) {
+    // Feet (4 corners)
+    p[0][0] = x - hw; p[0][1] = y; p[0][2] = z - hw;
+    p[1][0] = x + hw; p[1][1] = y; p[1][2] = z - hw;
+    p[2][0] = x - hw; p[2][1] = y; p[2][2] = z + hw;
+    p[3][0] = x + hw; p[3][1] = y; p[3][2] = z + hw;
+
+    // Middle (4 corners)
+    p[4][0] = x - hw; p[4][1] = y + halfHeight; p[4][2] = z - hw;
+    p[5][0] = x + hw; p[5][1] = y + halfHeight; p[5][2] = z - hw;
+    p[6][0] = x - hw; p[6][1] = y + halfHeight; p[6][2] = z + hw;
+    p[7][0] = x + hw; p[7][1] = y + halfHeight; p[7][2] = z + hw;
+
+    // Head (4 corners)
+    p[8][0] = x - hw; p[8][1] = y + height; p[8][2] = z - hw;
+    p[9][0] = x + hw; p[9][1] = y + height; p[9][2] = z - hw;
+    p[10][0] = x - hw; p[10][1] = y + height; p[10][2] = z + hw;
+    p[11][0] = x + hw; p[11][1] = y + height; p[11][2] = z + hw;
+
+    for (let i = 0; i < 12; i++) {
+      if (this.isBlockSolid(p[i][0], p[i][1], p[i][2])) {
         return true;
       }
     }
@@ -115,17 +131,21 @@ export class PhysicsEngine {
     const hw = (entity.width || 0.6) / 2 - 0.01;
     let groundY = -Infinity;
 
-    // Проверяем все 4 угла и центр
-    const checkPositions = [
-      [x - hw, z - hw],
-      [x + hw, z - hw],
-      [x - hw, z + hw],
-      [x + hw, z + hw],
-      [x, z]
-    ];
+    // Reuse pre-allocated arrays to avoid GC pressure
+    const p = this._groundCheckPoints;
+    p[0][0] = x - hw; p[0][1] = z - hw;
+    p[1][0] = x + hw; p[1][1] = z - hw;
+    p[2][0] = x - hw; p[2][1] = z + hw;
+    p[3][0] = x + hw; p[3][1] = z + hw;
+    p[4][0] = x;      p[4][1] = z;
 
-    for (const [px, pz] of checkPositions) {
-      for (let checkY = Math.floor(y); checkY >= Math.floor(y) - 2; checkY--) {
+    const floorY = Math.floor(y);
+    const minCheckY = floorY - 2;
+
+    for (let i = 0; i < 5; i++) {
+      const px = p[i][0];
+      const pz = p[i][1];
+      for (let checkY = floorY; checkY >= minCheckY; checkY--) {
         if (this.isBlockSolid(px, checkY, pz)) {
           groundY = Math.max(groundY, checkY + 1);
           break;

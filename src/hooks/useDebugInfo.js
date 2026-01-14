@@ -13,24 +13,36 @@ export function useDebugInfo() {
   const frameTimesRef = useRef([]);
   const lastFrameTimeRef = useRef(performance.now());
 
-  // FPS calculation loop
+  // FPS calculation loop - optimized to reduce React re-renders
   useEffect(() => {
     let animationId;
+    let lastUpdateTime = 0;
+    const UPDATE_INTERVAL = 500; // Update React state only every 500ms
 
     const updateFPS = () => {
       const now = performance.now();
       const delta = now - lastFrameTimeRef.current;
       lastFrameTimeRef.current = now;
 
+      // Always track frame times for accurate FPS calculation
       frameTimesRef.current.push(delta);
       if (frameTimesRef.current.length > 60) {
         frameTimesRef.current.shift();
       }
 
-      const avgDelta = frameTimesRef.current.reduce((a, b) => a + b, 0) / frameTimesRef.current.length;
-      const fps = Math.round(1000 / avgDelta);
+      // Only update React state every UPDATE_INTERVAL ms to avoid constant re-renders
+      if (now - lastUpdateTime >= UPDATE_INTERVAL) {
+        lastUpdateTime = now;
+        const avgDelta = frameTimesRef.current.reduce((a, b) => a + b, 0) / frameTimesRef.current.length;
+        const fps = Math.round(1000 / avgDelta);
 
-      setDebugInfo(prev => ({ ...prev, fps }));
+        setDebugInfo(prev => {
+          // Avoid re-render if FPS hasn't changed
+          if (prev.fps === fps) return prev;
+          return { ...prev, fps };
+        });
+      }
+
       animationId = requestAnimationFrame(updateFPS);
     };
 

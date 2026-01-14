@@ -62,6 +62,31 @@ export class Player extends LivingEntity {
 
     // PhysicsEngine будет установлен извне
     this.physicsEngine = null;
+
+    // Pre-allocated object for onMove to avoid GC pressure
+    this._moveData = {
+      type: 'position',
+      x: 0, y: 0, z: 0,
+      yaw: 0, pitch: 0,
+      isFlying: false,
+      isInWater: false,
+      isHeadUnderwater: false,
+      isSwimming: false,
+      health: 0,
+      maxHealth: 0
+    };
+
+    // Previous values for dirty checking
+    this._prevMoveData = {
+      x: NaN, y: NaN, z: NaN,
+      yaw: NaN, pitch: NaN,
+      isFlying: false,
+      isInWater: false,
+      isHeadUnderwater: false,
+      isSwimming: false,
+      health: -1,
+      maxHealth: -1
+    };
   }
 
   /**
@@ -559,22 +584,55 @@ export class Player extends LivingEntity {
       this.fallDistance = 0;
     }
 
-    // Уведомляем об изменениях
+    // Уведомляем об изменениях (только если что-то реально изменилось)
     if (this.onMove) {
-      this.onMove({
-        type: 'position',
-        x: this.position.x,
-        y: this.position.y,
-        z: this.position.z,
-        yaw: this.rotation.yaw,
-        pitch: this.rotation.pitch,
-        isFlying: this.isFlying || this.noclipMode,
-        isInWater: this.isInWater,
-        isHeadUnderwater: this.isHeadUnderwater,
-        isSwimming: this.isSwimming,
-        health: this.health,
-        maxHealth: this.maxHealth
-      });
+      const flying = this.isFlying || this.noclipMode;
+      const prev = this._prevMoveData;
+
+      // Check if anything changed
+      const hasChanged =
+        prev.x !== this.position.x ||
+        prev.y !== this.position.y ||
+        prev.z !== this.position.z ||
+        prev.yaw !== this.rotation.yaw ||
+        prev.pitch !== this.rotation.pitch ||
+        prev.isFlying !== flying ||
+        prev.isInWater !== this.isInWater ||
+        prev.isHeadUnderwater !== this.isHeadUnderwater ||
+        prev.isSwimming !== this.isSwimming ||
+        prev.health !== this.health ||
+        prev.maxHealth !== this.maxHealth;
+
+      if (hasChanged) {
+        // Update pre-allocated object
+        const data = this._moveData;
+        data.x = this.position.x;
+        data.y = this.position.y;
+        data.z = this.position.z;
+        data.yaw = this.rotation.yaw;
+        data.pitch = this.rotation.pitch;
+        data.isFlying = flying;
+        data.isInWater = this.isInWater;
+        data.isHeadUnderwater = this.isHeadUnderwater;
+        data.isSwimming = this.isSwimming;
+        data.health = this.health;
+        data.maxHealth = this.maxHealth;
+
+        // Update previous values
+        prev.x = this.position.x;
+        prev.y = this.position.y;
+        prev.z = this.position.z;
+        prev.yaw = this.rotation.yaw;
+        prev.pitch = this.rotation.pitch;
+        prev.isFlying = flying;
+        prev.isInWater = this.isInWater;
+        prev.isHeadUnderwater = this.isHeadUnderwater;
+        prev.isSwimming = this.isSwimming;
+        prev.health = this.health;
+        prev.maxHealth = this.maxHealth;
+
+        this.onMove(data);
+      }
     }
   }
 }
