@@ -379,7 +379,11 @@ export class Inventory {
    */
   setSlots(slots) {
     if (Array.isArray(slots) && slots.length === this.slots.length) {
-      this.slots = slots.map(slot => slot ? { type: slot.type, count: slot.count } : null);
+      this.slots = slots.map(slot => slot ? { 
+        type: slot.type, 
+        count: slot.count,
+        durability: slot.durability // Сохраняем прочность
+      } : null);
     }
   }
 
