@@ -33,6 +33,14 @@ export class World {
   }
 
   /**
+   * Получить метаданные блока в мировых координатах
+   */
+  getMetadata(x, y, z) {
+    if (y < 0 || y >= CHUNK_HEIGHT) return 0;
+    return this.chunkManager.getMetadata(x, y, z);
+  }
+
+  /**
    * Установить блок в мировых координатах
    */
   setBlock(x, y, z, blockType, metadata = 0) {

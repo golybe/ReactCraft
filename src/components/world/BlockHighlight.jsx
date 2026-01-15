@@ -93,19 +93,23 @@ const BlockHighlight = ({ chunks }) => {
           if (boundingBox && blockData?.renderType === 'torch') {
             const meta = chunks[key].getMetadata ? chunks[key].getMetadata(lx, blockY, lz) : 0;
             if (meta > 0) {
-              // Настенный факел - смещаем bounding box вплотную к стене
+              // Настенный факел - смещаем и наклоняем bounding box
               const wallBB = { ...boundingBox };
               wallBB.minY = 0.2;
-              wallBB.maxY = 0.85;
+              wallBB.maxY = 0.8;
               
-              if (meta === 1) { // East wall (X+)
-                wallBB.minX = 0.8; wallBB.maxX = 1.0;
-              } else if (meta === 2) { // West wall (X-)
-                wallBB.minX = 0.0; wallBB.maxX = 0.2;
-              } else if (meta === 3) { // South wall (Z+)
-                wallBB.minZ = 0.8; wallBB.maxZ = 1.0;
-              } else if (meta === 4) { // North wall (Z-)
-                wallBB.minZ = 0.0; wallBB.maxZ = 0.2;
+              if (meta === 1) { // East wall (X+) - наклонен к X-
+                wallBB.minX = 0.5; wallBB.maxX = 1.0;
+                wallBB.minZ = 0.35; wallBB.maxZ = 0.65;
+              } else if (meta === 2) { // West wall (X-) - наклонен к X+
+                wallBB.minX = 0.0; wallBB.maxX = 0.5;
+                wallBB.minZ = 0.35; wallBB.maxZ = 0.65;
+              } else if (meta === 3) { // South wall (Z+) - наклонен к Z-
+                wallBB.minZ = 0.5; wallBB.maxZ = 1.0;
+                wallBB.minX = 0.35; wallBB.maxX = 0.65;
+              } else if (meta === 4) { // North wall (Z-) - наклонен к Z+
+                wallBB.minZ = 0.0; wallBB.maxZ = 0.5;
+                wallBB.minX = 0.35; wallBB.maxX = 0.65;
               }
               boundingBox = wallBB;
             }

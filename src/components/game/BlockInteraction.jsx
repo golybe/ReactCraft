@@ -75,14 +75,14 @@ export const BlockInteraction = ({
 
       return {
         breakPos: {
-          x: Math.floor(point.x - normal.x * 0.5),
-          y: Math.floor(point.y - normal.y * 0.5),
-          z: Math.floor(point.z - normal.z * 0.5)
+          x: Math.floor(point.x - normal.x * 0.05),
+          y: Math.floor(point.y - normal.y * 0.05),
+          z: Math.floor(point.z - normal.z * 0.05)
         },
         placePos: {
-          x: Math.floor(point.x + normal.x * 0.5),
-          y: Math.floor(point.y + normal.y * 0.5),
-          z: Math.floor(point.z + normal.z * 0.5)
+          x: Math.floor(point.x + normal.x * 0.05),
+          y: Math.floor(point.y + normal.y * 0.05),
+          z: Math.floor(point.z + normal.z * 0.05)
         },
         faceNormal: { x: normal.x, y: normal.y, z: normal.z }
       };

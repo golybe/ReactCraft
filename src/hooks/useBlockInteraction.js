@@ -47,54 +47,82 @@ export function useBlockInteraction({
   const destroyBlock = useCallback((x, y, z, blockId) => {
     if (!worldRef?.current) return;
 
-    const block = BlockRegistry.get(blockId);
+    // Рекурсивная функция для разрушения блока и его зависимостей (факелов)
+    const recursiveDestroy = (bx, by, bz, bid) => {
+      const block = BlockRegistry.get(bid);
 
-    const success = worldRef.current.setBlock(x, y, z, BLOCK_TYPES.AIR);
-    if (success) {
-      setChunks({ ...worldRef.current.getChunks() });
+      const success = worldRef.current.setBlock(bx, by, bz, BLOCK_TYPES.AIR);
+      if (success) {
+        // Debris particles
+        if (bid) {
+          const lightLevel = worldRef.current.getLightLevel(bx, by, bz);
+          const id = Date.now() + Math.random();
+          setDebrisList(prev => [...prev, { id, x: bx, y: by, z: bz, blockType: bid, lightLevel }]);
+          setTimeout(() => {
+            setDebrisList(prev => prev.filter(d => d.id !== id));
+          }, 1000);
+        }
 
-      // Debris particles
-      if (blockId) {
-        const lightLevel = worldRef.current.getLightLevel(x, y, z);
-        const id = Date.now() + Math.random();
-        setDebrisList(prev => [...prev, { id, x, y, z, blockType: blockId, lightLevel }]);
-        setTimeout(() => {
-          setDebrisList(prev => prev.filter(d => d.id !== id));
-        }, 1000);
-      }
+        // In Survival mode create dropped item
+        if (gameMode === GAME_MODES.SURVIVAL && block) {
+          const drops = block.getDrops();
+          drops.forEach(drop => {
+            if (drop.type && drop.count > 0) {
+              const itemId = Date.now() + Math.random();
+              const angle = Math.random() * Math.PI * 2;
+              const offsetDist = 0.25;
+              const offsetX = Math.cos(angle) * offsetDist;
+              const offsetZ = Math.sin(angle) * offsetDist;
 
-      // In Survival mode create dropped item
-      if (gameMode === GAME_MODES.SURVIVAL && block) {
-        const drops = block.getDrops();
-        drops.forEach(drop => {
-          if (drop.type && drop.count > 0) {
-            const itemId = Date.now() + Math.random();
-            const angle = Math.random() * Math.PI * 2;
-            const offsetDist = 0.25;
-            const offsetX = Math.cos(angle) * offsetDist;
-            const offsetZ = Math.sin(angle) * offsetDist;
+              const hSpeed = 0.5 + Math.random() * 0.5;
 
-            const hSpeed = 0.5 + Math.random() * 0.5;
+              setDroppedItems(prev => [...prev, {
+                id: itemId,
+                blockType: drop.type,
+                count: drop.count,
+                position: {
+                  x: bx + 0.5 + offsetX,
+                  y: by + 0.3,
+                  z: bz + 0.5 + offsetZ
+                },
+                velocity: {
+                  x: Math.cos(angle) * hSpeed,
+                  y: 0,
+                  z: Math.sin(angle) * hSpeed
+                },
+                noPickupTime: 0.3
+              }]);
+            }
+          });
+        }
 
-            setDroppedItems(prev => [...prev, {
-              id: itemId,
-              blockType: drop.type,
-              count: drop.count,
-              position: {
-                x: x + 0.5 + offsetX,
-                y: y + 0.3,
-                z: z + 0.5 + offsetZ
-              },
-              velocity: {
-                x: Math.cos(angle) * hSpeed,
-                y: 0,
-                z: Math.sin(angle) * hSpeed
-              },
-              noPickupTime: 0.3
-            }]);
+        // Check neighbors for blocks that depend on this block (torches)
+        const checkNeighbors = [
+          { nx: bx, ny: by + 1, nz: bz, meta: 0 },    // Standing on this block
+          { nx: bx - 1, ny: by, nz: bz, meta: 1 },    // Attached to East wall (X+) of this block
+          { nx: bx + 1, ny: by, nz: bz, meta: 2 },    // Attached to West wall (X-) of this block
+          { nx: bx, ny: by, nz: bz - 1, meta: 3 },    // Attached to South wall (Z+) of this block
+          { nx: bx, ny: by, nz: bz + 1, meta: 4 }     // Attached to North wall (Z-) of this block
+        ];
+
+        checkNeighbors.forEach(n => {
+          const neighborBlockId = worldRef.current.getBlock(n.nx, n.ny, n.nz);
+          if (neighborBlockId === BLOCK_TYPES.TORCH) {
+            const neighborMeta = worldRef.current.getMetadata(n.nx, n.ny, n.nz);
+            if (neighborMeta === n.meta) {
+              // Support broken - destroy the torch recursively
+              recursiveDestroy(n.nx, n.ny, n.nz, neighborBlockId);
+            }
           }
         });
+        
+        return true;
       }
+      return false;
+    };
+
+    if (recursiveDestroy(x, y, z, blockId)) {
+      setChunks({ ...worldRef.current.getChunks() });
     }
   }, [gameMode, worldRef, setChunks, setDebrisList, setDroppedItems]);
 
@@ -367,53 +395,12 @@ export function useBlockInteraction({
     if (!worldRef?.current) return;
 
     const handleLeafDecay = (x, y, z, blockId) => {
-      const block = BlockRegistry.get(blockId);
-
-      // Удаляем блок
-      worldRef.current.getChunkManager().setBlock(x, y, z, BLOCK_TYPES.AIR);
-      setChunks({ ...worldRef.current.getChunks() });
-
-      // Создаем частицы debris
-      if (blockId) {
-        const lightLevel = worldRef.current.getLightLevel(x, y, z);
-        const id = Date.now() + Math.random();
-        setDebrisList(prev => [...prev, { id, x, y, z, blockType: blockId, lightLevel }]);
-        setTimeout(() => {
-          setDebrisList(prev => prev.filter(d => d.id !== id));
-        }, 1000);
-      }
-
-      // В Survival режиме создаем дропы (яблоки с шансом 5%)
-      if (gameMode === GAME_MODES.SURVIVAL && block) {
-        const drops = block.getDrops();
-        drops.forEach(drop => {
-          if (drop.type && drop.count > 0) {
-            const itemId = Date.now() + Math.random();
-            const angle = Math.random() * Math.PI * 2;
-            const offsetDist = 0.25;
-            const offsetX = Math.cos(angle) * offsetDist;
-            const offsetZ = Math.sin(angle) * offsetDist;
-            const hSpeed = 0.5 + Math.random() * 0.5;
-
-            setDroppedItems(prev => [...prev, {
-              id: itemId,
-              blockType: drop.type,
-              count: drop.count,
-              position: {
-                x: x + 0.5 + offsetX,
-                y: y + 0.3,
-                z: z + 0.5 + offsetZ
-              },
-              velocity: {
-                x: Math.cos(angle) * hSpeed,
-                y: 0,
-                z: Math.sin(angle) * hSpeed
-              },
-              noPickupTime: 0.3
-            }]);
-          }
-        });
-      }
+      // Используем существующий метод разрушения, который обработает:
+      // 1. Установку AIR
+      // 2. Генерацию частиц (debris)
+      // 3. Генерацию дропов (яблоки/саженцы)
+      // 4. Осыпание прикрепленных факелов
+      destroyBlock(x, y, z, blockId);
     };
 
     worldRef.current.setLeafDecayCallback(handleLeafDecay);
