@@ -22,14 +22,21 @@ import {
 import { PhysicsEngine } from '../physics/PhysicsEngine';
 
 // Константы игрока
-const PLAYER_MAX_HEALTH = 20;
+export const PLAYER_MAX_HEALTH = 20;
 
 export class Player extends LivingEntity {
-  constructor(x = 0, y = 64, z = 0) {
-    super(x, y, z, PLAYER_MAX_HEALTH);
+  constructor(x = 0, y = 64, z = 0, yaw = 0, pitch = 0, health = PLAYER_MAX_HEALTH, maxHealth = PLAYER_MAX_HEALTH) {
+    super(x, y, z, maxHealth); // Передаем максимальное здоровье в LivingEntity
+    
+    // Устанавливаем текущее здоровье (может быть меньше максимального)
+    this.health = health;
 
     this.width = PLAYER_WIDTH;
     this.height = PLAYER_HEIGHT;
+    
+    // Устанавливаем начальное направление взгляда
+    this.rotation.yaw = yaw;
+    this.rotation.pitch = pitch;
 
     // Сохраняем начальную позицию для респавна
     this.spawnPoint = { x, y, z };

@@ -8,8 +8,6 @@ export const BlockIcon = ({ blockId, size = 32, style }) => {
     const block = BlockRegistry.get(blockId);
     if (!block) return null;
 
-    // DEBUG: console.log(`Icon for ${block.name}: renderAsItem=${block.renderAsItem}`);
-
     const tex = getResolvedBlockTextures(blockId);
     const halfSize = size / 2;
 
@@ -45,17 +43,20 @@ export const BlockIcon = ({ blockId, size = 32, style }) => {
                     width: '100%',
                     height: '100%',
                     backgroundImage: `url(${iconUrl})`,
-                    backgroundSize: 'contain',
+                    backgroundSize: '100% 100%', // Use 100% for pixel-perfect match
                     backgroundRepeat: 'no-repeat',
                     backgroundPosition: 'center',
+                    // Multiple properties for best cross-browser pixelation
                     imageRendering: 'pixelated',
-                    transform: 'scale(1.2)', // Масштабируем через transform - это работает лучше
+                    WebkitFontSmoothing: 'none',
+                    MozOsxFontSmoothing: 'none',
+                    transform: 'none', // Remove the 1.2 scale that causes blur
                     backgroundColor: tint || 'transparent',
                     backgroundBlendMode: tint ? 'multiply' : 'normal',
                     maskImage: tint ? `url(${iconUrl})` : 'none',
                     WebkitMaskImage: tint ? `url(${iconUrl})` : 'none',
-                    maskSize: 'contain',
-                    WebkitMaskSize: 'contain',
+                    maskSize: '100% 100%',
+                    WebkitMaskSize: '100% 100%',
                     maskRepeat: 'no-repeat',
                     WebkitMaskRepeat: 'no-repeat',
                     maskPosition: 'center',
@@ -72,9 +73,8 @@ export const BlockIcon = ({ blockId, size = 32, style }) => {
         position: 'absolute',
         width: size,
         height: size,
-        backgroundSize: 'cover',
+        backgroundSize: '100% 100%',
         imageRendering: 'pixelated',
-        boxShadow: 'inset 0 0 4px rgba(0,0,0,0.1)', // Внутренняя тень
         backfaceVisibility: 'visible',
     };
 
@@ -91,8 +91,8 @@ export const BlockIcon = ({ blockId, size = 32, style }) => {
             // Маска, чтобы цвет не заливал прозрачные области
             s.maskImage = `url(${url})`;
             s.WebkitMaskImage = `url(${url})`;
-            s.maskSize = 'cover';
-            s.WebkitMaskSize = 'cover';
+            s.maskSize = '100% 100%';
+            s.WebkitMaskSize = '100% 100%';
         } else {
             s.backgroundColor = 'transparent';
         }
@@ -115,8 +115,8 @@ export const BlockIcon = ({ blockId, size = 32, style }) => {
                         backgroundBlendMode: 'multiply',
                         maskImage: `url(${tex.side})`,
                         WebkitMaskImage: `url(${tex.side})`,
-                        maskSize: 'cover',
-                        WebkitMaskSize: 'cover'
+                        maskSize: '100% 100%',
+                        WebkitMaskSize: '100% 100%',
                     }} />
                 </div>
             );
@@ -142,7 +142,10 @@ export const BlockIcon = ({ blockId, size = 32, style }) => {
             alignItems: 'center',
             ...style
         }}>
-            <div style={cubeStyle}>
+            <div style={{
+                ...cubeStyle,
+                imageRendering: 'pixelated'
+            }}>
                 {/* Top Face - Y- axis (up) */}
                 <div style={{
                     ...getFaceStyle(tex.top, tintTop, 1.2),

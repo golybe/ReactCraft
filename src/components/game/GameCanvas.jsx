@@ -84,10 +84,14 @@ export const GameCanvas = ({
   droppedItems,
   debrisList,
   playerPos,
+  playerYaw,
+  playerPitch,
   selectedBlock,
   isFlying,
   lastPunchTime,
   initialPlayerPos,
+  initialHealth,
+  initialMaxHealth,
   noclipMode,
   canFly,
   speedMultiplier,
@@ -162,6 +166,10 @@ export const GameCanvas = ({
             onMove={onPlayerMove}
             chunks={chunks}
             initialPosition={initialPlayerPos}
+            initialYaw={playerYaw}
+            initialPitch={playerPitch}
+            initialHealth={initialHealth}
+            initialMaxHealth={initialMaxHealth}
             noclipMode={noclipMode}
             canFly={canFly}
             isFlying={isFlying}

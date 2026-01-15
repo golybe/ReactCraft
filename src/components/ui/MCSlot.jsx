@@ -2,13 +2,19 @@ import React from 'react';
 import { BlockIcon } from './BlockIcon';
 import { MAX_STACK_SIZE } from '../../utils/inventory';
 import { BlockRegistry } from '../../core/blocks/BlockRegistry';
+import { BLOCK_TYPES } from '../../constants/blockTypes';
 
 /**
  * Извлечение данных из слота (поддерживает разные форматы)
  */
 export const getSlotData = (slot) => {
     if (!slot) return { type: null, count: 0 };
-    if (typeof slot === 'number') return { type: slot, count: MAX_STACK_SIZE };
+    if (typeof slot === 'number') {
+        const block = BlockRegistry.get(slot);
+        // Tools should have count 1, blocks have MAX_STACK_SIZE (64)
+        const count = block?.isTool ? 1 : MAX_STACK_SIZE;
+        return { type: slot, count };
+    }
     return { 
         type: slot.type, 
         count: slot.count || 0,
@@ -33,8 +39,11 @@ export const MCSlot = ({
     className = ''
 }) => {
     const { type, count, durability } = getSlotData(slot);
-    const iconSize = Math.floor(size * 0.60);
     const block = type ? BlockRegistry.get(type) : null;
+    const isItem = block?.isPlaceable === false || block?.renderAsItem || type === BLOCK_TYPES.TALL_GRASS || type === BLOCK_TYPES.TORCH;
+    
+    // Предметы (инструменты) делаем крупнее (85% от слота), блоки оставляем меньше (60% от слота)
+    const iconSize = isItem ? Math.floor(size * 0.85) : Math.floor(size * 0.60);
     const maxDurability = block?.maxDurability || 0;
 
     // Вычисляем цвет и ширину полоски прочности
@@ -140,7 +149,7 @@ export const MCGrid = ({
 /**
  * MCCursorItem - Предмет, следующий за курсором
  */
-export const MCCursorItem = React.forwardRef(({ item }, ref) => {
+export const MCCursorItem = React.forwardRef(({ item, isCreative = false }, ref) => {
     const { type, count } = getSlotData(item);
 
     if (!item) return null;
@@ -154,7 +163,8 @@ export const MCCursorItem = React.forwardRef(({ item }, ref) => {
             {type && (
                 <>
                     <BlockIcon blockId={type} size={48} />
-                    {count > 1 && (
+                    {/* Hide count in creative if it's a full stack (64) */}
+                    {count > 1 && !(isCreative && count === MAX_STACK_SIZE) && (
                         <div className="mc-cursor-count">{count}</div>
                     )}
                 </>

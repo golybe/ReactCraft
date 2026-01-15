@@ -7,7 +7,8 @@ import { getGameModeDefaults } from '../constants/gameMode';
  */
 export function usePlayerMovement({
   initialPlayerPos,
-  gameMode
+  gameMode,
+  worldInfo // Добавили worldInfo для доступа к сохраненным данным
 }) {
   const gameModeDefaults = getGameModeDefaults(gameMode);
 
@@ -16,8 +17,16 @@ export function usePlayerMovement({
     console.log('[usePlayerMovement] Initial position:', pos);
     return pos;
   });
-  const [playerYaw, setPlayerYaw] = useState(0);
-  const [playerPitch, setPlayerPitch] = useState(0);
+  const [playerYaw, setPlayerYaw] = useState(() => {
+    const yaw = worldInfo?.playerYaw ?? 0;
+    console.log('[usePlayerMovement] Initial yaw:', yaw);
+    return yaw;
+  });
+  const [playerPitch, setPlayerPitch] = useState(() => {
+    const pitch = worldInfo?.playerPitch ?? 0;
+    console.log('[usePlayerMovement] Initial pitch:', pitch);
+    return pitch;
+  });
   const [isFlying, setIsFlying] = useState(false);
   const [canFly, setCanFly] = useState(gameModeDefaults.canFly);
   const [noclipMode, setNoclipMode] = useState(false);
@@ -29,8 +38,16 @@ export function usePlayerMovement({
   const [isHeadUnderwater, setIsHeadUnderwater] = useState(false);
 
   // Health states
-  const [health, setHealth] = useState(20);
-  const [maxHealth, setMaxHealth] = useState(20);
+  const [health, setHealth] = useState(() => {
+    const savedHealth = worldInfo?.health ?? 20;
+    console.log('[usePlayerMovement] Initial health:', savedHealth);
+    return savedHealth;
+  });
+  const [maxHealth, setMaxHealth] = useState(() => {
+    const savedMaxHealth = worldInfo?.maxHealth ?? 20;
+    console.log('[usePlayerMovement] Initial maxHealth:', savedMaxHealth);
+    return savedMaxHealth;
+  });
 
   // Update canFly when game mode changes
   useEffect(() => {

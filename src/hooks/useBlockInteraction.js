@@ -63,8 +63,8 @@ export function useBlockInteraction({
           }, 1000);
         }
 
-        // In Survival mode create dropped item
-        if (gameMode === GAME_MODES.SURVIVAL && block) {
+        // In Survival mode create dropped item (or if it's a dependent block like a torch popping off)
+        if (block && (gameMode === GAME_MODES.SURVIVAL || bid === BLOCK_TYPES.TORCH || bid === BLOCK_TYPES.TALL_GRASS)) {
           const drops = block.getDrops();
           drops.forEach(drop => {
             if (drop.type && drop.count > 0) {

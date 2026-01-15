@@ -24,7 +24,7 @@
 }
 
 .mc-window.creative {
-  width: 528px;
+  width: 540px;
 }
 
 .mc-window.survival {
@@ -114,11 +114,12 @@
 }
 
 .mc-scroll-container {
-  height: 270px;
+  max-height: 266px; /* Максимум 5 рядов (5 * 54px + 6px padding) */
   overflow-y: auto;
+  overflow-x: hidden; /* Убираем горизонтальный скролл */
   border: 3px solid;
   border-color: #373737 #fff #fff #373737;
-  background: #000;
+  background: rgba(0, 0, 0, 0.1); /* Делаем фон мягче, не черным */
   padding: 3px;
   scrollbar-width: thin;
   scrollbar-color: #8b8b8b #2b2b2b;

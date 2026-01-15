@@ -6,13 +6,23 @@ import { PhysicsEngine } from '../../core/physics/PhysicsEngine';
 import { PLAYER_HEIGHT } from '../../constants/world';
 import { log } from '../../utils/logger';
 
-const Player = ({ onMove, chunks, initialPosition, noclipMode, canFly, isFlying, speedMultiplier, isChatOpen, isInventoryOpen, isDead, teleportPos, onDeath, onPlayerRef }) => {
+const Player = ({ onMove, chunks, initialPosition, initialYaw, initialPitch, initialHealth, initialMaxHealth, noclipMode, canFly, isFlying, speedMultiplier, isChatOpen, isInventoryOpen, isDead, teleportPos, onDeath, onPlayerRef }) => {
   const { camera } = useThree();
   const playerRef = useRef(null);
   const physicsEngineRef = useRef(null);
   const lastSpaceTime = useRef(0);
   const isInitializedRef = useRef(false);
   const canFlyRef = useRef(canFly); // Ref для актуального значения canFly
+
+  // Camera shake state (Minecraft-style damage shake)
+  const shakeRef = useRef({
+    intensity: 0,      // Current shake intensity (0-1)
+    time: 0,           // Time since shake started
+    duration: 0.4,     // Total shake duration in seconds
+    offsetX: 0,        // Current X offset
+    offsetY: 0,        // Current Y offset
+    rotationOffset: 0  // Current rotation offset (tilt)
+  });
 
   // Инициализация PhysicsEngine и игрока
   useEffect(() => {
@@ -24,10 +34,17 @@ const Player = ({ onMove, chunks, initialPosition, noclipMode, canFly, isFlying,
     console.log('[PlayerRenderer] initialPosition prop:', initialPosition);
     const spawn = PlayerClass.findSpawnPoint(chunks, initialPosition);
     console.log('[PlayerRenderer] Spawn point found:', spawn);
+    console.log('[PlayerRenderer] Initial yaw:', initialYaw, 'pitch:', initialPitch, 'health:', initialHealth, '/', initialMaxHealth);
     log('Player', 'Spawn point found:', spawn);
 
-    // Создаем экземпляр Player класса
-    playerRef.current = new PlayerClass(spawn.x, spawn.y, spawn.z);
+    // Создаем экземпляр Player класса с начальными yaw, pitch, health, maxHealth
+    playerRef.current = new PlayerClass(
+      spawn.x, spawn.y, spawn.z, 
+      initialYaw ?? 0, 
+      initialPitch ?? 0, 
+      initialHealth ?? 20, 
+      initialMaxHealth ?? 20
+    );
     playerRef.current.setPhysicsEngine(physicsEngineRef.current);
     playerRef.current.onMove = onMove;
     playerRef.current.noclipMode = noclipMode;
@@ -45,17 +62,29 @@ const Player = ({ onMove, chunks, initialPosition, noclipMode, canFly, isFlying,
       }
     };
 
+    // Настраиваем callback на получение урона (тряска камеры)
+    playerRef.current.onDamage = (amount, source) => {
+      // Интенсивность зависит от урона: 1 HP = 0.3, 3 HP = 0.9, 5+ HP = 1.0
+      const intensity = Math.min(1.0, amount * 0.3);
+      shakeRef.current.intensity = intensity;
+      shakeRef.current.time = 0;
+      shakeRef.current.duration = 0.25 + intensity * 0.25; // 0.25-0.5 секунд
+    };
+
     // Передаем ссылку на игрока наружу
     if (onPlayerRef) {
       onPlayerRef(playerRef.current);
     }
 
+    // Устанавливаем начальную позицию и ротацию камеры
     camera.position.set(spawn.x, spawn.y + PLAYER_HEIGHT - 0.2, spawn.z);
     camera.rotation.order = 'YXZ';
+    camera.rotation.x = initialPitch ?? 0; // pitch
+    camera.rotation.y = initialYaw ?? 0;   // yaw
 
     isInitializedRef.current = true;
     log('Player', 'Initialized at', spawn);
-  }, [camera, chunks, initialPosition, onMove, noclipMode, canFly, speedMultiplier, onDeath, onPlayerRef]);
+  }, [camera, chunks, initialPosition, initialYaw, initialPitch, initialHealth, initialMaxHealth, onMove, noclipMode, canFly, speedMultiplier, onDeath, onPlayerRef]);
 
   // Обновление чанков в PhysicsEngine
   useEffect(() => {
@@ -183,12 +212,47 @@ const Player = ({ onMove, chunks, initialPosition, noclipMode, canFly, isFlying,
     // Обновляем игрока (вся логика физики внутри класса)
     player.update(delta, chunks, isChatOpen);
 
+    // === CAMERA SHAKE UPDATE ===
+    const shake = shakeRef.current;
+    let shakeOffsetX = 0;
+    let shakeOffsetY = 0;
+    let shakeRotation = 0;
+
+    if (shake.intensity > 0) {
+      shake.time += delta;
+
+      // Progress from 0 to 1 over duration
+      const progress = Math.min(shake.time / shake.duration, 1);
+
+      // Ease out - shake reduces over time
+      const easeOut = 1 - progress;
+      const currentIntensity = shake.intensity * easeOut * easeOut;
+
+      // Minecraft-style shake: quick oscillation with decay
+      // Use sin waves at different frequencies for natural feel
+      const freq1 = shake.time * 35; // Fast shake
+      const freq2 = shake.time * 23; // Medium shake
+
+      // Position offset (more noticeable)
+      shakeOffsetX = Math.sin(freq1) * currentIntensity * 0.15;
+      shakeOffsetY = Math.cos(freq2) * currentIntensity * 0.1;
+
+      // Rotation offset (tilt effect - very noticeable)
+      shakeRotation = Math.sin(freq1 * 0.7) * currentIntensity * 0.2;
+
+      // Reset when done
+      if (progress >= 1) {
+        shake.intensity = 0;
+      }
+    }
+
     // === ОБНОВЛЕНИЕ КАМЕРЫ ===
     camera.rotation.y = player.rotation.yaw;
-    camera.rotation.x = player.rotation.pitch;
+    camera.rotation.x = player.rotation.pitch + shakeRotation;
+    camera.rotation.z = shakeRotation * 0.5; // Slight roll for extra effect
     camera.position.set(
-      player.position.x,
-      player.position.y + PLAYER_HEIGHT - 0.2, // Глаза чуть ниже верха
+      player.position.x + shakeOffsetX,
+      player.position.y + PLAYER_HEIGHT - 0.2 + shakeOffsetY,
       player.position.z
     );
   });

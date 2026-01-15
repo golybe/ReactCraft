@@ -65,7 +65,8 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
     teleportTo
   } = usePlayerMovement({
     initialPlayerPos,
-    gameMode: worldInfo?.gameMode ?? GAME_MODES.SURVIVAL // Используем начальный режим
+    gameMode: worldInfo?.gameMode ?? GAME_MODES.SURVIVAL, // Используем начальный режим
+    worldInfo // Передаём worldInfo для загрузки сохраненных данных
   });
 
   // === WORLD LOADING ===
@@ -374,16 +375,16 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
 
   // Save handlers with inventory
   const onSaveGame = useCallback(async () => {
-    await handleSaveGame(inventory, playerPos);
-  }, [handleSaveGame, inventory, playerPos]);
+    await handleSaveGame(inventory, playerPos, health, maxHealth, playerYaw, playerPitch);
+  }, [handleSaveGame, inventory, playerPos, health, maxHealth, playerYaw, playerPitch]);
 
   const onSaveAndExit = useCallback(async () => {
-    await handleSaveAndExit(inventory, playerPos);
-  }, [handleSaveAndExit, inventory, playerPos]);
+    await handleSaveAndExit(inventory, playerPos, health, maxHealth, playerYaw, playerPitch);
+  }, [handleSaveAndExit, inventory, playerPos, health, maxHealth, playerYaw, playerPitch]);
 
   const onExit = useCallback(() => {
-    handleExitToMenu(inventory, playerPos);
-  }, [handleExitToMenu, inventory, playerPos]);
+    handleExitToMenu(inventory, playerPos, health, maxHealth, playerYaw, playerPitch);
+  }, [handleExitToMenu, inventory, playerPos, health, maxHealth, playerYaw, playerPitch]);
 
   // === DEATH / RESPAWN HANDLERS ===
   const handlePlayerDeath = useCallback((source) => {
@@ -551,6 +552,8 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
         isDead={isDead}
         teleportPos={teleportPos}
         initialPlayerPos={initialPlayerPos}
+        initialHealth={health}
+        initialMaxHealth={maxHealth}
         onPlayerMove={handlePlayerMove}
         onBlockDestroy={handleBlockBreak}
         onBlockPlace={handleBlockPlaceOrInteract}
@@ -597,7 +600,7 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
         selectedSlot={selectedSlot}
         onSelectSlot={handleSelectSlot}
         hotbarItems={hotbar}
-        showCount={gameMode === GAME_MODES.SURVIVAL}
+        showCount={true}
       />
 
       {/* Unified UI Manager */}

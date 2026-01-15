@@ -35,6 +35,7 @@
   background-color: rgba(0, 0, 0, 0.4);
   border-radius: 2px 2px 0 0;
   pointer-events: auto;
+  image-rendering: pixelated;
 }
 
 .hotbar-slot {
@@ -49,6 +50,7 @@
   cursor: pointer;
   position: relative;
   box-sizing: border-box;
+  image-rendering: pixelated;
 }
 
 .hotbar-slot-count {

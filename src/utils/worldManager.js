@@ -64,6 +64,22 @@ export const saveWorldData = async (worldId, chunks, playerPos, gameState = {}) 
     if (gameState.inventory !== undefined) {
       worldInfo.inventory = gameState.inventory;
     }
+    
+    // Сохраняем здоровье игрока
+    if (gameState.health !== undefined) {
+      worldInfo.health = gameState.health;
+    }
+    if (gameState.maxHealth !== undefined) {
+      worldInfo.maxHealth = gameState.maxHealth;
+    }
+    
+    // Сохраняем направление взгляда (yaw и pitch)
+    if (gameState.playerYaw !== undefined) {
+      worldInfo.playerYaw = gameState.playerYaw;
+    }
+    if (gameState.playerPitch !== undefined) {
+      worldInfo.playerPitch = gameState.playerPitch;
+    }
 
     await fetch(`${API_URL}/${worldId}`, {
         method: 'POST',

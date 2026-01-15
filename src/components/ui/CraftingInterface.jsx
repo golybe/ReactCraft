@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BlockRegistry } from '../../core/blocks/BlockRegistry';
+import { BLOCK_TYPES } from '../../constants/blockTypes';
 import { BlockIcon } from './BlockIcon';
 import { MAX_STACK_SIZE, HOTBAR_SIZE } from '../../utils/inventory';
 import '../../styles/inventory.css';
@@ -9,7 +10,12 @@ import '../../styles/inventory.css';
  */
 const getSlotData = (slot) => {
     if (!slot) return { type: null, count: 0 };
-    if (typeof slot === 'number') return { type: slot, count: MAX_STACK_SIZE };
+    if (typeof slot === 'number') {
+        const block = BlockRegistry.get(slot);
+        // Tools should have count 1, blocks have MAX_STACK_SIZE (64)
+        const count = block?.isTool ? 1 : MAX_STACK_SIZE;
+        return { type: slot, count };
+    }
     return { type: slot.type, count: slot.count || 0 };
 };
 
@@ -18,7 +24,11 @@ const getSlotData = (slot) => {
  */
 const MCSlot = ({ slot, onClick, onRightClick, onHover, isHovered, showCount = true, size = 36 }) => {
     const { type, count } = getSlotData(slot);
-    const iconSize = Math.floor(size * 0.67);
+    const block = type ? BlockRegistry.get(type) : null;
+    const isItem = block?.isPlaceable === false || block?.renderAsItem || type === BLOCK_TYPES.TALL_GRASS || type === BLOCK_TYPES.TORCH;
+    
+    // Предметы крупнее (85%), блоки стандартно (67%)
+    const iconSize = isItem ? Math.floor(size * 0.85) : Math.floor(size * 0.67);
 
     const handleContextMenu = (e) => {
         e.preventDefault();

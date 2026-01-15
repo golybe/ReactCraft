@@ -1,6 +1,7 @@
 // Улучшенный хотбар с текстурами, количеством и названиями блоков (Minecraft Style)
 import React, { useEffect, useRef, memo, useState } from 'react';
 import { BlockRegistry } from '../../core/blocks/BlockRegistry';
+import { BLOCK_TYPES } from '../../constants/blockTypes';
 import { BlockIcon } from './BlockIcon';
 import { MAX_STACK_SIZE } from '../../utils/inventory';
 import '../../styles/hotbar.css';
@@ -12,7 +13,12 @@ import '../../styles/hotbar.css';
  */
 const getSlotData = (slot) => {
   if (!slot) return { type: null, count: 0 };
-  if (typeof slot === 'number') return { type: slot, count: MAX_STACK_SIZE };
+  if (typeof slot === 'number') {
+    const block = BlockRegistry.get(slot);
+    // Tools should have count 1, blocks have MAX_STACK_SIZE (64)
+    const count = block?.isTool ? 1 : MAX_STACK_SIZE;
+    return { type: slot, count };
+  }
   return { type: slot.type, count: slot.count || 0, durability: slot.durability };
 };
 
@@ -21,8 +27,9 @@ const HotbarSlot = memo(({ slot, isSelected, index, onSelect, showCount = true }
   
   // Определяем размер: предметы (items) 32px, блоки 24px
   const block = type ? BlockRegistry.get(type) : null;
-  const isItem = block?.isPlaceable === false || block?.renderAsItem;
-  const iconSize = isItem ? 36 : 24;
+  const isItem = block?.isPlaceable === false || block?.renderAsItem || type === BLOCK_TYPES.TALL_GRASS || type === BLOCK_TYPES.TORCH;
+  // Увеличиваем предметы в хотбаре: 38px для предметов, 24px для блоков
+  const iconSize = isItem ? 38 : 24; 
   const maxDurability = block?.maxDurability || 0;
 
   // Вычисляем цвет и ширину полоски прочности

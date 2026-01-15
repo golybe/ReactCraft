@@ -236,8 +236,19 @@ const InventoryUI = ({
         }, [searchQuery]);
 
         const handlePaletteClick = (blockId) => {
-            slotInteraction.setCursorItem({ type: blockId, count: MAX_STACK_SIZE });
+            const block = BlockRegistry.get(blockId);
+            const count = block?.isTool ? 1 : MAX_STACK_SIZE;
+            slotInteraction.setCursorItem({ type: blockId, count });
         };
+
+        // Вычисляем сколько пустых слотов нужно добавить, чтобы дополнить последний ряд
+        const slotsPerRow = 9;
+        const totalItems = filteredBlocks.length;
+        const emptySlotsCount = (slotsPerRow - (totalItems % slotsPerRow)) % slotsPerRow;
+        
+        // Вычисляем динамическую высоту контейнера
+        const totalRows = Math.ceil((totalItems + emptySlotsCount) / slotsPerRow);
+        const containerHeight = totalRows * 54 + 12; // 54px на ряд + 8px для компенсации padding и границ
 
         return (
             <div className="mc-creative-content">
@@ -249,7 +260,7 @@ const InventoryUI = ({
                         autoFocus
                     />
                 </div>
-                <div className="mc-scroll-container">
+                <div className="mc-scroll-container" style={{ height: `${containerHeight}px` }}>
                     <div className="mc-grid">
                         {filteredBlocks.map(block => (
                             <MCSlot
@@ -257,6 +268,16 @@ const InventoryUI = ({
                                 slot={block.id}
                                 onClick={() => handlePaletteClick(block.id)}
                                 onHover={(hovered) => handleSlotHover(block.id, hovered, block.id)}
+                                showCount={false}
+                            />
+                        ))}
+                        {/* Дополняем последний ряд пустыми ячейками */}
+                        {Array.from({ length: emptySlotsCount }).map((_, i) => (
+                            <MCSlot
+                                key={`empty-${i}`}
+                                slot={null}
+                                disabled={true}
+                                className="empty"
                             />
                         ))}
                     </div>
@@ -532,7 +553,7 @@ const UIManager = ({
                 />
 
                 {/* Cursor item */}
-                <MCCursorItem ref={cursorRef} item={cursorItem} />
+                <MCCursorItem ref={cursorRef} item={cursorItem} isCreative={isCreativeMode} />
             </div>
         </div>
     );
