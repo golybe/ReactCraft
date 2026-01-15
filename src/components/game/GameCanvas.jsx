@@ -15,6 +15,7 @@ import Debris from '../entities/Debris';
 import BlockBreakOverlay from '../world/BlockBreakOverlay';
 import { DroppedItemsManager } from '../entities/DroppedItemRenderer';
 import { MobsRenderer } from '../entities/MobRenderer';
+import { FallingBlocksRenderer } from '../entities/FallingBlockRenderer';
 import { PerformanceMetrics } from '../../utils/performance';
 import { BlockInteraction } from './BlockInteraction';
 
@@ -196,6 +197,11 @@ export const GameCanvas = ({
           {/* Рендеринг мобов */}
           {entityManager && (
             <MobsRenderer entityManager={entityManager} />
+          )}
+
+          {/* Рендеринг падающих блоков */}
+          {entityManager && (
+            <FallingBlocksRenderer entityManager={entityManager} />
           )}
 
           {/* Рендеринг эффектов разрушения */}

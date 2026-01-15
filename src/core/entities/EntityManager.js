@@ -192,16 +192,21 @@ export class EntityManager {
         entity.update(deltaTime, chunks, context);
       }
 
-      // Проверяем на смерть (для LivingEntity)
-      if (entity instanceof LivingEntity && entity.isDead) {
-        // Даём время на анимацию смерти перед удалением
-        if (!entity._deathTimer) {
-          entity._deathTimer = 0;
-        }
-        entity._deathTimer += deltaTime;
+      // Проверяем на смерть
+      if (entity.isDead) {
+        if (entity instanceof LivingEntity) {
+          // Даём время на анимацию смерти перед удалением
+          if (!entity._deathTimer) {
+            entity._deathTimer = 0;
+          }
+          entity._deathTimer += deltaTime;
 
-        // Удаляем через 2 секунды после смерти
-        if (entity._deathTimer >= 2) {
+          // Удаляем через 2 секунды после смерти
+          if (entity._deathTimer >= 2) {
+            toRemove.push(id);
+          }
+        } else {
+          // Для обычных сущностей (падающие блоки и т.д.) удаляем сразу
           toRemove.push(id);
         }
       }

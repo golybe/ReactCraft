@@ -5,6 +5,7 @@
 import { ChunkManager } from '../../utils/chunkManager';
 import { LiquidSimulator } from '../physics/LiquidSimulator';
 import { LeafDecaySimulator } from '../physics/LeafDecaySimulator';
+import { FallingBlockSimulator } from '../physics/FallingBlockSimulator';
 import { CHUNK_SIZE, CHUNK_HEIGHT } from '../../constants/world';
 import { BLOCK_TYPES } from '../../constants/blocks';
 
@@ -14,6 +15,7 @@ export class World {
     this.chunkManager = new ChunkManager(seed, savedChunks);
     this.liquidSimulator = new LiquidSimulator(this.chunkManager);
     this.leafDecaySimulator = new LeafDecaySimulator(this.chunkManager);
+    this.fallingBlockSimulator = new FallingBlockSimulator(this);
     
     // Устанавливаем callback для обработки дропов листвы
     // Этот callback должен быть установлен извне через setLeafDecayCallback
@@ -22,6 +24,7 @@ export class World {
     // Callback для оповещения об обновлениях
     this.onChunksUpdate = null;
     this.onStateChange = null;
+    this.needsUpdate = false; // Флаг для отслеживания изменений между кадрами
   }
 
   /**
@@ -50,8 +53,12 @@ export class World {
     const success = this.chunkManager.setBlock(x, y, z, blockType, metadata);
     
     if (success) {
+      this.needsUpdate = true;
       // Уведомляем симулятор жидкости об изменении
       this.liquidSimulator?.onBlockUpdate(x, y, z);
+      
+      // Уведомляем симулятор падающих блоков
+      this.fallingBlockSimulator?.onBlockUpdate(x, y, z);
       
       // Уведомляем симулятор листвы об удалении блока (новая оптимизированная версия)
       if (oldBlockType !== BLOCK_TYPES.AIR && blockType === BLOCK_TYPES.AIR) {
@@ -96,9 +103,9 @@ export class World {
   }
 
   /**
-   * Обновить физику (жидкости, листва)
+   * Обновить физику (жидкости, листва, падающие блоки)
    */
-  updatePhysics() {
+  updatePhysics(entityManager = null) {
     let hasChanges = false;
     
     // Обновляем жидкости
@@ -112,13 +119,21 @@ export class World {
       const leafChanges = this.leafDecaySimulator.update();
       hasChanges = hasChanges || leafChanges;
     }
-    
-    // Уведомляем об изменениях
-    if (hasChanges && this.onChunksUpdate) {
-      this.onChunksUpdate({ ...this.chunkManager.chunks });
+
+    // Обновляем падающие блоки
+    if (this.fallingBlockSimulator && entityManager) {
+      const fallingChanges = this.fallingBlockSimulator.update(entityManager);
+      hasChanges = hasChanges || fallingChanges;
     }
     
-    return hasChanges;
+    // Уведомляем об изменениях
+    const finalHasChanges = hasChanges || this.needsUpdate;
+    if (finalHasChanges && this.onChunksUpdate) {
+      this.onChunksUpdate({ ...this.chunkManager.chunks });
+      this.needsUpdate = false;
+    }
+    
+    return finalHasChanges;
   }
 
   /**

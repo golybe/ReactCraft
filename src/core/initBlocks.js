@@ -66,7 +66,8 @@ export const initBlocks = () => {
     texture: 'sand',
     color: 0xdccfa3,
     hardness: 0.5,
-    preferredTool: TOOL_TYPES.SHOVEL
+    preferredTool: TOOL_TYPES.SHOVEL,
+    gravity: true
   }));
 
   // 7: WATER (не ломается обычно)
@@ -186,7 +187,8 @@ export const initBlocks = () => {
     texture: 'gravel',
     color: 0x857b7b,
     hardness: 0.6,
-    preferredTool: TOOL_TYPES.SHOVEL
+    preferredTool: TOOL_TYPES.SHOVEL,
+    gravity: true
   }));
 
   // 19: SANDSTONE (кирка)

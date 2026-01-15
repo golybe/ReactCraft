@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { World } from '../core/world/World';
 import { EntityManager } from '../core/entities/EntityManager';
+import { PhysicsEngine } from '../core/physics/PhysicsEngine';
 import { BLOCK_TYPES } from '../constants/blocks';
 import { registerDefaultMobs } from '../constants/mobs';
 
@@ -20,12 +21,14 @@ export function useWorldLoading({
 
   const worldRef = useRef(null);
   const entityManagerRef = useRef(null);
+  const physicsEngineRef = useRef(null);
   const isLoadingRef = useRef(true);
   const playerPosRef = useRef(playerPos);
 
-  // Инициализируем EntityManager и регистрируем мобов
+  // Инициализируем EntityManager и PhysicsEngine
   if (!entityManagerRef.current) {
     entityManagerRef.current = new EntityManager();
+    physicsEngineRef.current = new PhysicsEngine();
     registerDefaultMobs();
   }
 
@@ -107,15 +110,31 @@ export function useWorldLoading({
     return () => clearInterval(intervalId);
   }, [onChunksCountChange]);
 
-  // Physics update loop (leaves decay, liquids, etc.)
+  // Physics update loop (leaves decay, liquids, entities, etc.)
   useEffect(() => {
+    let lastTime = performance.now();
+
     const updatePhysics = () => {
       if (!worldRef.current) return;
       
-      const hasChanges = worldRef.current.updatePhysics();
+      const now = performance.now();
+      const deltaTime = (now - lastTime) / 1000;
+      lastTime = now;
+
+      // Обновляем физику мира (жидкости, листва, падающие блоки)
+      const hasChanges = worldRef.current.updatePhysics(entityManagerRef.current);
       if (hasChanges) {
-        // Force chunks update
         setChunks({ ...worldRef.current.getChunks() });
+      }
+
+      // Обновляем все сущности (мобы, падающие блоки)
+      if (entityManagerRef.current && physicsEngineRef.current) {
+        physicsEngineRef.current.setChunks(worldRef.current.getChunks());
+        entityManagerRef.current.update(deltaTime, worldRef.current.getChunks(), {
+          physicsEngine: physicsEngineRef.current,
+          world: worldRef.current,
+          playerPos: playerPosRef.current
+        });
       }
     };
 
