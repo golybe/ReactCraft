@@ -4,6 +4,8 @@ import { MCSlot, MCGrid, MCCursorItem, MCTooltip, getSlotData } from './MCSlot';
 import { UI_TYPES, UI_CONFIG } from '../../constants/uiTypes';
 import { MAX_STACK_SIZE, HOTBAR_SIZE } from '../../utils/inventory';
 import { Inventory } from '../../core/inventory/Inventory';
+import { getSmeltingRecipe, getFuelBurnTime } from '../../constants/recipes';
+import { FurnaceManager } from '../../core/FurnaceManager';
 import '../../styles/inventory.css';
 
 /**
@@ -442,6 +444,356 @@ const CraftingUI = ({
 };
 
 /**
+ * FurnaceUI - Интерфейс печки
+ */
+const FurnaceUI = ({
+    inventory,
+    onInventoryChange,
+    furnaceData,
+    onFurnaceDataChange,
+    furnacePosition,
+    slotInteraction
+}) => {
+    const { handleSlotClick, handleSlotRightClick, handleSlotHover, cursorItem, setCursorItem } = slotInteraction;
+
+    // Состояние печки: { inputSlot, fuelSlot, outputSlot, burnTime, maxBurnTime, smeltProgress, smeltTime }
+    const [inputSlot, setInputSlot] = useState(furnaceData?.inputSlot || null);
+    const [fuelSlot, setFuelSlot] = useState(furnaceData?.fuelSlot || null);
+    const [outputSlot, setOutputSlot] = useState(furnaceData?.outputSlot || null);
+    const [burnTime, setBurnTime] = useState(furnaceData?.burnTime || 0);
+    const [maxBurnTime, setMaxBurnTime] = useState(furnaceData?.maxBurnTime || 0);
+    const [smeltProgress, setSmeltProgress] = useState(furnaceData?.smeltProgress || 0);
+    const [currentRecipe, setCurrentRecipe] = useState(null);
+
+    // Обновляем FurnaceManager при изменении состояния горения
+    useEffect(() => {
+        if (furnacePosition) {
+            FurnaceManager.setFurnaceState(
+                furnacePosition.x,
+                furnacePosition.y,
+                furnacePosition.z,
+                burnTime > 0,
+                burnTime
+            );
+        }
+    }, [burnTime, furnacePosition]);
+
+    // Очищаем состояние при размонтировании (закрытии UI)
+    useEffect(() => {
+        return () => {
+            // Не очищаем, чтобы печка продолжала гореть после закрытия UI
+            // Это временное решение - в будущем состояние должно храниться в мире
+        };
+    }, []);
+
+    // Логика плавки
+    useEffect(() => {
+        const interval = setInterval(() => {
+            // Проверяем рецепт для текущего входного предмета
+            const inputData = getSlotData(inputSlot);
+            const recipe = inputData.type ? getSmeltingRecipe(inputData.type) : null;
+            setCurrentRecipe(recipe);
+
+            // Если есть топливо и оно горит
+            if (burnTime > 0) {
+                setBurnTime(prev => Math.max(0, prev - 100)); // Уменьшаем на 100мс
+
+                // Если есть рецепт и входной предмет
+                if (recipe && inputData.type && inputData.count > 0) {
+                    // Проверяем, можно ли положить результат в выходной слот
+                    const outputData = getSlotData(outputSlot);
+                    const canOutput = !outputData.type ||
+                        (outputData.type === recipe.output.type && outputData.count < MAX_STACK_SIZE);
+
+                    if (canOutput) {
+                        // Прогресс плавки
+                        setSmeltProgress(prev => {
+                            const newProgress = prev + 100;
+                            if (newProgress >= recipe.time) {
+                                // Плавка завершена!
+                                // Забираем 1 предмет из входа
+                                if (inputData.count > 1) {
+                                    setInputSlot({ type: inputData.type, count: inputData.count - 1 });
+                                } else {
+                                    setInputSlot(null);
+                                }
+
+                                // Добавляем результат в выход
+                                if (outputData.type) {
+                                    setOutputSlot({ type: outputData.type, count: outputData.count + recipe.output.count });
+                                } else {
+                                    setOutputSlot({ type: recipe.output.type, count: recipe.output.count });
+                                }
+
+                                return 0; // Сброс прогресса
+                            }
+                            return newProgress;
+                        });
+                    }
+                } else {
+                    // Нет рецепта или входа - сбрасываем прогресс
+                    if (smeltProgress > 0) setSmeltProgress(0);
+                }
+            } else {
+                // Топливо закончилось - пытаемся взять новое
+                const fuelData = getSlotData(fuelSlot);
+                if (fuelData.type && recipe && inputData.type) {
+                    const fuelTime = getFuelBurnTime(fuelData.type);
+                    if (fuelTime > 0) {
+                        // Проверяем, можно ли положить результат
+                        const outputData = getSlotData(outputSlot);
+                        const canOutput = !outputData.type ||
+                            (outputData.type === recipe.output.type && outputData.count < MAX_STACK_SIZE);
+
+                        if (canOutput) {
+                            // Зажигаем топливо
+                            setBurnTime(fuelTime);
+                            setMaxBurnTime(fuelTime);
+
+                            // Забираем 1 топливо
+                            if (fuelData.count > 1) {
+                                setFuelSlot({ type: fuelData.type, count: fuelData.count - 1 });
+                            } else {
+                                setFuelSlot(null);
+                            }
+                        }
+                    }
+                }
+
+                // Если нет горящего топлива, сбрасываем прогресс
+                if (smeltProgress > 0) {
+                    setSmeltProgress(prev => Math.max(0, prev - 50)); // Медленно сбрасывается
+                }
+            }
+        }, 100); // Обновление каждые 100мс
+
+        return () => clearInterval(interval);
+    }, [inputSlot, fuelSlot, outputSlot, burnTime, smeltProgress]);
+
+    // Сохранение состояния печки при изменениях
+    useEffect(() => {
+        if (onFurnaceDataChange) {
+            onFurnaceDataChange({
+                inputSlot,
+                fuelSlot,
+                outputSlot,
+                burnTime,
+                maxBurnTime,
+                smeltProgress
+            });
+        }
+    }, [inputSlot, fuelSlot, outputSlot, burnTime, maxBurnTime, smeltProgress, onFurnaceDataChange]);
+
+    // Обработчик клика по слоту печки
+    const handleFurnaceSlotClick = (slotType, e) => {
+        let currentSlot, setSlot;
+
+        if (slotType === 'input') {
+            currentSlot = inputSlot;
+            setSlot = setInputSlot;
+        } else if (slotType === 'fuel') {
+            currentSlot = fuelSlot;
+            setSlot = setFuelSlot;
+        } else if (slotType === 'output') {
+            // Выходной слот - только забирать
+            if (outputSlot && !cursorItem) {
+                setCursorItem(outputSlot);
+                setOutputSlot(null);
+            } else if (outputSlot && cursorItem) {
+                const cursorData = getSlotData(cursorItem);
+                const outputData = getSlotData(outputSlot);
+                if (cursorData.type === outputData.type) {
+                    const total = cursorData.count + outputData.count;
+                    if (total <= MAX_STACK_SIZE) {
+                        setCursorItem({ type: cursorData.type, count: total });
+                        setOutputSlot(null);
+                    }
+                }
+            }
+            return;
+        }
+
+        const { type: currentType, count: currentCount } = getSlotData(currentSlot);
+
+        if (cursorItem) {
+            const cursorData = getSlotData(cursorItem);
+
+            // Проверка для топлива - только топливные предметы
+            if (slotType === 'fuel' && getFuelBurnTime(cursorData.type) === 0) {
+                return; // Не топливо - не кладём
+            }
+
+            // Проверка для входа - только плавимые предметы
+            if (slotType === 'input' && !getSmeltingRecipe(cursorData.type)) {
+                return; // Не плавится - не кладём
+            }
+
+            if (!currentType) {
+                setSlot({ type: cursorData.type, count: cursorData.count });
+                setCursorItem(null);
+            } else if (currentType === cursorData.type) {
+                const total = currentCount + cursorData.count;
+                const newSlotCount = Math.min(total, MAX_STACK_SIZE);
+                const remaining = total - newSlotCount;
+                setSlot({ type: currentType, count: newSlotCount });
+                setCursorItem(remaining > 0 ? { type: cursorData.type, count: remaining } : null);
+            } else {
+                setSlot({ type: cursorData.type, count: cursorData.count });
+                setCursorItem({ type: currentType, count: currentCount });
+            }
+        } else {
+            if (currentType) {
+                setCursorItem({ type: currentType, count: currentCount });
+                setSlot(null);
+            }
+        }
+    };
+
+    // Обработчик правого клика по слоту печки
+    const handleFurnaceSlotRightClick = (slotType) => {
+        if (slotType === 'output') return;
+
+        let currentSlot, setSlot;
+
+        if (slotType === 'input') {
+            currentSlot = inputSlot;
+            setSlot = setInputSlot;
+        } else if (slotType === 'fuel') {
+            currentSlot = fuelSlot;
+            setSlot = setFuelSlot;
+        }
+
+        const { type: currentType, count: currentCount } = getSlotData(currentSlot);
+
+        if (cursorItem) {
+            const cursorData = getSlotData(cursorItem);
+
+            // Проверка для топлива
+            if (slotType === 'fuel' && getFuelBurnTime(cursorData.type) === 0) return;
+            // Проверка для входа
+            if (slotType === 'input' && !getSmeltingRecipe(cursorData.type)) return;
+
+            if (!currentType) {
+                setSlot({ type: cursorData.type, count: 1 });
+                if (cursorData.count > 1) {
+                    setCursorItem({ type: cursorData.type, count: cursorData.count - 1 });
+                } else {
+                    setCursorItem(null);
+                }
+            } else if (currentType === cursorData.type && currentCount < MAX_STACK_SIZE) {
+                setSlot({ type: currentType, count: currentCount + 1 });
+                if (cursorData.count > 1) {
+                    setCursorItem({ type: cursorData.type, count: cursorData.count - 1 });
+                } else {
+                    setCursorItem(null);
+                }
+            }
+        } else {
+            if (currentType && currentCount > 0) {
+                const takeCount = Math.ceil(currentCount / 2);
+                const leaveCount = currentCount - takeCount;
+                setCursorItem({ type: currentType, count: takeCount });
+                setSlot(leaveCount > 0 ? { type: currentType, count: leaveCount } : null);
+            }
+        }
+    };
+
+    const burnProgress = maxBurnTime > 0 ? burnTime / maxBurnTime : 0;
+    const smeltProgressPct = currentRecipe ? smeltProgress / currentRecipe.time : 0;
+
+    return (
+        <div className="mc-furnace-interface">
+            {/* Furnace slots area */}
+            <div className="mc-furnace-area">
+                <div className="mc-furnace-grid">
+                    {/* Input and Fuel slots */}
+                    <div className="mc-furnace-slots">
+                        <div className="mc-furnace-input">
+                            <MCSlot
+                                slot={inputSlot}
+                                onClick={(e) => handleFurnaceSlotClick('input', e)}
+                                onRightClick={() => handleFurnaceSlotRightClick('input')}
+                                onHover={(hovered) => handleSlotHover(-10, hovered, inputSlot)}
+                            />
+                        </div>
+                        <div className="mc-furnace-fuel">
+                            <MCSlot
+                                slot={fuelSlot}
+                                onClick={(e) => handleFurnaceSlotClick('fuel', e)}
+                                onRightClick={() => handleFurnaceSlotRightClick('fuel')}
+                                onHover={(hovered) => handleSlotHover(-11, hovered, fuelSlot)}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Progress indicators */}
+                    <div className="mc-furnace-progress">
+                        {/* Fire indicator */}
+                        <div className="mc-furnace-fire">
+                            <div
+                                className="mc-furnace-fire-fill"
+                                style={{ height: `${burnProgress * 100}%` }}
+                            />
+                        </div>
+
+                        {/* Arrow indicator */}
+                        <div className="mc-furnace-arrow">
+                            <div
+                                className="mc-furnace-arrow-fill"
+                                style={{ width: `${smeltProgressPct * 100}%` }}
+                            />
+                            <span className="mc-furnace-arrow-icon">→</span>
+                        </div>
+                    </div>
+
+                    {/* Output slot */}
+                    <div className="mc-result-slot">
+                        <MCSlot
+                            slot={outputSlot}
+                            onClick={(e) => handleFurnaceSlotClick('output', e)}
+                            onHover={(hovered) => handleSlotHover(-12, hovered, outputSlot)}
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* Main inventory */}
+            <div className="mc-main-inventory">
+                {Array.from({ length: 3 }).map((_, row) => (
+                    <div key={row} className="mc-inventory-row">
+                        {Array.from({ length: 9 }).map((_, col) => {
+                            const index = HOTBAR_SIZE + row * 9 + col;
+                            return (
+                                <MCSlot
+                                    key={index}
+                                    slot={inventory[index]}
+                                    onClick={(e) => handleSlotClick(inventory, onInventoryChange, index, false, null, e.shiftKey)}
+                                    onRightClick={() => handleSlotRightClick(inventory, onInventoryChange, index)}
+                                    onHover={(hovered) => handleSlotHover(index, hovered, inventory[index])}
+                                />
+                            );
+                        })}
+                    </div>
+                ))}
+            </div>
+
+            {/* Hotbar */}
+            <div className="mc-hotbar-row survival">
+                {Array.from({ length: HOTBAR_SIZE }).map((_, index) => (
+                    <MCSlot
+                        key={index}
+                        slot={inventory[index]}
+                        onClick={(e) => handleSlotClick(inventory, onInventoryChange, index, false, null, e.shiftKey)}
+                        onRightClick={() => handleSlotRightClick(inventory, onInventoryChange, index)}
+                        onHover={(hovered) => handleSlotHover(index, hovered, inventory[index])}
+                    />
+                ))}
+            </div>
+        </div>
+    );
+};
+
+/**
  * UIManager - Централизованный менеджер интерфейсов
  * 
  * Единая точка входа для всех игровых UI.
@@ -465,7 +817,11 @@ const UIManager = ({
     onCraftingGrid3x3Change,
     craftingResult3x3,
     onCraftResult3x3Pickup,
-    onShiftCraft3x3
+    onShiftCraft3x3,
+    // Furnace
+    furnaceData,
+    onFurnaceDataChange,
+    furnacePosition
 }) => {
     const slotInteraction = useSlotInteraction();
     const { cursorItem, hoveredBlockName, hoveredItemDurability, cursorRef, tooltipRef, reset } = slotInteraction;
@@ -531,7 +887,16 @@ const UIManager = ({
         case UI_TYPES.FURNACE:
             title = 'Furnace';
             windowClass = 'furnace';
-            content = <div>Furnace UI - Coming Soon</div>;
+            content = (
+                <FurnaceUI
+                    inventory={inventory}
+                    onInventoryChange={onInventoryChange}
+                    furnaceData={furnaceData}
+                    onFurnaceDataChange={onFurnaceDataChange}
+                    furnacePosition={furnacePosition}
+                    slotInteraction={slotInteraction}
+                />
+            );
             break;
 
         default:

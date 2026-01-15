@@ -10,6 +10,7 @@ import { BLOCK_TINTS } from '../../constants/colors';
 
 import { getBlockTextureInfo } from '../../utils/textures';
 import { TextureManager } from '../../core/rendering/TextureManager';
+import { FurnaceManager } from '../../core/FurnaceManager';
 
 // Используем единый TextureManager
 const textureManager = TextureManager.getInstance();
@@ -31,7 +32,8 @@ import { ChunkMesher } from '../../utils/chunkMesher';
 
 // Компонент меша для конкретного типа блока в чанке
 // faceFilter: null = все грани, 'top' = верх, 'bottom' = низ, 'sides' = бока
-const ChunkBlockMesh = ({ blockType, chunkData, lightMap, chunkX, chunkZ, getNeighborData, faceFilter = null, textureName = null, texturesLoaded }) => {
+// metadataFilter: null = все, или число = только блоки с этим metadata
+const ChunkBlockMesh = ({ blockType, chunkData, lightMap, chunkX, chunkZ, getNeighborData, faceFilter = null, textureName = null, texturesLoaded, metadataFilter = null }) => {
   const meshRef = useRef(null);
 
   const material = useMemo(() => {
@@ -95,7 +97,7 @@ const ChunkBlockMesh = ({ blockType, chunkData, lightMap, chunkX, chunkZ, getNei
     // Получаем данные соседей на момент генерации
     const neighborData = getNeighborData ? getNeighborData() : { lightMaps: {}, chunks: {} };
     const mesher = new ChunkMesher(chunkData, lightMap, chunkX, chunkZ, neighborData);
-    const data = mesher.generateForType(blockType, faceFilter);
+    const data = mesher.generateForType(blockType, faceFilter, metadataFilter);
 
     if (data.positions.length === 0) return null;
 
@@ -107,7 +109,7 @@ const ChunkBlockMesh = ({ blockType, chunkData, lightMap, chunkX, chunkZ, getNei
 
     geo.setIndex(new THREE.BufferAttribute(data.indices, 1));
     return geo;
-  }, [chunkData, lightMap, chunkX, chunkZ, blockType, faceFilter]);
+  }, [chunkData, lightMap, chunkX, chunkZ, blockType, faceFilter, metadataFilter]);
 
   if (!geometry) return null;
 
@@ -286,11 +288,34 @@ const ChunkRenderer = React.memo(({ chunkX, chunkZ, chunkData, lightMap, getNeig
     return info && info.front && info.front !== info.side;
   };
 
+  // Проверяем, является ли блок направленным (печка, верстак)
+  const isDirectionalBlock = (type) => {
+    return type === BLOCK_TYPES.FURNACE || type === BLOCK_TYPES.CRAFTING_TABLE;
+  };
+
+  // Маппинг направления metadata на грань
+  // metadata: 0 = south (Z+), 1 = west (X-), 2 = north (Z-), 3 = east (X+)
+  const metadataToFace = {
+    0: 'front',  // South (Z+) -> front face
+    1: 'left',   // West (X-) -> left face
+    2: 'back',   // North (Z-) -> back face
+    3: 'right'   // East (X+) -> right face
+  };
+
+  // Получить противоположные грани для sides (исключая front)
+  const getSidesExcludingFront = (metadata) => {
+    // Все боковые грани кроме той, которая является front для данного metadata
+    const allSides = ['front', 'back', 'left', 'right'];
+    const frontFace = metadataToFace[metadata];
+    return allSides.filter(f => f !== frontFace);
+  };
+
   return (
     <group>
       {blockTypes.map(type => {
         const info = getBlockTextureInfo(type);
         const hasFront = needsFrontTexture(type);
+        const isDirectional = isDirectionalBlock(type);
 
         if (needsMultiTexture(type)) {
           return (
@@ -317,9 +342,46 @@ const ChunkRenderer = React.memo(({ chunkX, chunkZ, chunkData, lightMap, getNeig
                 faceFilter="bottom"
                 texturesLoaded={texturesLoaded}
               />
-              {hasFront ? (
+              {hasFront && isDirectional ? (
+                /* Направленные блоки (печка, верстак) - рендерим front для каждого направления отдельно */
                 <>
-                  {/* Боковые грани без front */}
+                  {[0, 1, 2, 3].map(meta => (
+                    <React.Fragment key={`${type}-dir-${meta}`}>
+                      {/* Front грань с текстурой front для этого направления */}
+                      <ChunkBlockMesh
+                        key={`${type}-front-m${meta}`}
+                        blockType={type}
+                        chunkData={chunkData}
+                        lightMap={lightMap}
+                        chunkX={chunkX}
+                        chunkZ={chunkZ}
+                        getNeighborData={getNeighborData}
+                        faceFilter={metadataToFace[meta]}
+                        textureName={info.front}
+                        texturesLoaded={texturesLoaded}
+                        metadataFilter={meta}
+                      />
+                      {/* Остальные боковые грани с текстурой side */}
+                      {getSidesExcludingFront(meta).map(face => (
+                        <ChunkBlockMesh
+                          key={`${type}-${face}-m${meta}`}
+                          blockType={type}
+                          chunkData={chunkData}
+                          lightMap={lightMap}
+                          chunkX={chunkX}
+                          chunkZ={chunkZ}
+                          getNeighborData={getNeighborData}
+                          faceFilter={face}
+                          texturesLoaded={texturesLoaded}
+                          metadataFilter={meta}
+                        />
+                      ))}
+                    </React.Fragment>
+                  ))}
+                </>
+              ) : hasFront ? (
+                <>
+                  {/* Не направленные блоки с front текстурой */}
                   <ChunkBlockMesh
                     key={`${type}-sides-no-front`}
                     blockType={type}
@@ -331,7 +393,6 @@ const ChunkRenderer = React.memo(({ chunkX, chunkZ, chunkData, lightMap, getNeig
                     faceFilter="sides-no-front"
                     texturesLoaded={texturesLoaded}
                   />
-                  {/* Передняя грань с текстурой front */}
                   <ChunkBlockMesh
                     key={`${type}-front`}
                     blockType={type}
@@ -384,4 +445,123 @@ const ChunkRenderer = React.memo(({ chunkX, chunkZ, chunkData, lightMap, getNeig
   return true;
 });
 
+/**
+ * BurningFurnacesRenderer - Рендерит горящую текстуру поверх активных печек
+ * Подписывается на FurnaceManager и обновляется при изменении состояния печек
+ */
+const BurningFurnacesRenderer = ({ chunks }) => {
+  const [furnaceVersion, setFurnaceVersion] = useState(0);
+  const [burningFurnaces, setBurningFurnaces] = useState([]);
+
+  // Подписываемся на изменения FurnaceManager
+  useEffect(() => {
+    const unsubscribe = FurnaceManager.subscribe((version) => {
+      setFurnaceVersion(version);
+      setBurningFurnaces(FurnaceManager.getBurningFurnaces());
+    });
+
+    // Инициализация
+    setBurningFurnaces(FurnaceManager.getBurningFurnaces());
+
+    return () => unsubscribe();
+  }, []);
+
+  // Материал для горящей текстуры
+  const burningMaterial = useMemo(() => {
+    const map = getTexture('furnaceFrontOn');
+    if (!map) return null;
+
+    return new THREE.MeshBasicMaterial({
+      map: map,
+      transparent: false,
+      side: THREE.FrontSide
+    });
+  }, [furnaceVersion]);
+
+  // Геометрия одной грани (плоскость)
+  const faceGeometry = useMemo(() => {
+    return new THREE.PlaneGeometry(1, 1);
+  }, []);
+
+  if (!burningMaterial || burningFurnaces.length === 0) return null;
+
+  // Маппинг metadata на поворот и смещение для передней грани
+  // metadata: 0 = south (Z+), 1 = west (X-), 2 = north (Z-), 3 = east (X+)
+  // Небольшой offset (0.002) чтобы избежать z-fighting с основной текстурой
+  const getTransform = (metadata) => {
+    switch (metadata) {
+      case 0: // South (Z+) - лицо смотрит на +Z
+        return { rotation: [0, 0, 0], offset: [0.5, 0.5, 1.002] };
+      case 1: // West (X-) - лицо смотрит на -X
+        return { rotation: [0, Math.PI / 2, 0], offset: [-0.002, 0.5, 0.5] };
+      case 2: // North (Z-) - лицо смотрит на -Z
+        return { rotation: [0, Math.PI, 0], offset: [0.5, 0.5, -0.002] };
+      case 3: // East (X+) - лицо смотрит на +X
+        return { rotation: [0, -Math.PI / 2, 0], offset: [1.002, 0.5, 0.5] };
+      default:
+        return { rotation: [0, 0, 0], offset: [0.5, 0.5, 1.002] };
+    }
+  };
+
+  return (
+    <group>
+      {burningFurnaces.map((furnace, index) => {
+        const { x, y, z } = furnace.position;
+
+        // Получаем metadata печки для определения направления
+        // Ищем в chunks данные о metadata
+        const chunkX = Math.floor(x / CHUNK_SIZE);
+        const chunkZ = Math.floor(z / CHUNK_SIZE);
+        const chunkKey = `${chunkX},${chunkZ}`;
+        const chunk = chunks?.[chunkKey];
+
+        let metadata = 0;
+        if (chunk) {
+          const localX = ((x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+          const localZ = ((z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+          metadata = chunk.getMetadata(localX, y, localZ);
+        }
+
+        const transform = getTransform(metadata);
+
+        // Позиция для света - перед печкой
+        const lightOffset = {
+          0: [0, 0, 0.6],   // South
+          1: [-0.6, 0, 0],  // West
+          2: [0, 0, -0.6],  // North
+          3: [0.6, 0, 0]    // East
+        }[metadata] || [0, 0, 0.6];
+
+        return (
+          <group key={`burning-${x}-${y}-${z}`}>
+            <mesh
+              geometry={faceGeometry}
+              material={burningMaterial}
+              position={[
+                x + transform.offset[0],
+                y + transform.offset[1],
+                z + transform.offset[2]
+              ]}
+              rotation={transform.rotation}
+            />
+            {/* Свет от горящей печки */}
+            <pointLight
+              position={[
+                x + 0.5 + lightOffset[0],
+                y + 0.5 + lightOffset[1],
+                z + 0.5 + lightOffset[2]
+              ]}
+              color={0xff6600}
+              intensity={1.5}
+              distance={8}
+              decay={2}
+            />
+          </group>
+        );
+      })}
+    </group>
+  );
+};
+
+export { BurningFurnacesRenderer };
 export default World;

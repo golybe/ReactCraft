@@ -7,7 +7,7 @@ import { Sky } from '@react-three/drei';
 import * as THREE from 'three';
 import { SEA_LEVEL } from '../../constants/world';
 import { GAME_MODES } from '../../constants/gameMode';
-import WorldRenderer from '../world/WorldRenderer';
+import WorldRenderer, { BurningFurnacesRenderer } from '../world/WorldRenderer';
 import PlayerRenderer from '../entities/PlayerRenderer';
 import BlockHighlight from '../world/BlockHighlight';
 import HeldItem from '../entities/HeldItem';
@@ -162,6 +162,8 @@ export const GameCanvas = ({
             chunks={chunks}
             chunkManager={chunkManager}
           />
+          {/* Горящие печки - текстура и свет */}
+          <BurningFurnacesRenderer chunks={chunks} />
           <PlayerRenderer
             onMove={onPlayerMove}
             chunks={chunks}

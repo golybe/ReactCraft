@@ -232,6 +232,20 @@ export const initBlocks = () => {
     lightLevel: 14 // Факел даёт свет 14 (как в Minecraft)
   }));
 
+  // 23: FURNACE - печка
+  BlockRegistry.register(new SolidBlock(BLOCK_TYPES.FURNACE, {
+    name: 'furnace',
+    textures: {
+      top: 'furnace_top',
+      side: 'furnace_side',
+      front: 'furnace_front_off'
+    },
+    color: 0x7d7d7d,
+    hardness: 3.5,
+    preferredTool: TOOL_TYPES.PICKAXE,
+    requiresTool: true
+  }));
+
   // =========================================================
   // ITEMS (512+)
   // =========================================================
@@ -264,6 +278,20 @@ export const initBlocks = () => {
     name: 'diamond',
     texture: 'diamond',
     color: 0x5decf5
+  }));
+
+  // 516: IRON_INGOT
+  BlockRegistry.register(new Item(BLOCK_TYPES.IRON_INGOT, {
+    name: 'iron_ingot',
+    texture: 'iron_ingot',
+    color: 0xd8d8d8
+  }));
+
+  // 517: GOLD_INGOT
+  BlockRegistry.register(new Item(BLOCK_TYPES.GOLD_INGOT, {
+    name: 'gold_ingot',
+    texture: 'gold_ingot',
+    color: 0xffd700
   }));
 
   // =========================================================

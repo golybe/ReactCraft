@@ -48,7 +48,17 @@ export const textures = {
   // Plants
   shortGrass: texPath('short_grass.png'),
   // Light sources
-  torch: texPath('torch.png')
+  torch: texPath('torch.png'),
+  // Furnace textures
+  furnaceFrontOff: texPath('furnace_front_off.png'),
+  furnaceFrontOn: texPath('furnace_front_on.png'),
+  furnaceSide: texPath('furnace_side.png'),
+  furnaceTop: texPath('furnace_top.png'),
+  // Ingots
+  ironIngot: texPath('iron_ingot.png'),
+  goldIngot: texPath('gold_ingot.png'),
+  // Glass
+  glass: texPath('glass.png')
 };
 
 export const getBlockTexture = (name) => {
@@ -97,7 +107,17 @@ const blockTextureMap = {
   // Plants
   [BLOCK_TYPES.TALL_GRASS]: { all: 'shortGrass', renderType: 'cross' },
   // Light sources
-  [BLOCK_TYPES.TORCH]: { all: 'torch', renderType: 'torch', isItem: true }
+  [BLOCK_TYPES.TORCH]: { all: 'torch', renderType: 'torch', isItem: true },
+  // Furnace
+  [BLOCK_TYPES.FURNACE]: {
+    top: 'furnaceTop',
+    side: 'furnaceSide',
+    front: 'furnaceFrontOff',
+    bottom: 'furnaceTop'
+  },
+  // Ingots
+  [BLOCK_TYPES.IRON_INGOT]: { all: 'ironIngot', isItem: true },
+  [BLOCK_TYPES.GOLD_INGOT]: { all: 'goldIngot', isItem: true }
 };
 
 export const getBlockTextureInfo = (blockType) => blockTextureMap[blockType];

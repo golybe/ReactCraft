@@ -15,6 +15,7 @@ export const BlockIcon = ({ blockId, size = 32, style }) => {
     const isLeaves = blockId === BLOCK_TYPES.LEAVES;
     const isWater = blockId === BLOCK_TYPES.WATER;
     const isTallGrass = blockId === BLOCK_TYPES.TALL_GRASS;
+    const hasFrontTexture = tex.front && tex.front !== tex.side;
 
     // Решаем, рендерить как предмет (плоский) или как блок (3D куб)
     // Предметы, инструменты и специальные блоки (факел, высокая трава) рендерятся плоскими
@@ -99,7 +100,7 @@ export const BlockIcon = ({ blockId, size = 32, style }) => {
         return s;
     };
 
-    const renderSideFace = (transform, brightness) => {
+    const renderSideFace = (transform, brightness, useFront = false) => {
         if (isGrass) {
             return (
                 <div style={{ ...faceBaseStyle, transform, filter: `brightness(${brightness})` }}>
@@ -121,7 +122,9 @@ export const BlockIcon = ({ blockId, size = 32, style }) => {
                 </div>
             );
         }
-        return <div style={{ ...getFaceStyle(tex.side, tintSide, brightness), transform }} />;
+        // Для блоков с front текстурой (печка, верстак) - используем front на передней грани
+        const textureUrl = useFront && hasFrontTexture ? tex.front : tex.side;
+        return <div style={{ ...getFaceStyle(textureUrl, tintSide, brightness), transform }} />;
     };
 
     // Изометрическая трансформация
@@ -130,7 +133,7 @@ export const BlockIcon = ({ blockId, size = 32, style }) => {
         height: size,
         position: 'relative',
         transformStyle: 'preserve-3d',
-        transform: 'rotateX(-30deg) rotateY(-45deg)',
+        transform: 'rotateX(-30deg) rotateY(45deg)',
     };
 
     return (
@@ -152,11 +155,11 @@ export const BlockIcon = ({ blockId, size = 32, style }) => {
                     transform: `rotateX(90deg) translateZ(${halfSize}px)`
                 }} />
 
-                {/* Front Face (Left side in iso) - Z+ axis */}
-                {renderSideFace(`translateZ(${halfSize}px)`, 0.8)}
+                {/* Left Face - X- axis */}
+                {renderSideFace(`rotateY(-90deg) translateZ(${halfSize}px)`, 0.6, false)}
 
-                {/* Right Face (Right side in iso) - X+ axis */}
-                {renderSideFace(`rotateY(90deg) translateZ(${halfSize}px)`, 0.6)}
+                {/* Front Face (Right side in iso) - Z+ axis */}
+                {renderSideFace(`translateZ(${halfSize}px)`, 0.8, true)}
             </div>
         </div>
     );

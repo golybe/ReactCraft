@@ -498,6 +498,11 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
     };
   }, []);
 
+  // === FURNACE STATE ===
+  // Временное состояние печки (в будущем будет храниться в мире по координатам)
+  const [furnaceData, setFurnaceData] = React.useState(null);
+  const [furnacePosition, setFurnacePosition] = React.useState(null);
+
   // === CRAFTING TABLE INTERACTION ===
   // Wrapper for handleBlockPlace that checks for crafting table
   const handleBlockPlaceOrInteract = useCallback((x, y, z, breakPos, faceNormal) => {
@@ -511,6 +516,15 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
       if (hitBlock === BLOCK_TYPES.CRAFTING_TABLE) {
         // Open crafting interface using unified UI system
         openUI(UI_TYPES.CRAFTING);
+        return;
+      }
+
+      // Check if clicked block is a furnace
+      if (hitBlock === BLOCK_TYPES.FURNACE) {
+        // Сохраняем позицию печки для FurnaceManager
+        setFurnacePosition({ x: breakPos.x, y: breakPos.y, z: breakPos.z });
+        // Open furnace interface
+        openUI(UI_TYPES.FURNACE);
         return;
       }
     }
@@ -620,6 +634,9 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
         craftingResult3x3={craftingResult3x3}
         onCraftResult3x3Pickup={handleCraftResult3x3Pickup}
         onShiftCraft3x3={handleShiftCraftResult3x3}
+        furnaceData={furnaceData}
+        onFurnaceDataChange={setFurnaceData}
+        furnacePosition={furnacePosition}
       />
 
       <Chat

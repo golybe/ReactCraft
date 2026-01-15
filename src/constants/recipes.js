@@ -147,7 +147,76 @@ export const RECIPES = [
       [BLOCK_TYPES.STICK]
     ],
     type: 'shaped'
+  },
+
+  // === FURNACE (8 cobblestone) ===
+  {
+    id: 'furnace',
+    result: { type: BLOCK_TYPES.FURNACE, count: 1 },
+    pattern: [
+      [BLOCK_TYPES.COBBLESTONE, BLOCK_TYPES.COBBLESTONE, BLOCK_TYPES.COBBLESTONE],
+      [BLOCK_TYPES.COBBLESTONE, null, BLOCK_TYPES.COBBLESTONE],
+      [BLOCK_TYPES.COBBLESTONE, BLOCK_TYPES.COBBLESTONE, BLOCK_TYPES.COBBLESTONE]
+    ],
+    type: 'shaped'
   }
 ];
+
+/**
+ * Smelting Recipes - рецепты плавки в печке
+ * input: тип входного предмета
+ * output: результат плавки
+ * time: время плавки в миллисекундах
+ */
+export const SMELTING_RECIPES = [
+  // Руды -> Слитки
+  {
+    id: 'iron_ingot',
+    input: BLOCK_TYPES.IRON_ORE,
+    output: { type: BLOCK_TYPES.IRON_INGOT, count: 1 },
+    time: 10000 // 10 секунд
+  },
+  {
+    id: 'gold_ingot',
+    input: BLOCK_TYPES.GOLD_ORE,
+    output: { type: BLOCK_TYPES.GOLD_INGOT, count: 1 },
+    time: 10000
+  },
+  // Песок -> Стекло (временно без стекла, но рецепт готов)
+  // Булыжник -> Камень
+  {
+    id: 'stone_from_cobblestone',
+    input: BLOCK_TYPES.COBBLESTONE,
+    output: { type: BLOCK_TYPES.STONE, count: 1 },
+    time: 10000
+  },
+  // Песок -> Стекло (нужно добавить GLASS в blockTypes)
+];
+
+/**
+ * Fuel values - топливо и время горения в миллисекундах
+ */
+export const FUEL_VALUES = {
+  [BLOCK_TYPES.COAL]: 80000,       // 80 секунд (8 предметов)
+  [BLOCK_TYPES.WOOD]: 15000,       // 15 секунд (1.5 предмета)
+  [BLOCK_TYPES.PLANKS]: 15000,     // 15 секунд
+  [BLOCK_TYPES.STICK]: 5000,       // 5 секунд (0.5 предмета)
+  [BLOCK_TYPES.CRAFTING_TABLE]: 15000,
+  [BLOCK_TYPES.LEAVES]: 0,         // Не горит
+};
+
+/**
+ * Получить рецепт плавки по входному предмету
+ */
+export const getSmeltingRecipe = (inputType) => {
+  return SMELTING_RECIPES.find(recipe => recipe.input === inputType) || null;
+};
+
+/**
+ * Получить время горения топлива
+ */
+export const getFuelBurnTime = (fuelType) => {
+  return FUEL_VALUES[fuelType] || 0;
+};
 
 export default RECIPES;

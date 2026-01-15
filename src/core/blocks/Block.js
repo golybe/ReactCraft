@@ -11,14 +11,16 @@ export const TOOL_TYPES = {
 
 /**
  * Tool effectiveness multipliers
- * Базовые множители для инструментов (более реалистичные значения)
+ * Мы ставим здесь 1.0, потому что реальное ускорение
+ * должно приходить из самого инструмента (свойства toolEfficiency: 2, 4, 8...),
+ * а не умножаться еще раз на константу типа.
  */
 export const TOOL_MULTIPLIERS = {
   [TOOL_TYPES.HAND]: 1.0,
-  [TOOL_TYPES.PICKAXE]: 2.0,  // Было 6.0 - слишком быстро
-  [TOOL_TYPES.AXE]: 2.0,       // Было 6.0 - слишком быстро
-  [TOOL_TYPES.SHOVEL]: 2.0,    // Было 6.0 - слишком быстро
-  [TOOL_TYPES.SHEARS]: 5.0     // Было 15.0 - слишком быстро
+  [TOOL_TYPES.PICKAXE]: 1.0,  // Было 2.0. Ставим 1.0, чтобы скорость зависела чисто от материала
+  [TOOL_TYPES.AXE]: 1.0,      // Было 2.0
+  [TOOL_TYPES.SHOVEL]: 1.0,   // Было 2.0
+  [TOOL_TYPES.SHEARS]: 1.0    // Ножницы обычно имеют фиксированную скорость или работают мгновенно на шерсти
 };
 
 /**
@@ -85,46 +87,49 @@ export class Block {
 
   /**
    * Рассчитать время добычи блока в секундах
-   * Формула из Minecraft: breakTime = hardness * 1.5 / toolMultiplier
+   * Формула: hardness * 1.5 / multiplier
    * @param {string} toolType - тип инструмента
-   * @param {number} toolEfficiency - модификатор эффективности инструмента (1.0 = базовый)
+   * @param {number} toolEfficiency - эффективность инструмента (2.0, 4.0, 8.0...)
    * @returns {number} время в секундах
    */
   getBreakTime(toolType = TOOL_TYPES.HAND, toolEfficiency = 1.0) {
     if (this.unbreakable) return Infinity;
-    if (this.hardness <= 0) return 0;
-    
-    // Базовая формула: hardness * 1.5 секунды голой рукой
-    let baseTime = this.hardness * 1.5;
-    
-    // Применяем множитель инструмента
+    if (this.hardness <= 0) return 0; // Мгновенное разрушение (трава, цветы)
+
+    // 1. Проверяем, является ли инструмент правильным для этого блока
+    // Если preferredTool === HAND, значит блок не требует инструментов (земля, доски) - любой инструмент подходит
+    const isCorrectTool = 
+        (this.preferredTool === TOOL_TYPES.HAND) || 
+        (toolType === this.preferredTool);
+
+    // 2. Рассчитываем множитель скорости
     let multiplier = 1.0;
-    
-    // ВАЖНО: эффективность инструмента (toolEfficiency) должна применяться 
-    // ТОЛЬКО если это правильный инструмент для этого блока.
-    if (this.preferredTool !== TOOL_TYPES.HAND && toolType === this.preferredTool) {
-      // Правильный инструмент (например, кирка по камню)
-      multiplier = (TOOL_MULTIPLIERS[toolType] || 1.0) * toolEfficiency;
-    } else if (this.preferredTool === TOOL_TYPES.HAND && toolType !== TOOL_TYPES.HAND) {
-      // Если блок можно копать рукой (земля/трава), но мы используем инструмент
-      // Проверяем, подходит ли этот инструмент (например, лопата для земли)
-      if (toolType === this.preferredTool) { // Это условие выше уже покрыто, но для ясности
-         multiplier = (TOOL_MULTIPLIERS[toolType] || 1.0) * toolEfficiency;
-      } else {
-         // Инструмент не предназначен для этого (топор по земле) -> как рука
-         multiplier = 1.0;
-      }
-    } else if (toolType !== TOOL_TYPES.HAND && toolType === this.preferredTool) {
-       // Любой другой случай совпадения инструмента
-       multiplier = (TOOL_MULTIPLIERS[toolType] || 1.0) * toolEfficiency;
+
+    if (isCorrectTool) {
+        // Если инструмент правильный, берем его эффективность (2.0, 4.0, 8.0...)
+        // Если бьем рукой, toolEfficiency будет 1.0 (передается извне)
+        multiplier = toolEfficiency;
+    } else {
+        // Если инструмент неправильный (например, кирка по дереву),
+        // то скорость = 1.0 (как рукой), даже если у кирки efficiency 8.0
+        multiplier = 1.0;
     }
-    
-    // Если блок требует инструмент (requiresTool), а мы бьем не тем или рукой
-    if (this.requiresTool && toolType !== this.preferredTool) {
-      multiplier = 0.3; // В 3 раза медленнее
+
+    // 3. Рассчитываем базовое время
+    // Если блок ТРЕБУЕТ инструмент (камень, руда), но мы бьем неправильным (рукой или топором),
+    // то время увеличивается значительно (в майне это hardness * 5, то есть 3.33x от базы)
+    let baseTime = this.hardness * 1.5;
+
+    if (this.requiresTool && !isCorrectTool) {
+        // Штраф за отсутствие инструмента: время увеличивается в 3.33 раза
+        // Пример: Обсидиан рукой ломается 250 секунд
+        baseTime = this.hardness * 5.0; 
     }
-    
-    return Math.max(0.05, baseTime / multiplier); // Минимум 50мс
+
+    // 4. Итоговое время
+    const time = baseTime / multiplier;
+
+    return Math.max(0.05, time); // Минимум 50мс (1 тик игры)
   }
 
   /**

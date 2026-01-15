@@ -35,13 +35,18 @@ export const BLOCK_TYPES = {
   // Light sources
   TORCH: 22,
 
-  // RESERVED FOR FUTURE BLOCKS: 23 - 511
+  // Interactive blocks
+  FURNACE: 23,
+
+  // RESERVED FOR FUTURE BLOCKS: 24 - 511
 
   // ITEMS (Non-block entities): 512+
   STICK: 512,
   APPLE: 513,
   COAL: 514,
   DIAMOND: 515,
+  IRON_INGOT: 516,
+  GOLD_INGOT: 517,
   
   // TOOLS: 520+
   // Wooden tools

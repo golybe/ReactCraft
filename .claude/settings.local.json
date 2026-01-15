@@ -20,7 +20,8 @@
       "Bash(find:*)",
       "Bash(tree /f \"C:\\\\tests\\\\glmtest2\\\\src\")",
       "Bash(tree:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(node scripts/download_textures.cjs:*)"
     ]
   }
 }

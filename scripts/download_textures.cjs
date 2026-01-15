@@ -49,7 +49,16 @@ const files = {
   'crafting_table_top.png': 'block/crafting_table_top.png',
   'crafting_table_side.png': 'block/crafting_table_side.png',
   'crafting_table_front.png': 'block/crafting_table_front.png',
-  'torch.png': 'block/torch.png'
+  'torch.png': 'block/torch.png',
+  // Furnace textures
+  'furnace_front_off.png': 'block/furnace_front.png',
+  'furnace_front_on.png': 'block/furnace_front_on.png',
+  'furnace_side.png': 'block/furnace_side.png',
+  'furnace_top.png': 'block/furnace_top.png',
+  // Ingots
+  'iron_ingot.png': 'item/iron_ingot.png',
+  'gold_ingot.png': 'item/gold_ingot.png',
+  'glass.png': 'block/glass.png'
 };
 
 const downloadFile = (filename, remotePath) => {

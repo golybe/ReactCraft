@@ -228,7 +228,8 @@ export class ChunkMesher {
 
   // Генерация геометрии для конкретного типа блока и набора граней
   // faceFilter: null = все грани, 'top' = только верх, 'bottom' = только низ, 'sides' = боковые
-  generateForType(targetBlockType, faceFilter = null) {
+  // metadataFilter: null = все метаданные, или число = только блоки с этим metadata
+  generateForType(targetBlockType, faceFilter = null, metadataFilter = null) {
     // Проверяем, является ли блок растением (cross-render)
     const blockProps = BLOCK_PROPERTIES[targetBlockType];
     if (blockProps && blockProps.renderType === 'cross') {
@@ -275,6 +276,12 @@ export class ChunkMesher {
         for (let z = 0; z < CHUNK_SIZE; z++) {
           const block = this.chunkData.getBlock(x, y, z);
           if (block !== targetBlockType) continue;
+
+          // Если указан фильтр по metadata, проверяем
+          if (metadataFilter !== null) {
+            const blockMeta = this.chunkData.getMetadata(x, y, z);
+            if (blockMeta !== metadataFilter) continue;
+          }
 
           // Определяем высоту блока (для жидкостей)
           let myHeight = 1.0;

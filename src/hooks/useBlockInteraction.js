@@ -244,6 +244,23 @@ export function useBlockInteraction({
       }
     }
 
+    // Направленные блоки (печка, crafting_table) - ставятся лицом к игроку
+    if (blockType === BLOCK_TYPES.FURNACE || blockType === BLOCK_TYPES.CRAFTING_TABLE) {
+      // Вычисляем направление от блока к игроку
+      const dx = playerPos.x - (x + 0.5);
+      const dz = playerPos.z - (z + 0.5);
+
+      // Определяем основное направление (куда смотрит передняя грань)
+      // metadata: 0 = south (Z+), 1 = west (X-), 2 = north (Z-), 3 = east (X+)
+      if (Math.abs(dx) > Math.abs(dz)) {
+        // Основное направление по X
+        metadata = dx > 0 ? 3 : 1; // East или West
+      } else {
+        // Основное направление по Z
+        metadata = dz > 0 ? 0 : 2; // South или North
+      }
+    }
+
     // Check collision with player
     if (isSolid(blockType)) {
       const pMinX = playerPos.x - PLAYER_WIDTH / 2;
