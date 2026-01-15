@@ -458,6 +458,7 @@ const BurningFurnacesRenderer = ({ chunks }) => {
     const unsubscribe = FurnaceManager.subscribe((version) => {
       setFurnaceVersion(version);
       setBurningFurnaces(FurnaceManager.getBurningFurnaces());
+
     });
 
     // Инициализация
@@ -469,12 +470,13 @@ const BurningFurnacesRenderer = ({ chunks }) => {
   // Материал для горящей текстуры
   const burningMaterial = useMemo(() => {
     const map = getTexture('furnaceFrontOn');
+
     if (!map) return null;
 
     return new THREE.MeshBasicMaterial({
       map: map,
       transparent: false,
-      side: THREE.FrontSide
+      side: THREE.DoubleSide,
     });
   }, [furnaceVersion]);
 
@@ -491,15 +493,15 @@ const BurningFurnacesRenderer = ({ chunks }) => {
   const getTransform = (metadata) => {
     switch (metadata) {
       case 0: // South (Z+) - лицо смотрит на +Z
-        return { rotation: [0, 0, 0], offset: [0.5, 0.5, 1.002] };
+        return { rotation: [0, 0, Math.PI], offset: [0.5, 0.5, 1.002] };
       case 1: // West (X-) - лицо смотрит на -X
-        return { rotation: [0, Math.PI / 2, 0], offset: [-0.002, 0.5, 0.5] };
+        return { rotation: [0, Math.PI / 2, Math.PI], offset: [-0.002, 0.5, 0.5] };
       case 2: // North (Z-) - лицо смотрит на -Z
-        return { rotation: [0, Math.PI, 0], offset: [0.5, 0.5, -0.002] };
+        return { rotation: [0, Math.PI, Math.PI], offset: [0.5, 0.5, -0.002] };
       case 3: // East (X+) - лицо смотрит на +X
-        return { rotation: [0, -Math.PI / 2, 0], offset: [1.002, 0.5, 0.5] };
+        return { rotation: [0, -Math.PI / 2, Math.PI], offset: [1.002, 0.5, 0.5] };
       default:
-        return { rotation: [0, 0, 0], offset: [0.5, 0.5, 1.002] };
+        return { rotation: [0, 0, Math.PI], offset: [0.5, 0.5, 1.002] };
     }
   };
 
@@ -523,6 +525,7 @@ const BurningFurnacesRenderer = ({ chunks }) => {
         }
 
         const transform = getTransform(metadata);
+
 
         // Позиция для света - перед печкой
         const lightOffset = {
@@ -552,7 +555,7 @@ const BurningFurnacesRenderer = ({ chunks }) => {
                 z + 0.5 + lightOffset[2]
               ]}
               color={0xff6600}
-              intensity={1.5}
+              intensity={0}
               distance={8}
               decay={2}
             />

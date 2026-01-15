@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { BlockRegistry } from '../../core/blocks/BlockRegistry';
 import { MCSlot, MCGrid, MCCursorItem, MCTooltip, getSlotData } from './MCSlot';
 import { UI_TYPES, UI_CONFIG } from '../../constants/uiTypes';
@@ -147,8 +147,8 @@ const useSlotInteraction = () => {
                     setCursorItem(null);
                 }
             } else if (currentType !== cursorData.type) {
-                 // Swap if trying to right click on different item (standard Minecraft behavior is actually strict, but swapping is often better UX for web)
-                 // But let's keep it simple: do nothing or swap? Minecraft doesn't swap on right click usually.
+                // Swap if trying to right click on different item (standard Minecraft behavior is actually strict, but swapping is often better UX for web)
+                // But let's keep it simple: do nothing or swap? Minecraft doesn't swap on right click usually.
             }
         } else {
             // Берём половину
@@ -172,14 +172,14 @@ const useSlotInteraction = () => {
             if (type) {
                 const block = BlockRegistry.get(type);
                 setHoveredBlockName(block?.name || null);
-                
+
                 // Проверяем прочность
                 if (durability !== undefined && block?.maxDurability > 0) {
                     setHoveredItemDurability(`${durability} / ${block.maxDurability}`);
                 } else {
                     setHoveredItemDurability(null);
                 }
-                
+
                 setHoveredSlot(index);
             }
         } else if (!hovered && hoveredSlot === index) {
@@ -247,7 +247,7 @@ const InventoryUI = ({
         const slotsPerRow = 9;
         const totalItems = filteredBlocks.length;
         const emptySlotsCount = (slotsPerRow - (totalItems % slotsPerRow)) % slotsPerRow;
-        
+
         // Вычисляем динамическую высоту контейнера
         const totalRows = Math.ceil((totalItems + emptySlotsCount) / slotsPerRow);
         const containerHeight = totalRows * 54 + 12; // 54px на ряд + 8px для компенсации padding и границ
@@ -445,6 +445,7 @@ const CraftingUI = ({
 
 /**
  * FurnaceUI - Интерфейс печки
+ * Использует глобальный FurnaceManager для хранения состояния
  */
 const FurnaceUI = ({
     inventory,
@@ -455,124 +456,66 @@ const FurnaceUI = ({
     slotInteraction
 }) => {
     const { handleSlotClick, handleSlotRightClick, handleSlotHover, cursorItem, setCursorItem } = slotInteraction;
+    const [, forceUpdate] = useState(0);
 
-    // Состояние печки: { inputSlot, fuelSlot, outputSlot, burnTime, maxBurnTime, smeltProgress, smeltTime }
-    const [inputSlot, setInputSlot] = useState(furnaceData?.inputSlot || null);
-    const [fuelSlot, setFuelSlot] = useState(furnaceData?.fuelSlot || null);
-    const [outputSlot, setOutputSlot] = useState(furnaceData?.outputSlot || null);
-    const [burnTime, setBurnTime] = useState(furnaceData?.burnTime || 0);
-    const [maxBurnTime, setMaxBurnTime] = useState(furnaceData?.maxBurnTime || 0);
-    const [smeltProgress, setSmeltProgress] = useState(furnaceData?.smeltProgress || 0);
-    const [currentRecipe, setCurrentRecipe] = useState(null);
+    // Получаем состояние из FurnaceManager
+    const furnaceState = useMemo(() => {
+        if (!furnacePosition) return null;
+        return FurnaceManager.getFurnaceState(
+            furnacePosition.x,
+            furnacePosition.y,
+            furnacePosition.z
+        );
+    }, [furnacePosition]);
 
-    // Обновляем FurnaceManager при изменении состояния горения
-    useEffect(() => {
+    // Локальные ссылки на состояние для UI
+    const inputSlot = furnaceState?.inputSlot || null;
+    const fuelSlot = furnaceState?.fuelSlot || null;
+    const outputSlot = furnaceState?.outputSlot || null;
+    const burnTime = furnaceState?.burnTime || 0;
+    const maxBurnTime = furnaceState?.maxBurnTime || 0;
+    const smeltProgress = furnaceState?.smeltProgress || 0;
+    const currentRecipe = furnaceState?.currentRecipe || null;
+
+    // Функции для обновления состояния через FurnaceManager
+    const setInputSlot = useCallback((value) => {
         if (furnacePosition) {
-            FurnaceManager.setFurnaceState(
-                furnacePosition.x,
-                furnacePosition.y,
-                furnacePosition.z,
-                burnTime > 0,
-                burnTime
+            FurnaceManager.updateFurnaceData(
+                furnacePosition.x, furnacePosition.y, furnacePosition.z,
+                { inputSlot: value }
             );
         }
-    }, [burnTime, furnacePosition]);
+    }, [furnacePosition]);
 
-    // Очищаем состояние при размонтировании (закрытии UI)
+    const setFuelSlot = useCallback((value) => {
+        if (furnacePosition) {
+            FurnaceManager.updateFurnaceData(
+                furnacePosition.x, furnacePosition.y, furnacePosition.z,
+                { fuelSlot: value }
+            );
+        }
+    }, [furnacePosition]);
+
+    const setOutputSlot = useCallback((value) => {
+        if (furnacePosition) {
+            FurnaceManager.updateFurnaceData(
+                furnacePosition.x, furnacePosition.y, furnacePosition.z,
+                { outputSlot: value }
+            );
+        }
+    }, [furnacePosition]);
+
+    // Подписываемся на обновления FurnaceManager для перерисовки UI
     useEffect(() => {
-        return () => {
-            // Не очищаем, чтобы печка продолжала гореть после закрытия UI
-            // Это временное решение - в будущем состояние должно храниться в мире
-        };
+        const unsubscribe = FurnaceManager.subscribe(() => {
+            forceUpdate(v => v + 1);
+        });
+        return () => unsubscribe();
     }, []);
 
-    // Логика плавки
+    // Синхронизация с onFurnaceDataChange для обратной совместимости
     useEffect(() => {
-        const interval = setInterval(() => {
-            // Проверяем рецепт для текущего входного предмета
-            const inputData = getSlotData(inputSlot);
-            const recipe = inputData.type ? getSmeltingRecipe(inputData.type) : null;
-            setCurrentRecipe(recipe);
-
-            // Если есть топливо и оно горит
-            if (burnTime > 0) {
-                setBurnTime(prev => Math.max(0, prev - 100)); // Уменьшаем на 100мс
-
-                // Если есть рецепт и входной предмет
-                if (recipe && inputData.type && inputData.count > 0) {
-                    // Проверяем, можно ли положить результат в выходной слот
-                    const outputData = getSlotData(outputSlot);
-                    const canOutput = !outputData.type ||
-                        (outputData.type === recipe.output.type && outputData.count < MAX_STACK_SIZE);
-
-                    if (canOutput) {
-                        // Прогресс плавки
-                        setSmeltProgress(prev => {
-                            const newProgress = prev + 100;
-                            if (newProgress >= recipe.time) {
-                                // Плавка завершена!
-                                // Забираем 1 предмет из входа
-                                if (inputData.count > 1) {
-                                    setInputSlot({ type: inputData.type, count: inputData.count - 1 });
-                                } else {
-                                    setInputSlot(null);
-                                }
-
-                                // Добавляем результат в выход
-                                if (outputData.type) {
-                                    setOutputSlot({ type: outputData.type, count: outputData.count + recipe.output.count });
-                                } else {
-                                    setOutputSlot({ type: recipe.output.type, count: recipe.output.count });
-                                }
-
-                                return 0; // Сброс прогресса
-                            }
-                            return newProgress;
-                        });
-                    }
-                } else {
-                    // Нет рецепта или входа - сбрасываем прогресс
-                    if (smeltProgress > 0) setSmeltProgress(0);
-                }
-            } else {
-                // Топливо закончилось - пытаемся взять новое
-                const fuelData = getSlotData(fuelSlot);
-                if (fuelData.type && recipe && inputData.type) {
-                    const fuelTime = getFuelBurnTime(fuelData.type);
-                    if (fuelTime > 0) {
-                        // Проверяем, можно ли положить результат
-                        const outputData = getSlotData(outputSlot);
-                        const canOutput = !outputData.type ||
-                            (outputData.type === recipe.output.type && outputData.count < MAX_STACK_SIZE);
-
-                        if (canOutput) {
-                            // Зажигаем топливо
-                            setBurnTime(fuelTime);
-                            setMaxBurnTime(fuelTime);
-
-                            // Забираем 1 топливо
-                            if (fuelData.count > 1) {
-                                setFuelSlot({ type: fuelData.type, count: fuelData.count - 1 });
-                            } else {
-                                setFuelSlot(null);
-                            }
-                        }
-                    }
-                }
-
-                // Если нет горящего топлива, сбрасываем прогресс
-                if (smeltProgress > 0) {
-                    setSmeltProgress(prev => Math.max(0, prev - 50)); // Медленно сбрасывается
-                }
-            }
-        }, 100); // Обновление каждые 100мс
-
-        return () => clearInterval(interval);
-    }, [inputSlot, fuelSlot, outputSlot, burnTime, smeltProgress]);
-
-    // Сохранение состояния печки при изменениях
-    useEffect(() => {
-        if (onFurnaceDataChange) {
+        if (onFurnaceDataChange && furnaceState) {
             onFurnaceDataChange({
                 inputSlot,
                 fuelSlot,
@@ -582,7 +525,7 @@ const FurnaceUI = ({
                 smeltProgress
             });
         }
-    }, [inputSlot, fuelSlot, outputSlot, burnTime, maxBurnTime, smeltProgress, onFurnaceDataChange]);
+    }, [inputSlot, fuelSlot, outputSlot, burnTime, maxBurnTime, smeltProgress, onFurnaceDataChange, furnaceState]);
 
     // Обработчик клика по слоту печки
     const handleFurnaceSlotClick = (slotType, e) => {

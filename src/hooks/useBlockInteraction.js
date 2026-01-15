@@ -5,6 +5,7 @@ import { CHUNK_HEIGHT, REACH_DISTANCE, PLAYER_WIDTH, PLAYER_HEIGHT } from '../co
 import { GAME_MODES } from '../constants/gameMode';
 import { BlockMiningManager } from '../core/physics/BlockMining';
 import { TOOL_TYPES } from '../core/blocks/Block';
+import { FurnaceManager } from '../core/FurnaceManager';
 
 /**
  * Hook for managing block interaction (mining, placing, debris, dropped items)
@@ -51,6 +52,15 @@ export function useBlockInteraction({
     const recursiveDestroy = (bx, by, bz, bid) => {
       const block = BlockRegistry.get(bid);
 
+      // Сохраняем содержимое печки ДО удаления блока
+      let furnaceContents = null;
+      if (bid === BLOCK_TYPES.FURNACE) {
+        const furnaceState = FurnaceManager.getExistingFurnaceState(bx, by, bz);
+        if (furnaceState) {
+          furnaceContents = [furnaceState.inputSlot, furnaceState.fuelSlot, furnaceState.outputSlot];
+        }
+      }
+
       const success = worldRef.current.setBlock(bx, by, bz, BLOCK_TYPES.AIR);
       if (success) {
         // Debris particles
@@ -96,6 +106,38 @@ export function useBlockInteraction({
           });
         }
 
+        // Дроп содержимого печки при разрушении (используем сохранённое содержимое)
+        if (bid === BLOCK_TYPES.FURNACE && gameMode === GAME_MODES.SURVIVAL && furnaceContents) {
+
+          furnaceContents.forEach(slot => {
+            if (slot && slot.type && slot.count > 0) {
+              const itemId = Date.now() + Math.random();
+              const angle = Math.random() * Math.PI * 2;
+              const offsetDist = 0.25;
+              const offsetX = Math.cos(angle) * offsetDist;
+              const offsetZ = Math.sin(angle) * offsetDist;
+              const hSpeed = 0.5 + Math.random() * 0.5;
+
+              setDroppedItems(prev => [...prev, {
+                id: itemId,
+                blockType: slot.type,
+                count: slot.count,
+                position: {
+                  x: bx + 0.5 + offsetX,
+                  y: by + 0.3,
+                  z: bz + 0.5 + offsetZ
+                },
+                velocity: {
+                  x: Math.cos(angle) * hSpeed,
+                  y: 0,
+                  z: Math.sin(angle) * hSpeed
+                },
+                noPickupTime: 0.3
+              }]);
+            }
+          });
+        }
+
         // Check neighbors for blocks that depend on this block (torches)
         const checkNeighbors = [
           { nx: bx, ny: by + 1, nz: bz, meta: 0 },    // Standing on this block
@@ -107,7 +149,7 @@ export function useBlockInteraction({
 
         checkNeighbors.forEach(n => {
           const neighborBlockId = worldRef.current.getBlock(n.nx, n.ny, n.nz);
-          
+
           // Torch logic
           if (neighborBlockId === BLOCK_TYPES.TORCH) {
             const neighborMeta = worldRef.current.getMetadata(n.nx, n.ny, n.nz);
@@ -116,14 +158,14 @@ export function useBlockInteraction({
               recursiveDestroy(n.nx, n.ny, n.nz, neighborBlockId);
             }
           }
-          
+
           // Tall Grass logic (only if the support block BELOW it is broken)
           if (neighborBlockId === BLOCK_TYPES.TALL_GRASS && n.meta === 0) {
             // Support broken - destroy the grass recursively
             recursiveDestroy(n.nx, n.ny, n.nz, neighborBlockId);
           }
         });
-        
+
         return true;
       }
       return false;
