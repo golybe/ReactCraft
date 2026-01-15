@@ -217,7 +217,8 @@ export const initBlocks = () => {
     texture: 'shortGrass',
     color: 0x5bac36,
     hardness: 0,
-    drops: null // Не дропает ничего (можно добавить семена позже)
+    drops: null, // Не дропает ничего (можно добавить семена позже)
+    renderAsItem: true
   }));
 
   // 22: TORCH - факел (источник света)

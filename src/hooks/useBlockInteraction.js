@@ -107,12 +107,20 @@ export function useBlockInteraction({
 
         checkNeighbors.forEach(n => {
           const neighborBlockId = worldRef.current.getBlock(n.nx, n.ny, n.nz);
+          
+          // Torch logic
           if (neighborBlockId === BLOCK_TYPES.TORCH) {
             const neighborMeta = worldRef.current.getMetadata(n.nx, n.ny, n.nz);
             if (neighborMeta === n.meta) {
               // Support broken - destroy the torch recursively
               recursiveDestroy(n.nx, n.ny, n.nz, neighborBlockId);
             }
+          }
+          
+          // Tall Grass logic (only if the support block BELOW it is broken)
+          if (neighborBlockId === BLOCK_TYPES.TALL_GRASS && n.meta === 0) {
+            // Support broken - destroy the grass recursively
+            recursiveDestroy(n.nx, n.ny, n.nz, neighborBlockId);
           }
         });
         

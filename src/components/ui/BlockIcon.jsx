@@ -8,15 +8,29 @@ export const BlockIcon = ({ blockId, size = 32, style }) => {
     const block = BlockRegistry.get(blockId);
     if (!block) return null;
 
+    // DEBUG: console.log(`Icon for ${block.name}: renderAsItem=${block.renderAsItem}`);
+
     const tex = getResolvedBlockTextures(blockId);
     const halfSize = size / 2;
 
     const isGrass = blockId === BLOCK_TYPES.GRASS;
     const isLeaves = blockId === BLOCK_TYPES.LEAVES;
+    const isWater = blockId === BLOCK_TYPES.WATER;
+    const isTallGrass = blockId === BLOCK_TYPES.TALL_GRASS;
 
-    // Проверка: это предмет или блок, который рендерится как предмет (факел)
-    if (block.isPlaceable === false || block.renderAsItem) {
+    // Решаем, рендерить как предмет (плоский) или как блок (3D куб)
+    // Предметы, инструменты и специальные блоки (факел, высокая трава) рендерятся плоскими
+    const shouldRenderAsItem = block.isPlaceable === false || block.renderAsItem || isTallGrass;
+
+    // Проверка: это предмет или блок, который рендерится как предмет (факел, трава в инвентаре)
+    if (shouldRenderAsItem) {
         const iconUrl = tex.side || tex.top || tex.front;
+        let tint = null;
+        
+        // Применяем тинт только для конкретных предметов
+        if (isTallGrass) tint = BLOCK_TINTS['grassTop'];
+        else if (block.isTool) tint = null; // Инструменты не красим тинтом блоков
+        
         return (
             <div style={{
                 width: size,
@@ -36,13 +50,23 @@ export const BlockIcon = ({ blockId, size = 32, style }) => {
                     backgroundPosition: 'center',
                     imageRendering: 'pixelated',
                     transform: 'scale(1.2)', // Масштабируем через transform - это работает лучше
+                    backgroundColor: tint || 'transparent',
+                    backgroundBlendMode: tint ? 'multiply' : 'normal',
+                    maskImage: tint ? `url(${iconUrl})` : 'none',
+                    WebkitMaskImage: tint ? `url(${iconUrl})` : 'none',
+                    maskSize: 'contain',
+                    WebkitMaskSize: 'contain',
+                    maskRepeat: 'no-repeat',
+                    WebkitMaskRepeat: 'no-repeat',
+                    maskPosition: 'center',
+                    WebkitMaskPosition: 'center'
                 }} />
             </div>
         );
     }
 
-    const tintTop = isGrass ? BLOCK_TINTS['grassTop'] : (isLeaves ? BLOCK_TINTS['leaves'] : null);
-    const tintSide = isGrass ? BLOCK_TINTS['grassSide'] : (isLeaves ? BLOCK_TINTS['leaves'] : null);
+    const tintTop = isGrass ? BLOCK_TINTS['grassTop'] : (isLeaves ? BLOCK_TINTS['leaves'] : (isWater ? BLOCK_TINTS['water'] : null));
+    const tintSide = isGrass ? BLOCK_TINTS['grassSide'] : (isLeaves ? BLOCK_TINTS['leaves'] : (isWater ? BLOCK_TINTS['water'] : null));
 
     const faceBaseStyle = {
         position: 'absolute',

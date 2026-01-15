@@ -36,6 +36,7 @@ export class Block {
     this.isLiquid = settings.liquid || false;
     this.unbreakable = settings.unbreakable || false;
     this.isGravity = settings.gravity || false;
+    this.renderAsItem = settings.renderAsItem || false;
     
     // Новые свойства для системы добычи
     this.preferredTool = settings.preferredTool || TOOL_TYPES.HAND;
@@ -72,6 +73,7 @@ export class Block {
       liquid: this.isLiquid,
       unbreakable: this.unbreakable,
       gravity: this.isGravity,
+      renderAsItem: this.renderAsItem,
       preferredTool: this.preferredTool,
       requiresTool: this.requiresTool,
       drops: this.drops,
