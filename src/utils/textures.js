@@ -32,6 +32,9 @@ export const textures = {
   stoneAxe: texPath('stone_axe.png'),
   stonePickaxe: texPath('stone_pickaxe.png'),
   stoneShovel: texPath('stone_shovel.png'),
+  diamondAxe: texPath('diamond_axe.png'),
+  diamondPickaxe: texPath('diamond_pickaxe.png'),
+  diamondShovel: texPath('diamond_shovel.png'),
   // Workbench textures
   craftingTableTop: texPath('crafting_table_top.png'),
   craftingTableSide: texPath('crafting_table_side.png'),
@@ -88,6 +91,9 @@ const blockTextureMap = {
   [BLOCK_TYPES.STONE_AXE]: { all: 'stoneAxe', isItem: true },
   [BLOCK_TYPES.STONE_PICKAXE]: { all: 'stonePickaxe', isItem: true },
   [BLOCK_TYPES.STONE_SHOVEL]: { all: 'stoneShovel', isItem: true },
+  [BLOCK_TYPES.DIAMOND_AXE]: { all: 'diamondAxe', isItem: true },
+  [BLOCK_TYPES.DIAMOND_PICKAXE]: { all: 'diamondPickaxe', isItem: true },
+  [BLOCK_TYPES.DIAMOND_SHOVEL]: { all: 'diamondShovel', isItem: true },
   // Plants
   [BLOCK_TYPES.TALL_GRASS]: { all: 'shortGrass', renderType: 'cross' },
   // Light sources

@@ -329,4 +329,34 @@ export const initBlocks = () => {
     toolEfficiency: 2.0,
     durability: 131
   }));
+
+  // 526: DIAMOND_AXE
+  BlockRegistry.register(new Tool(BLOCK_TYPES.DIAMOND_AXE, {
+    name: 'diamond_axe',
+    texture: 'diamond_axe',
+    color: 0x5decf5,
+    toolType: TOOL_TYPES.AXE,
+    toolEfficiency: 4.0, // Алмазные инструменты - в 4 раза быстрее деревянных
+    durability: 1561
+  }));
+
+  // 527: DIAMOND_PICKAXE
+  BlockRegistry.register(new Tool(BLOCK_TYPES.DIAMOND_PICKAXE, {
+    name: 'diamond_pickaxe',
+    texture: 'diamond_pickaxe',
+    color: 0x5decf5,
+    toolType: TOOL_TYPES.PICKAXE,
+    toolEfficiency: 4.0,
+    durability: 1561
+  }));
+
+  // 528: DIAMOND_SHOVEL
+  BlockRegistry.register(new Tool(BLOCK_TYPES.DIAMOND_SHOVEL, {
+    name: 'diamond_shovel',
+    texture: 'diamond_shovel',
+    color: 0x5decf5,
+    toolType: TOOL_TYPES.SHOVEL,
+    toolEfficiency: 4.0,
+    durability: 1561
+  }));
 };

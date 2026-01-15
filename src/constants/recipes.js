@@ -101,6 +101,52 @@ export const RECIPES = [
       [null, BLOCK_TYPES.STICK, null]
     ],
     type: 'shaped'
+  },
+
+  // === DIAMOND TOOLS ===
+  // Diamond Axe
+  {
+    id: 'diamond_axe',
+    result: { type: BLOCK_TYPES.DIAMOND_AXE, count: 1 },
+    pattern: [
+      [BLOCK_TYPES.DIAMOND, BLOCK_TYPES.DIAMOND, null],
+      [BLOCK_TYPES.DIAMOND, BLOCK_TYPES.STICK, null],
+      [null, BLOCK_TYPES.STICK, null]
+    ],
+    type: 'shaped'
+  },
+  // Diamond Pickaxe
+  {
+    id: 'diamond_pickaxe',
+    result: { type: BLOCK_TYPES.DIAMOND_PICKAXE, count: 1 },
+    pattern: [
+      [BLOCK_TYPES.DIAMOND, BLOCK_TYPES.DIAMOND, BLOCK_TYPES.DIAMOND],
+      [null, BLOCK_TYPES.STICK, null],
+      [null, BLOCK_TYPES.STICK, null]
+    ],
+    type: 'shaped'
+  },
+  // Diamond Shovel
+  {
+    id: 'diamond_shovel',
+    result: { type: BLOCK_TYPES.DIAMOND_SHOVEL, count: 1 },
+    pattern: [
+      [null, BLOCK_TYPES.DIAMOND, null],
+      [null, BLOCK_TYPES.STICK, null],
+      [null, BLOCK_TYPES.STICK, null]
+    ],
+    type: 'shaped'
+  },
+
+  // === TORCH (4 torches from 1 coal + 1 stick) ===
+  {
+    id: 'torch',
+    result: { type: BLOCK_TYPES.TORCH, count: 4 },
+    pattern: [
+      [BLOCK_TYPES.COAL],
+      [BLOCK_TYPES.STICK]
+    ],
+    type: 'shaped'
   }
 ];
 

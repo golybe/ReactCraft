@@ -52,7 +52,12 @@ export const BLOCK_TYPES = {
   // Stone tools
   STONE_AXE: 523,
   STONE_PICKAXE: 524,
-  STONE_SHOVEL: 525
+  STONE_SHOVEL: 525,
+  
+  // Diamond tools
+  DIAMOND_AXE: 526,
+  DIAMOND_PICKAXE: 527,
+  DIAMOND_SHOVEL: 528
 };
 
 export default BLOCK_TYPES;
