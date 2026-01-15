@@ -43,7 +43,7 @@
 .menu-logo h1 {
   font-size: 80px;
   color: #b0b0b0;
-  font-family: 'VT323', monospace;
+  font-family: 'Monocraft', monospace;
   text-shadow:
     0 4px 0 #555,
     0 8px 0 #333,
@@ -60,7 +60,7 @@
   margin: -10px 0 0 80px;
   transform: rotate(-10deg);
   text-shadow: 2px 2px 0 #333;
-  font-family: 'VT323', monospace;
+  font-family: 'Monocraft', monospace;
   animation: pulse 1s infinite alternate;
 }
 

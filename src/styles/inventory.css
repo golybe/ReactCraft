@@ -11,7 +11,7 @@
   justify-content: center;
   align-items: center;
   z-index: 2000;
-  font-family: 'Minecraft', 'VT323', monospace;
+  font-family: 'Monocraft', monospace;
   image-rendering: pixelated;
 }
 
@@ -82,7 +82,7 @@
   right: 3px;
   color: #fff;
   font-size: 21px;
-  font-family: 'VT323', monospace;
+  font-family: 'Monocraft', monospace;
   text-shadow: 2px 2px 0 #3f3f3f;
   line-height: 1;
   pointer-events: none;
@@ -108,7 +108,7 @@
   background: transparent;
   border: none;
   color: #fff;
-  font-family: 'VT323', monospace;
+  font-family: 'Monocraft', monospace;
   font-size: 24px;
   outline: none;
 }
@@ -255,7 +255,7 @@
   border: 3px solid #25005a;
   color: #fff;
   padding: 6px 12px;
-  font-family: 'VT323', monospace;
+  font-family: 'Monocraft', monospace;
   font-size: 24px;
   z-index: 2500;
   pointer-events: none;
@@ -276,7 +276,7 @@
   right: 0;
   color: #fff;
   font-size: 21px;
-  font-family: 'VT323', monospace;
+  font-family: 'Monocraft', monospace;
   text-shadow: 2px 2px 0 #3f3f3f;
   line-height: 1;
 }

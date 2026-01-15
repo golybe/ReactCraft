@@ -29,7 +29,7 @@ export const LoadingScreen = ({ worldName, progress }) => {
       alignItems: 'center',
       backgroundColor: '#1a1a2e',
       color: 'white',
-      fontFamily: "'VT323', monospace"
+      fontFamily: "'Monocraft', monospace"
     }}>
       <h1 style={{ marginBottom: '20px', fontSize: '48px', color: '#fff', textShadow: '2px 2px 0 #000' }}>
         {worldName || 'Minecraft React'}
@@ -87,7 +87,7 @@ export const PauseMenu = ({
           marginBottom: '20px',
           color: '#fff',
           fontSize: '40px',
-          fontFamily: "'VT323', monospace",
+          fontFamily: "'Monocraft', monospace",
           textShadow: '2px 2px 0 #000'
         }}>
           Меню игры
@@ -142,7 +142,7 @@ export const SaveMessage = ({ message }) => {
       color: '#4CAF50',
       padding: '15px 30px',
       border: '2px solid #fff',
-      fontFamily: "'VT323', monospace",
+      fontFamily: "'Monocraft', monospace",
       fontSize: '24px',
       zIndex: 1001,
       animation: 'fadeIn 0.2s ease'
@@ -174,7 +174,7 @@ export const DebugInfo = ({
       top: '10px',
       left: '10px',
       color: 'white',
-      fontFamily: "'VT323', monospace",
+      fontFamily: "'Monocraft', monospace",
       fontSize: '20px',
       textShadow: '1px 1px 0 #000',
       zIndex: 100,

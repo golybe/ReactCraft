@@ -15,7 +15,7 @@
 
 .hotbar-name {
   color: #fff;
-  font-family: 'VT323', monospace;
+  font-family: 'Monocraft', monospace;
   font-size: 24px;
   margin-bottom: 10px;
   text-shadow: 2px 2px 0 #000;
@@ -57,7 +57,7 @@
   right: 2px;
   color: #fff;
   font-size: 14px;
-  font-family: 'VT323', monospace;
+  font-family: 'Monocraft', monospace;
   text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
   line-height: 1;
   pointer-events: none;

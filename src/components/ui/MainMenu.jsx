@@ -29,7 +29,7 @@ const GameModeSelector = ({ value, onChange }) => {
           backgroundColor: value === GAME_MODES.SURVIVAL ? '#4a7c4e' : '#555',
           border: `3px solid ${value === GAME_MODES.SURVIVAL ? '#6abd6e' : '#777'}`,
           color: '#fff',
-          fontFamily: "'VT323', monospace",
+          fontFamily: "'Monocraft', monospace",
           fontSize: '18px',
           cursor: 'pointer',
           textShadow: '2px 2px 0 #000',
@@ -46,7 +46,7 @@ const GameModeSelector = ({ value, onChange }) => {
           backgroundColor: value === GAME_MODES.CREATIVE ? '#4a6c7c' : '#555',
           border: `3px solid ${value === GAME_MODES.CREATIVE ? '#6aadbd' : '#777'}`,
           color: '#fff',
-          fontFamily: "'VT323', monospace",
+          fontFamily: "'Monocraft', monospace",
           fontSize: '18px',
           cursor: 'pointer',
           textShadow: '2px 2px 0 #000',
@@ -161,7 +161,7 @@ const MainMenu = ({ onStartGame, onLoadWorld, savedWorlds }) => {
         <h1 style={{
           fontSize: '80px',
           color: '#b0b0b0',
-          fontFamily: "'VT323', monospace",
+          fontFamily: "'Monocraft', monospace",
           textShadow: `
             0 4px 0 #555,
             0 8px 0 #333,
@@ -180,7 +180,7 @@ const MainMenu = ({ onStartGame, onLoadWorld, savedWorlds }) => {
           margin: '-10px 0 0 80px',
           transform: 'rotate(-10deg)',
           textShadow: '2px 2px 0 #333',
-          fontFamily: "'VT323', monospace",
+          fontFamily: "'Monocraft', monospace",
           animation: 'pulse 1s infinite alternate'
         }}>
           React Edition!

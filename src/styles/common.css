@@ -1,4 +1,11 @@
 /* Common Minecraft-style UI Components */
+@font-face {
+  font-family: 'Monocraft';
+  src: url('https://cdn.jsdelivr.net/gh/IdreesInc/Monocraft@main/dist/Monocraft-ttf/Monocraft.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
 
 /* Minecraft Button */
 .mc-button {
@@ -8,7 +15,7 @@
   border: 3px solid;
   border-color: #fff #555 #555 #fff;
   color: #fff;
-  font-family: 'VT323', monospace;
+  font-family: 'Monocraft', monospace;
   font-size: 20px;
   cursor: pointer;
   text-shadow: 2px 2px 0 #000;
@@ -45,7 +52,7 @@
   border: 2px solid;
   border-color: #373737 #fff #fff #373737;
   color: #fff;
-  font-family: 'VT323', monospace;
+  font-family: 'Monocraft', monospace;
   font-size: 18px;
   outline: none;
   box-sizing: border-box;
