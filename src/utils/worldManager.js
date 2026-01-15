@@ -29,13 +29,13 @@ export const createWorld = async (name, seed, gameMode = GAME_MODES.SURVIVAL) =>
 
   // Сохраняем только метаданные при создании
   try {
-      await fetch(`${API_URL}/${id}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ metadata: worldInfo })
-      });
+    await fetch(`${API_URL}/${id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ metadata: worldInfo })
+    });
   } catch (e) {
-      console.error('Error creating world:', e);
+    console.error('Error creating world:', e);
   }
 
   return worldInfo;
@@ -47,24 +47,24 @@ export const saveWorldData = async (worldId, chunks, playerPos, gameState = {}) 
     // Получаем текущий список миров, чтобы найти наш мир и обновить мету
     const worlds = await getSavedWorlds();
     let worldInfo = worlds.find(w => w.id === worldId);
-    
+
     if (!worldInfo) {
-        worldInfo = { id: worldId, name: 'Unknown World', createdAt: Date.now() };
+      worldInfo = { id: worldId, name: 'Unknown World', createdAt: Date.now() };
     }
-    
+
     worldInfo.lastPlayed = Date.now();
     worldInfo.playerPos = playerPos;
-    
+
     // Обновляем gameMode если передан
     if (gameState.gameMode !== undefined) {
       worldInfo.gameMode = gameState.gameMode;
     }
-    
+
     // Сохраняем инвентарь
     if (gameState.inventory !== undefined) {
       worldInfo.inventory = gameState.inventory;
     }
-    
+
     // Сохраняем здоровье игрока
     if (gameState.health !== undefined) {
       worldInfo.health = gameState.health;
@@ -72,7 +72,7 @@ export const saveWorldData = async (worldId, chunks, playerPos, gameState = {}) 
     if (gameState.maxHealth !== undefined) {
       worldInfo.maxHealth = gameState.maxHealth;
     }
-    
+
     // Сохраняем направление взгляда (yaw и pitch)
     if (gameState.playerYaw !== undefined) {
       worldInfo.playerYaw = gameState.playerYaw;
@@ -81,13 +81,17 @@ export const saveWorldData = async (worldId, chunks, playerPos, gameState = {}) 
       worldInfo.playerPitch = gameState.playerPitch;
     }
 
+    // Подготовка данных мира
+    const worldData = {
+      metadata: worldInfo,
+      chunks: chunks.chunks || chunks, // Если передан объект {chunks, ...} или просто chunks
+      tileEntities: chunks.tileEntities || []
+    };
+
     await fetch(`${API_URL}/${worldId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-            metadata: worldInfo,
-            chunks: chunks // Это RLE сжатые данные
-        })
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(worldData)
     });
 
     return true;
@@ -101,7 +105,7 @@ export const saveWorldData = async (worldId, chunks, playerPos, gameState = {}) 
 export const loadWorldData = async (worldId) => {
   try {
     const response = await fetch(`${API_URL}/${worldId}/chunks`);
-    if (!response.ok) return {}; 
+    if (!response.ok) return {};
     const data = await response.json();
     return data;
   } catch (e) {
@@ -123,13 +127,13 @@ export const deleteWorld = async (worldId) => {
 
 // Удалить ВСЕ миры
 export const deleteAllWorlds = async () => {
-    try {
-        await fetch(API_URL, { method: 'DELETE' });
-        return true;
-    } catch (e) {
-        console.error('Error deleting all worlds:', e);
-        return false;
-    }
+  try {
+    await fetch(API_URL, { method: 'DELETE' });
+    return true;
+  } catch (e) {
+    console.error('Error deleting all worlds:', e);
+    return false;
+  }
 };
 
 // Заглушки для импорта/экспорта (так как теперь файлы доступны напрямую)

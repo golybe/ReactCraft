@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Inventory as InventoryClass } from '../core/inventory/Inventory';
 import { CraftingManager } from '../core/inventory/CraftingManager';
 import { TOTAL_INVENTORY_SIZE, HOTBAR_SIZE, CRAFTING_GRID_SIZE } from '../utils/inventory';
@@ -176,7 +176,7 @@ export function useInventoryManagement({
   }, [isInventoryOpen]);
 
   // Hotbar is slots 0-8
-  const hotbar = inventory.slice(0, HOTBAR_SIZE);
+  const hotbar = useMemo(() => inventory.slice(0, HOTBAR_SIZE), [inventory]);
 
   // ВАЖНО: НЕ синхронизируем inventory обратно в inventoryRef!
   // inventoryRef - это единственный источник истины.

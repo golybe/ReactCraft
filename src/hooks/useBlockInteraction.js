@@ -5,7 +5,7 @@ import { CHUNK_HEIGHT, REACH_DISTANCE, PLAYER_WIDTH, PLAYER_HEIGHT } from '../co
 import { GAME_MODES } from '../constants/gameMode';
 import { BlockMiningManager } from '../core/physics/BlockMining';
 import { TOOL_TYPES } from '../core/blocks/Block';
-import { FurnaceManager } from '../core/FurnaceManager';
+import { TileEntityManager } from '../core/tileentity';
 
 /**
  * Hook for managing block interaction (mining, placing, debris, dropped items)
@@ -52,12 +52,12 @@ export function useBlockInteraction({
     const recursiveDestroy = (bx, by, bz, bid) => {
       const block = BlockRegistry.get(bid);
 
-      // Сохраняем содержимое печки ДО удаления блока
-      let furnaceContents = null;
-      if (bid === BLOCK_TYPES.FURNACE) {
-        const furnaceState = FurnaceManager.getExistingFurnaceState(bx, by, bz);
-        if (furnaceState) {
-          furnaceContents = [furnaceState.inputSlot, furnaceState.fuelSlot, furnaceState.outputSlot];
+      // Сохраняем содержимое TileEntity ДО удаления блока
+      let tileEntityDrops = [];
+      if (TileEntityManager.isTileEntityBlock(bid)) {
+        const tileEntity = TileEntityManager.get(bx, by, bz);
+        if (tileEntity) {
+          tileEntityDrops = tileEntity.getDrops();
         }
       }
 
@@ -106,10 +106,9 @@ export function useBlockInteraction({
           });
         }
 
-        // Дроп содержимого печки при разрушении (используем сохранённое содержимое)
-        if (bid === BLOCK_TYPES.FURNACE && gameMode === GAME_MODES.SURVIVAL && furnaceContents) {
-
-          furnaceContents.forEach(slot => {
+        // Дроп содержимого TileEntity при разрушении
+        if (tileEntityDrops.length > 0 && gameMode === GAME_MODES.SURVIVAL) {
+          tileEntityDrops.forEach(slot => {
             if (slot && slot.type && slot.count > 0) {
               const itemId = Date.now() + Math.random();
               const angle = Math.random() * Math.PI * 2;
@@ -330,6 +329,11 @@ export function useBlockInteraction({
 
     const success = worldRef.current.setBlock(x, y, z, blockType, metadata);
     if (success) {
+      // Создаем TileEntity если нужно
+      if (TileEntityManager.isTileEntityBlock(blockType)) {
+        TileEntityManager.create(x, y, z, blockType);
+      }
+
       setChunks({ ...worldRef.current.getChunks() });
 
       // In Survival mode consume block from inventory

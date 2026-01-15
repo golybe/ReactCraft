@@ -500,7 +500,6 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
 
   // === FURNACE STATE ===
   // Временное состояние печки (в будущем будет храниться в мире по координатам)
-  const [furnaceData, setFurnaceData] = React.useState(null);
   const [furnacePosition, setFurnacePosition] = React.useState(null);
 
   // === CRAFTING TABLE INTERACTION ===
@@ -634,8 +633,6 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
         craftingResult3x3={craftingResult3x3}
         onCraftResult3x3Pickup={handleCraftResult3x3Pickup}
         onShiftCraft3x3={handleShiftCraftResult3x3}
-        furnaceData={furnaceData}
-        onFurnaceDataChange={setFurnaceData}
         furnacePosition={furnacePosition}
       />
 

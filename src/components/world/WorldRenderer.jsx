@@ -10,7 +10,7 @@ import { BLOCK_TINTS } from '../../constants/colors';
 
 import { getBlockTextureInfo } from '../../utils/textures';
 import { TextureManager } from '../../core/rendering/TextureManager';
-import { FurnaceManager } from '../../core/FurnaceManager';
+import { TileEntityManager } from '../../core/tileentity';
 
 // Используем единый TextureManager
 const textureManager = TextureManager.getInstance();
@@ -455,14 +455,14 @@ const BurningFurnacesRenderer = ({ chunks }) => {
 
   // Подписываемся на изменения FurnaceManager
   useEffect(() => {
-    const unsubscribe = FurnaceManager.subscribe((version) => {
+    const unsubscribe = TileEntityManager.subscribe((version) => {
       setFurnaceVersion(version);
-      setBurningFurnaces(FurnaceManager.getBurningFurnaces());
+      setBurningFurnaces(TileEntityManager.getActiveByType(BLOCK_TYPES.FURNACE));
 
     });
 
     // Инициализация
-    setBurningFurnaces(FurnaceManager.getBurningFurnaces());
+    setBurningFurnaces(TileEntityManager.getActiveByType(BLOCK_TYPES.FURNACE));
 
     return () => unsubscribe();
   }, []);

@@ -5,7 +5,8 @@ import { UI_TYPES, UI_CONFIG } from '../../constants/uiTypes';
 import { MAX_STACK_SIZE, HOTBAR_SIZE } from '../../utils/inventory';
 import { Inventory } from '../../core/inventory/Inventory';
 import { getSmeltingRecipe, getFuelBurnTime } from '../../constants/recipes';
-import { FurnaceManager } from '../../core/FurnaceManager';
+import { TileEntityManager } from '../../core/tileentity';
+import { BLOCK_TYPES } from '../../constants/blockTypes';
 import '../../styles/inventory.css';
 
 /**
@@ -450,23 +451,42 @@ const CraftingUI = ({
 const FurnaceUI = ({
     inventory,
     onInventoryChange,
-    furnaceData,
-    onFurnaceDataChange,
     furnacePosition,
     slotInteraction
 }) => {
     const { handleSlotClick, handleSlotRightClick, handleSlotHover, cursorItem, setCursorItem } = slotInteraction;
     const [, forceUpdate] = useState(0);
 
-    // Получаем состояние из FurnaceManager
-    const furnaceState = useMemo(() => {
-        if (!furnacePosition) return null;
-        return FurnaceManager.getFurnaceState(
+    // Получаем состояние из TileEntityManager
+    const [tileEntity, setTileEntity] = useState(null);
+
+    useEffect(() => {
+        if (!furnacePosition) {
+            setTileEntity(null);
+            return;
+        }
+
+        // Пытаемся получить существующую сущность
+        let entity = TileEntityManager.get(
             furnacePosition.x,
             furnacePosition.y,
             furnacePosition.z
         );
+
+        // Если нет - создаём (это безопасно делать в useEffect)
+        if (!entity) {
+            entity = TileEntityManager.create(
+                furnacePosition.x,
+                furnacePosition.y,
+                furnacePosition.z,
+                BLOCK_TYPES.FURNACE
+            );
+        }
+
+        setTileEntity(entity);
     }, [furnacePosition]);
+
+    const furnaceState = tileEntity ? tileEntity.getUIData() : null;
 
     // Локальные ссылки на состояние для UI
     const inputSlot = furnaceState?.inputSlot || null;
@@ -477,55 +497,32 @@ const FurnaceUI = ({
     const smeltProgress = furnaceState?.smeltProgress || 0;
     const currentRecipe = furnaceState?.currentRecipe || null;
 
-    // Функции для обновления состояния через FurnaceManager
+    // Функции для обновления состояния через TileEntity
     const setInputSlot = useCallback((value) => {
-        if (furnacePosition) {
-            FurnaceManager.updateFurnaceData(
-                furnacePosition.x, furnacePosition.y, furnacePosition.z,
-                { inputSlot: value }
-            );
+        if (tileEntity) {
+            tileEntity.setSlotData('input', value);
         }
-    }, [furnacePosition]);
+    }, [tileEntity]);
 
     const setFuelSlot = useCallback((value) => {
-        if (furnacePosition) {
-            FurnaceManager.updateFurnaceData(
-                furnacePosition.x, furnacePosition.y, furnacePosition.z,
-                { fuelSlot: value }
-            );
+        if (tileEntity) {
+            tileEntity.setSlotData('fuel', value);
         }
-    }, [furnacePosition]);
+    }, [tileEntity]);
 
     const setOutputSlot = useCallback((value) => {
-        if (furnacePosition) {
-            FurnaceManager.updateFurnaceData(
-                furnacePosition.x, furnacePosition.y, furnacePosition.z,
-                { outputSlot: value }
-            );
+        if (tileEntity) {
+            tileEntity.setSlotData('output', value);
         }
-    }, [furnacePosition]);
+    }, [tileEntity]);
 
-    // Подписываемся на обновления FurnaceManager для перерисовки UI
+    // Подписываемся на обновления TileEntityManager для перерисовки UI
     useEffect(() => {
-        const unsubscribe = FurnaceManager.subscribe(() => {
+        const unsubscribe = TileEntityManager.subscribe(() => {
             forceUpdate(v => v + 1);
         });
         return () => unsubscribe();
     }, []);
-
-    // Синхронизация с onFurnaceDataChange для обратной совместимости
-    useEffect(() => {
-        if (onFurnaceDataChange && furnaceState) {
-            onFurnaceDataChange({
-                inputSlot,
-                fuelSlot,
-                outputSlot,
-                burnTime,
-                maxBurnTime,
-                smeltProgress
-            });
-        }
-    }, [inputSlot, fuelSlot, outputSlot, burnTime, maxBurnTime, smeltProgress, onFurnaceDataChange, furnaceState]);
 
     // Обработчик клика по слоту печки
     const handleFurnaceSlotClick = (slotType, e) => {
@@ -762,8 +759,6 @@ const UIManager = ({
     onCraftResult3x3Pickup,
     onShiftCraft3x3,
     // Furnace
-    furnaceData,
-    onFurnaceDataChange,
     furnacePosition
 }) => {
     const slotInteraction = useSlotInteraction();
@@ -834,8 +829,6 @@ const UIManager = ({
                 <FurnaceUI
                     inventory={inventory}
                     onInventoryChange={onInventoryChange}
-                    furnaceData={furnaceData}
-                    onFurnaceDataChange={onFurnaceDataChange}
                     furnacePosition={furnacePosition}
                     slotInteraction={slotInteraction}
                 />
