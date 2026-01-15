@@ -31,5 +31,6 @@ Thumbs.db
 tmpclaude-*/
 *.tmp
 
-# Saves (optional - можно раскомментировать если не хотите пушить сохранения)
-# saves/
+# Saves
+saves/**/*
+!saves/.gitkeep
