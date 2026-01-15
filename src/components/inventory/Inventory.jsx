@@ -17,7 +17,7 @@ const getSlotData = (slot) => {
 /**
  * Minecraft-style inventory slot
  */
-const MCSlot = ({ slot, onClick, onRightClick, onHover, isHovered, showCount = true, size = 36 }) => {
+const MCSlot = ({ slot, onClick, onRightClick, onHover, isHovered, showCount = true, size = 32 }) => {
   const { type, count } = getSlotData(slot);
   const iconSize = Math.floor(size * 0.67);
 

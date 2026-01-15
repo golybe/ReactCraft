@@ -37,6 +37,8 @@ export const textures = {
   // New textures
   gravel: texPath('gravel.png'),
   sandstone: texPath('sandstone.png'),
+  sandstoneTop: texPath('sandstone_top.png'),
+  sandstoneBottom: texPath('sandstone_bottom.png'),
   lapisOre: texPath('lapis_ore.png'),
   // Plants
   shortGrass: texPath('short_grass.png'),
@@ -77,7 +79,7 @@ const blockTextureMap = {
   },
   [BLOCK_TYPES.COBBLESTONE]: { all: 'cobblestone' },
   [BLOCK_TYPES.GRAVEL]: { all: 'gravel' },
-  [BLOCK_TYPES.SANDSTONE]: { all: 'sandstone' },
+  [BLOCK_TYPES.SANDSTONE]: { top: 'sandstoneTop', side: 'sandstone', bottom: 'sandstoneBottom' },
   [BLOCK_TYPES.LAPIS_ORE]: { all: 'lapisOre' },
   [BLOCK_TYPES.STONE_AXE]: { all: 'stoneAxe', isItem: true },
   [BLOCK_TYPES.STONE_PICKAXE]: { all: 'stonePickaxe', isItem: true },

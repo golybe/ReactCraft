@@ -33,7 +33,7 @@ export const MCSlot = ({
     className = ''
 }) => {
     const { type, count, durability } = getSlotData(slot);
-    const iconSize = Math.floor(size * 0.67);
+    const iconSize = Math.floor(size * 0.60);
     const block = type ? BlockRegistry.get(type) : null;
     const maxDurability = block?.maxDurability || 0;
 

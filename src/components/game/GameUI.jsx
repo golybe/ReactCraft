@@ -81,7 +81,7 @@ export const PauseMenu = ({
         gap: '15px',
         alignItems: 'center',
         width: '100%',
-        maxWidth: '350px'
+        maxWidth: '400px'
       }}>
         <h2 style={{
           marginBottom: '20px',
@@ -98,10 +98,16 @@ export const PauseMenu = ({
         </MCButton>
 
         <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
-          <MCButton onClick={() => alert('Достижения пока недоступны')}>
+          <MCButton 
+            onClick={() => alert('Достижения пока недоступны')}
+            style={{ flex: 1, padding: '12px 5px' }}
+          >
             Достижения
           </MCButton>
-          <MCButton onClick={() => alert('Статистика пока недоступна')}>
+          <MCButton 
+            onClick={() => alert('Статистика пока недоступна')}
+            style={{ flex: 1, padding: '12px 5px' }}
+          >
             Статистика
           </MCButton>
         </div>
@@ -169,18 +175,18 @@ export const DebugInfo = ({
   lightLevel
 }) => {
   return (
-    <div style={{
-      position: 'fixed',
-      top: '10px',
-      left: '10px',
-      color: 'white',
-      fontFamily: "'Monocraft', monospace",
-      fontSize: '20px',
-      textShadow: '1px 1px 0 #000',
-      zIndex: 100,
-      lineHeight: '1.2'
-    }}>
-      <div>Minecraft React 1.0</div>
+      <div style={{
+        position: 'fixed',
+        top: '10px',
+        left: '10px',
+        color: 'white',
+        fontFamily: "'Monocraft', monospace",
+        fontSize: '18px',
+        textShadow: '1px 1px 0 #000',
+        zIndex: 100,
+        lineHeight: '1.2'
+      }}>
+        <div>Minecraft React 0.1</div>
       <div>{Math.round(fps)} fps</div>
       <div>XYZ: {playerPos.x.toFixed(3)} / {playerPos.y.toFixed(3)} / {playerPos.z.toFixed(3)}</div>
       <div>Chunk: {Math.floor(playerPos.x / 16)} {Math.floor(playerPos.y / 16)} {Math.floor(playerPos.z / 16)}</div>
