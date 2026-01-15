@@ -2,14 +2,374 @@ import { CHUNK_SIZE, CHUNK_HEIGHT } from '../../constants/world';
 import { BLOCK_PROPERTIES, BLOCK_TYPES } from '../../constants/blocks';
 import { PerformanceMetrics } from '../../utils/performance';
 
+// 6 directions for BFS propagation
+const DIRECTIONS = [
+  [1, 0, 0], [-1, 0, 0],
+  [0, 1, 0], [0, -1, 0],
+  [0, 0, 1], [0, 0, -1]
+];
+
 /**
  * Manages lighting computation for chunks.
  * Extracted from ChunkManager for better separation of concerns.
+ *
+ * Supports incremental lighting updates for all block types (Minecraft-style).
  */
 export class LightingManager {
   constructor() {
     this.lightMaps = {}; // Light maps for chunks (Uint8Array)
     this.fullyLit = new Set(); // Chunks that have been lit with all neighbors present
+    this.getBlockCallback = null; // Callback to get block at world coordinates
+  }
+
+  /**
+   * Set callback for getting blocks at world coordinates
+   * @param {Function} callback - (worldX, worldY, worldZ) => blockId
+   */
+  setBlockCallback(callback) {
+    this.getBlockCallback = callback;
+  }
+
+  // === WORLD COORDINATE HELPERS ===
+
+  /**
+   * Get chunk key from world coordinates
+   */
+  getChunkKey(worldX, worldZ) {
+    const cx = Math.floor(worldX / CHUNK_SIZE);
+    const cz = Math.floor(worldZ / CHUNK_SIZE);
+    return `${cx},${cz}`;
+  }
+
+  /**
+   * Get local coordinates within chunk
+   */
+  getLocalCoords(worldX, worldZ) {
+    return {
+      lx: ((worldX % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE,
+      lz: ((worldZ % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+    };
+  }
+
+  /**
+   * Get light index from local coordinates
+   */
+  getLightIndex(lx, y, lz) {
+    return y * CHUNK_SIZE * CHUNK_SIZE + lx * CHUNK_SIZE + lz;
+  }
+
+  /**
+   * Get light at world coordinates (internal helper)
+   */
+  getLightAt(worldX, worldY, worldZ) {
+    if (worldY < 0) return 0;
+    if (worldY >= CHUNK_HEIGHT) return 15;
+
+    const key = this.getChunkKey(worldX, worldZ);
+    const lightMap = this.lightMaps[key];
+    if (!lightMap) return 0;
+
+    const { lx, lz } = this.getLocalCoords(worldX, worldZ);
+    const index = this.getLightIndex(lx, worldY, lz);
+    return lightMap[index] || 0;
+  }
+
+  /**
+   * Set light at world coordinates (internal helper)
+   * @returns {boolean} true if light was changed
+   */
+  setLightAt(worldX, worldY, worldZ, value, affectedChunks) {
+    if (worldY < 0 || worldY >= CHUNK_HEIGHT) return false;
+
+    const key = this.getChunkKey(worldX, worldZ);
+    const lightMap = this.lightMaps[key];
+    if (!lightMap) return false;
+
+    const { lx, lz } = this.getLocalCoords(worldX, worldZ);
+    const index = this.getLightIndex(lx, worldY, lz);
+
+    if (lightMap[index] !== value) {
+      lightMap[index] = value;
+      if (affectedChunks) affectedChunks.add(key);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Check if block at world coordinates is opaque
+   */
+  isOpaqueAt(worldX, worldY, worldZ) {
+    if (!this.getBlockCallback) return false;
+    if (worldY < 0 || worldY >= CHUNK_HEIGHT) return false;
+
+    const block = this.getBlockCallback(worldX, worldY, worldZ);
+    if (!block || block === BLOCK_TYPES.AIR) return false;
+
+    const props = BLOCK_PROPERTIES[block];
+    return props && !props.transparent;
+  }
+
+  /**
+   * Get light decay for block at position (water/leaves = 2, others = 1)
+   */
+  getLightDecay(worldX, worldY, worldZ) {
+    if (!this.getBlockCallback) return 1;
+
+    const block = this.getBlockCallback(worldX, worldY, worldZ);
+    if (block === BLOCK_TYPES.WATER || block === BLOCK_TYPES.LEAVES) return 2;
+    return 1;
+  }
+
+  // === INCREMENTAL LIGHTING UPDATE (Minecraft-style) ===
+
+  /**
+   * Main dispatcher for block changes - handles all block types
+   * @param {number} worldX - World X coordinate
+   * @param {number} worldY - World Y coordinate
+   * @param {number} worldZ - World Z coordinate
+   * @param {number} oldBlockId - Previous block ID
+   * @param {number} newBlockId - New block ID
+   * @returns {Set<string>} Set of affected chunk keys
+   */
+  onBlockPlaced(worldX, worldY, worldZ, oldBlockId, newBlockId) {
+    const oldProps = BLOCK_PROPERTIES[oldBlockId];
+    const newProps = BLOCK_PROPERTIES[newBlockId];
+
+    const wasTransparent = !oldProps || oldProps.transparent;
+    const isTransparent = !newProps || newProps.transparent;
+    const oldIsTorch = oldProps?.renderType === 'torch';
+    const newIsTorch = newProps?.renderType === 'torch';
+
+    // Handle torch removal first
+    if (oldIsTorch && !newIsTorch) {
+      return this.removeLightSource(worldX, worldY, worldZ, 14);
+    }
+
+    // Handle torch placement
+    if (newIsTorch) {
+      return this.addLightSource(worldX, worldY, worldZ, 14);
+    }
+
+    // Transparent -> Opaque: block now blocks light
+    if (wasTransparent && !isTransparent) {
+      return this.onOpaqueBlockPlaced(worldX, worldY, worldZ);
+    }
+
+    // Opaque -> Transparent: block now allows light through
+    if (!wasTransparent && isTransparent) {
+      return this.onOpaqueBlockRemoved(worldX, worldY, worldZ);
+    }
+
+    // Transparent -> Transparent (e.g., air to water) - minimal update
+    // or Opaque -> Opaque - no light change needed
+    return new Set();
+  }
+
+  /**
+   * Handle placement of opaque block - removes light that passed through this position
+   * @returns {Set<string>} Set of affected chunk keys
+   */
+  onOpaqueBlockPlaced(worldX, worldY, worldZ) {
+    const affectedChunks = new Set();
+
+    // Get current light at this position before blocking
+    const currentLight = this.getLightAt(worldX, worldY, worldZ);
+
+    // Set light to 0 at this position (opaque block)
+    this.setLightAt(worldX, worldY, worldZ, 0, affectedChunks);
+
+    if (currentLight === 0) {
+      return affectedChunks; // No light was here anyway
+    }
+
+    // BFS removal queue and propagation queue
+    const removeQueue = [];
+    const propagateQueue = [];
+
+    // Check neighbors - they might have received light through this block
+    for (const [dx, dy, dz] of DIRECTIONS) {
+      const nx = worldX + dx;
+      const ny = worldY + dy;
+      const nz = worldZ + dz;
+
+      if (ny < 0 || ny >= CHUNK_HEIGHT) continue;
+      if (this.isOpaqueAt(nx, ny, nz)) continue;
+
+      const neighborLight = this.getLightAt(nx, ny, nz);
+      if (neighborLight > 0 && neighborLight < currentLight) {
+        // Neighbor's light was dependent on this block - add to removal queue
+        removeQueue.push({ x: nx, y: ny, z: nz, light: neighborLight });
+      } else if (neighborLight >= currentLight && neighborLight > 0) {
+        // Neighbor has independent light source - add to propagation queue
+        propagateQueue.push({ x: nx, y: ny, z: nz, light: neighborLight });
+      }
+    }
+
+    // Phase 1: BFS light removal
+    this.bfsRemoveLight(removeQueue, propagateQueue, affectedChunks);
+
+    // Phase 2: BFS light propagation from remaining sources
+    this.bfsPropagate(propagateQueue, affectedChunks);
+
+    return affectedChunks;
+  }
+
+  /**
+   * Handle removal of opaque block - allows light to pass through
+   * @returns {Set<string>} Set of affected chunk keys
+   */
+  onOpaqueBlockRemoved(worldX, worldY, worldZ) {
+    const affectedChunks = new Set();
+    const propagateQueue = [];
+
+    // Check for skylight from above
+    let skyLight = 0;
+    let hasDirectSky = true;
+
+    for (let y = worldY + 1; y < CHUNK_HEIGHT; y++) {
+      if (this.isOpaqueAt(worldX, y, worldZ)) {
+        hasDirectSky = false;
+        break;
+      }
+      // Check if there's full skylight above
+      const lightAbove = this.getLightAt(worldX, y, worldZ);
+      if (lightAbove === 15) {
+        skyLight = 15;
+        break;
+      }
+    }
+
+    // If direct sky access and at top of world or light above is 15
+    if (hasDirectSky && (worldY === CHUNK_HEIGHT - 1 || skyLight === 15)) {
+      skyLight = 15;
+    }
+
+    // Find max light from neighbors
+    let maxNeighborLight = 0;
+    for (const [dx, dy, dz] of DIRECTIONS) {
+      const nx = worldX + dx;
+      const ny = worldY + dy;
+      const nz = worldZ + dz;
+
+      if (ny < 0 || ny >= CHUNK_HEIGHT) continue;
+
+      const neighborLight = this.getLightAt(nx, ny, nz);
+      if (neighborLight > maxNeighborLight) {
+        maxNeighborLight = neighborLight;
+      }
+    }
+
+    // New light is max of skylight or (neighbor - 1)
+    const newLight = Math.max(skyLight, maxNeighborLight > 0 ? maxNeighborLight - 1 : 0);
+
+    if (newLight > 0) {
+      this.setLightAt(worldX, worldY, worldZ, newLight, affectedChunks);
+      propagateQueue.push({ x: worldX, y: worldY, z: worldZ, light: newLight });
+
+      // BFS propagate from this position
+      this.bfsPropagate(propagateQueue, affectedChunks);
+    }
+
+    // If skylight opened up, propagate it downward
+    if (skyLight === 15) {
+      this.propagateSkylight(worldX, worldY - 1, worldZ, affectedChunks);
+    }
+
+    return affectedChunks;
+  }
+
+  /**
+   * BFS light removal - removes light that was dependent on a removed source
+   */
+  bfsRemoveLight(removeQueue, propagateQueue, affectedChunks) {
+    let head = 0;
+
+    while (head < removeQueue.length) {
+      const { x, y, z, light } = removeQueue[head++];
+
+      // Set this position to 0
+      this.setLightAt(x, y, z, 0, affectedChunks);
+
+      for (const [dx, dy, dz] of DIRECTIONS) {
+        const nx = x + dx;
+        const ny = y + dy;
+        const nz = z + dz;
+
+        if (ny < 0 || ny >= CHUNK_HEIGHT) continue;
+        if (this.isOpaqueAt(nx, ny, nz)) continue;
+
+        const neighborLight = this.getLightAt(nx, ny, nz);
+
+        if (neighborLight > 0 && neighborLight < light) {
+          // This neighbor received light from the removed area - remove it
+          removeQueue.push({ x: nx, y: ny, z: nz, light: neighborLight });
+        } else if (neighborLight >= light && neighborLight > 0) {
+          // This neighbor has independent light - add to propagation
+          propagateQueue.push({ x: nx, y: ny, z: nz, light: neighborLight });
+        }
+      }
+    }
+  }
+
+  /**
+   * BFS light propagation - spreads light from sources
+   */
+  bfsPropagate(queue, affectedChunks) {
+    let head = 0;
+
+    while (head < queue.length) {
+      const { x, y, z, light } = queue[head++];
+
+      if (light <= 1) continue;
+
+      for (const [dx, dy, dz] of DIRECTIONS) {
+        const nx = x + dx;
+        const ny = y + dy;
+        const nz = z + dz;
+
+        if (ny < 0 || ny >= CHUNK_HEIGHT) continue;
+        if (this.isOpaqueAt(nx, ny, nz)) continue;
+
+        const decay = this.getLightDecay(nx, ny, nz);
+        const newLight = light - decay;
+        const currentLight = this.getLightAt(nx, ny, nz);
+
+        if (newLight > currentLight) {
+          this.setLightAt(nx, ny, nz, newLight, affectedChunks);
+          queue.push({ x: nx, y: ny, z: nz, light: newLight });
+        }
+      }
+    }
+  }
+
+  /**
+   * Propagate skylight downward when a block is removed
+   */
+  propagateSkylight(worldX, startY, worldZ, affectedChunks) {
+    let light = 15;
+
+    for (let y = startY; y >= 0; y--) {
+      if (this.isOpaqueAt(worldX, y, worldZ)) break;
+
+      const decay = this.getLightDecay(worldX, y, worldZ);
+      // Skylight doesn't decay going straight down through air
+      if (decay > 1) {
+        light = Math.max(0, light - (decay - 1));
+      }
+
+      const currentLight = this.getLightAt(worldX, y, worldZ);
+      if (light > currentLight) {
+        this.setLightAt(worldX, y, worldZ, light, affectedChunks);
+
+        // Also propagate horizontally from this skylight column
+        const propagateQueue = [{ x: worldX, y, z: worldZ, light }];
+        this.bfsPropagate(propagateQueue, affectedChunks);
+      } else {
+        // If existing light is already >= our skylight, stop
+        break;
+      }
+    }
   }
 
   /**
@@ -264,6 +624,7 @@ export class LightingManager {
         const nz = z + dz;
 
         if (ny < 0 || ny >= CHUNK_HEIGHT) continue;
+        if (this.isOpaqueAt(nx, ny, nz)) continue;
 
         const nKey = getKey(nx, nz);
         const nLightMap = this.lightMaps[nKey];
@@ -299,6 +660,7 @@ export class LightingManager {
         const nz = z + dz;
 
         if (ny < 0 || ny >= CHUNK_HEIGHT) continue;
+        if (this.isOpaqueAt(nx, ny, nz)) continue;
 
         const nKey = getKey(nx, nz);
         const nLightMap = this.lightMaps[nKey];
@@ -307,7 +669,10 @@ export class LightingManager {
         const nlx = getLocal(nx);
         const nlz = getLocal(nz);
         const nIndex = getIndex(nlx, ny, nlz);
-        const newLight = light - 1;
+
+        // Apply decay based on block type
+        const decay = this.getLightDecay(nx, ny, nz);
+        const newLight = light - decay;
 
         if (newLight > nLightMap[nIndex]) {
           nLightMap[nIndex] = newLight;
@@ -316,7 +681,7 @@ export class LightingManager {
         }
       }
     }
-    
+
     return affectedChunks;
   }
 
@@ -364,6 +729,9 @@ export class LightingManager {
 
         if (ny < 0 || ny >= CHUNK_HEIGHT) continue;
 
+        // Check if neighbor block is opaque - light cannot pass through
+        if (this.isOpaqueAt(nx, ny, nz)) continue;
+
         const nKey = getKey(nx, nz);
         const nLightMap = this.lightMaps[nKey];
         if (!nLightMap) continue;
@@ -371,7 +739,10 @@ export class LightingManager {
         const nlx = getLocal(nx);
         const nlz = getLocal(nz);
         const nIndex = getIndex(nlx, ny, nlz);
-        const newLight = light - 1;
+
+        // Apply decay based on block type (water/leaves = 2, others = 1)
+        const decay = this.getLightDecay(nx, ny, nz);
+        const newLight = light - decay;
 
         if (newLight > nLightMap[nIndex]) {
           nLightMap[nIndex] = newLight;
@@ -380,7 +751,7 @@ export class LightingManager {
         }
       }
     }
-    
+
     return affectedChunks;
   }
 

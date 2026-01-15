@@ -1,0 +1,57 @@
+{
+  "id": "world_1768454758456",
+  "name": "dweq",
+  "seed": 1768454758456,
+  "gameMode": 1,
+  "createdAt": 1768454758456,
+  "lastPlayed": 1768455071646,
+  "playerPos": {
+    "x": -28.258933012619472,
+    "y": 44,
+    "z": -46.182927502281785
+  },
+  "inventory": [
+    null,
+    null,
+    {
+      "type": 3,
+      "count": 64
+    },
+    {
+      "type": 22,
+      "count": 64
+    },
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+  ]
+}

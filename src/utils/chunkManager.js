@@ -1,5 +1,5 @@
 import { CHUNK_SIZE, CHUNK_HEIGHT, RENDER_DISTANCE } from '../constants/world';
-import { BLOCK_TYPES, BLOCK_PROPERTIES } from '../constants/blocks';
+import { BLOCK_TYPES } from '../constants/blocks';
 import { LightingManager } from '../core/world/LightingManager';
 import { ChunkGenerator } from '../core/world/ChunkGenerator';
 import { ChunkBatcher } from '../core/world/ChunkBatcher';
@@ -26,6 +26,9 @@ export class ChunkManager {
     this.lightingManager = new LightingManager();
     this.chunkGenerator = new ChunkGenerator(seed);
     this.batcher = new ChunkBatcher(this.lightingManager);
+
+    // Set callback for LightingManager to access blocks
+    this.lightingManager.setBlockCallback((x, y, z) => this.getBlock(x, y, z));
 
     // Pending lighting queue
     this.pendingLighting = new Set();
@@ -70,6 +73,15 @@ export class ChunkManager {
       }
       this.updateTimeout = null;
     }, 100);
+  }
+
+  /**
+   * Notify immediately without delay (for block changes)
+   */
+  notifyUpdateImmediate() {
+    if (this.onChunksUpdated) {
+      this.onChunksUpdated();
+    }
   }
 
   setOnChunksUpdated(callback) {
@@ -192,7 +204,8 @@ export class ChunkManager {
     }
 
     // После обработки партии, добавляем соседей в очередь для пересчёта
-    // Это критично для правильного распространения света между чанками
+    // Только если сосед ещё НЕ был полностью освещён (needsRelight)
+    // Это предотвращает каскадный полный пересчёт уже освещённых чанков
     if (processed.length > 0) {
       for (const key of processed) {
         const [cx, cz] = key.split(',').map(Number);
@@ -202,9 +215,11 @@ export class ChunkManager {
         ];
 
         for (const nKey of neighbors) {
-          // Добавляем соседа в очередь только если он существует и ещё не в очереди
-          if (this.chunks[nKey] && !this.pendingLighting.has(nKey) && !processed.includes(nKey)) {
-            // Помечаем для пересчёта на следующем тике
+          // Only add neighbor if it exists, not in queue, and needs relight (not fully lit)
+          if (this.chunks[nKey] &&
+              !this.pendingLighting.has(nKey) &&
+              !processed.includes(nKey) &&
+              this.lightingManager.needsRelight(nKey)) {
             this.pendingLightingNeighbors = this.pendingLightingNeighbors || new Set();
             this.pendingLightingNeighbors.add(nKey);
           }
@@ -284,43 +299,30 @@ export class ChunkManager {
       const oldId = targetChunk.getBlock(lx, worldY, lz);
       targetChunk.setBlock(lx, worldY, lz, blockType, metadata);
 
-      // Собираем соседние чанки на границе
+      // Collect border neighbors for mesh rebuild (fixes X-RAY bug)
       const borderNeighbors = [];
-      if (lx === 0 && this.chunks[`${cx - 1},${cz}`]) borderNeighbors.push(`${cx - 1},${cz}`);
-      if (lx === CHUNK_SIZE - 1 && this.chunks[`${cx + 1},${cz}`]) borderNeighbors.push(`${cx + 1},${cz}`);
-      if (lz === 0 && this.chunks[`${cx},${cz - 1}`]) borderNeighbors.push(`${cx},${cz - 1}`);
-      if (lz === CHUNK_SIZE - 1 && this.chunks[`${cx},${cz + 1}`]) borderNeighbors.push(`${cx},${cz + 1}`);
+      if (lx === 0) borderNeighbors.push(`${cx - 1},${cz}`);
+      if (lx === CHUNK_SIZE - 1) borderNeighbors.push(`${cx + 1},${cz}`);
+      if (lz === 0) borderNeighbors.push(`${cx},${cz - 1}`);
+      if (lz === CHUNK_SIZE - 1) borderNeighbors.push(`${cx},${cz + 1}`);
 
-      // Для факелов - инкрементальное обновление света
-      const oldProps = BLOCK_PROPERTIES[oldId];
-      const newProps = BLOCK_PROPERTIES[blockType];
-      const oldIsTorch = oldProps?.renderType === 'torch';
-      const newIsTorch = newProps?.renderType === 'torch';
-      
-      if (oldIsTorch && !newIsTorch) {
-        // Удалили факел - инкрементальное удаление света
-        const affectedChunks = this.lightingManager.removeLightSource(worldX, worldY, worldZ, 14);
-        for (const chunkKey of affectedChunks) {
-          this.batcher.markModified(chunkKey);
-          this.modifiedChunkKeys.add(chunkKey);
+      // Add border neighbors for mesh rebuild
+      for (const neighborKey of borderNeighbors) {
+        if (this.chunks[neighborKey]) {
+          this.batcher.markModified(neighborKey);
+          this.modifiedChunkKeys.add(neighborKey);
         }
-      } else if (!oldIsTorch && newIsTorch) {
-        // Поставили факел - инкрементальное добавление света
-        const affectedChunks = this.lightingManager.addLightSource(worldX, worldY, worldZ, 14);
-        for (const chunkKey of affectedChunks) {
-          this.batcher.markModified(chunkKey);
-          this.modifiedChunkKeys.add(chunkKey);
-        }
-      } else {
-        // Обычный блок - пересчёт освещения и соседей на границе
-        if (this.batcher.shouldUpdateLighting(oldId, blockType)) {
-          this.batcher.markLightingDirty(key);
-          for (const neighborKey of borderNeighbors) {
-            this.batcher.markLightingDirty(neighborKey);
-            this.batcher.markModified(neighborKey);
-            this.modifiedChunkKeys.add(neighborKey);
-          }
-        }
+      }
+
+      // Incremental lighting update (Minecraft-style)
+      const affectedChunks = this.lightingManager.onBlockPlaced(
+        worldX, worldY, worldZ,
+        oldId, blockType
+      );
+
+      for (const chunkKey of affectedChunks) {
+        this.batcher.markModified(chunkKey);
+        this.modifiedChunkKeys.add(chunkKey);
       }
 
       return true;
@@ -333,39 +335,38 @@ export class ChunkManager {
     this.chunks[key] = newChunk;
     this.modifiedChunkKeys.add(key);
 
-    // Собираем соседние чанки на границе для пересчёта освещения
+    // Collect border neighbors for mesh rebuild (fixes X-RAY bug)
+    // When a block is placed/removed on chunk border, adjacent chunk needs mesh update
     const borderNeighbors = [];
-    if (lx === 0 && this.chunks[`${cx - 1},${cz}`]) borderNeighbors.push(`${cx - 1},${cz}`);
-    if (lx === CHUNK_SIZE - 1 && this.chunks[`${cx + 1},${cz}`]) borderNeighbors.push(`${cx + 1},${cz}`);
-    if (lz === 0 && this.chunks[`${cx},${cz - 1}`]) borderNeighbors.push(`${cx},${cz - 1}`);
-    if (lz === CHUNK_SIZE - 1 && this.chunks[`${cx},${cz + 1}`]) borderNeighbors.push(`${cx},${cz + 1}`);
+    if (lx === 0) borderNeighbors.push(`${cx - 1},${cz}`);
+    if (lx === CHUNK_SIZE - 1) borderNeighbors.push(`${cx + 1},${cz}`);
+    if (lz === 0) borderNeighbors.push(`${cx},${cz - 1}`);
+    if (lz === CHUNK_SIZE - 1) borderNeighbors.push(`${cx},${cz + 1}`);
 
-    // Проверяем, это изменение факела
-    const oldProps = BLOCK_PROPERTIES[oldBlockType];
-    const newProps = BLOCK_PROPERTIES[blockType];
-    const oldIsTorch = oldProps?.renderType === 'torch';
-    const newIsTorch = newProps?.renderType === 'torch';
-
-    if (oldIsTorch && !newIsTorch) {
-      // Удалили факел - инкрементальное удаление света
-      const affectedChunks = this.lightingManager.removeLightSource(worldX, worldY, worldZ, 14);
-      for (const chunkKey of affectedChunks) {
-        this.modifiedChunkKeys.add(chunkKey);
-      }
-    } else if (!oldIsTorch && newIsTorch) {
-      // Поставили факел - инкрементальное добавление света
-      const affectedChunks = this.lightingManager.addLightSource(worldX, worldY, worldZ, 14);
-      for (const chunkKey of affectedChunks) {
-        this.modifiedChunkKeys.add(chunkKey);
-      }
-    } else {
-      // Обычный блок - пересчёт освещения текущего и соседних чанков на границе
-      this.lightingManager.computeLighting(newChunk, key);
-      for (const neighborKey of borderNeighbors) {
-        this.lightingManager.computeLighting(this.chunks[neighborKey], neighborKey);
+    // Add border neighbors for mesh rebuild
+    for (const neighborKey of borderNeighbors) {
+      if (this.chunks[neighborKey]) {
+        this.chunks[neighborKey] = this.chunks[neighborKey].clone();
         this.modifiedChunkKeys.add(neighborKey);
       }
     }
+
+    // Incremental lighting update (Minecraft-style)
+    const affectedChunks = this.lightingManager.onBlockPlaced(
+      worldX, worldY, worldZ,
+      oldBlockType, blockType
+    );
+
+    // Clone all affected chunks so React sees the changes immediately
+    for (const chunkKey of affectedChunks) {
+      if (this.chunks[chunkKey] && chunkKey !== key && !borderNeighbors.includes(chunkKey)) {
+        this.chunks[chunkKey] = this.chunks[chunkKey].clone();
+      }
+      this.modifiedChunkKeys.add(chunkKey);
+    }
+
+    // Notify React immediately about chunk changes
+    this.notifyUpdateImmediate();
 
     return true;
   }
