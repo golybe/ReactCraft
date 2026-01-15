@@ -88,7 +88,7 @@ export const initBlocks = () => {
     requiresTool: true
   }));
 
-  // 9: COAL_ORE (кирка, дропает уголь - пока себя)
+  // 9: COAL_ORE (кирка, дропает уголь)
   BlockRegistry.register(new SolidBlock(9, {
     name: 'coal_ore',
     texture: 'coalOre',
@@ -96,6 +96,7 @@ export const initBlocks = () => {
     hardness: 3.0,
     preferredTool: TOOL_TYPES.PICKAXE,
     requiresTool: true,
+    drops: 514, // Дропает COAL
     xp: 1
   }));
 
@@ -119,7 +120,7 @@ export const initBlocks = () => {
     requiresTool: true
   }));
 
-  // 12: DIAMOND_ORE (кирка, дропает алмаз - пока себя)
+  // 12: DIAMOND_ORE (кирка, дропает алмаз)
   BlockRegistry.register(new SolidBlock(12, {
     name: 'diamond_ore',
     texture: 'diamondOre',
@@ -127,6 +128,7 @@ export const initBlocks = () => {
     hardness: 3.0,
     preferredTool: TOOL_TYPES.PICKAXE,
     requiresTool: true,
+    drops: 515, // Дропает DIAMOND
     xp: 5
   }));
 
@@ -248,6 +250,20 @@ export const initBlocks = () => {
     color: 0xff0000,
     isFood: true,
     healAmount: 4
+  }));
+
+  // 514: COAL
+  BlockRegistry.register(new Item(BLOCK_TYPES.COAL, {
+    name: 'coal',
+    texture: 'coal',
+    color: 0x1a1a1a
+  }));
+
+  // 515: DIAMOND
+  BlockRegistry.register(new Item(BLOCK_TYPES.DIAMOND, {
+    name: 'diamond',
+    texture: 'diamond',
+    color: 0x5decf5
   }));
 
   // =========================================================

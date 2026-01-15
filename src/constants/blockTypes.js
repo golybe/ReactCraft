@@ -40,6 +40,8 @@ export const BLOCK_TYPES = {
   // ITEMS (Non-block entities): 512+
   STICK: 512,
   APPLE: 513,
+  COAL: 514,
+  DIAMOND: 515,
   
   // TOOLS: 520+
   // Wooden tools

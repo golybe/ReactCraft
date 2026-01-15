@@ -34,6 +34,8 @@ const files = {
   'brick.png': 'block/bricks.png',
   'stick.png': 'item/stick.png',
   'apple.png': 'item/apple.png',
+  'coal.png': 'item/coal.png',
+  'diamond.png': 'item/diamond.png',
   'wooden_axe.png': 'item/wooden_axe.png',
   'wooden_pickaxe.png': 'item/wooden_pickaxe.png',
   'wooden_shovel.png': 'item/wooden_shovel.png',
