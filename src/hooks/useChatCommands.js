@@ -7,6 +7,7 @@ import { createCommandProcessor } from '../core/commands/commands';
 export function useChatCommands({
   worldInfo,
   playerPos,
+  playerYaw,
   setGameMode,
   noclipMode,
   setNoclipMode,
@@ -15,7 +16,9 @@ export function useChatCommands({
   setIsFlying,
   setSpeedMultiplier,
   teleportTo,
-  player
+  player,
+  entityManager,
+  world
 }) {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
@@ -57,6 +60,7 @@ export function useChatCommands({
       // Создаём контекст для команды
       const context = {
         playerPos,
+        playerYaw,
         worldInfo,
         teleportTo,
         setGameMode,
@@ -66,7 +70,9 @@ export function useChatCommands({
         setCanFly,
         setIsFlying,
         setSpeedMultiplier,
-        player
+        player,
+        entityManager,
+        world
       };
 
       // Выполняем команду
@@ -78,6 +84,7 @@ export function useChatCommands({
     }
   }, [
     playerPos,
+    playerYaw,
     worldInfo,
     teleportTo,
     setGameMode,
@@ -88,6 +95,8 @@ export function useChatCommands({
     setIsFlying,
     setSpeedMultiplier,
     player,
+    entityManager,
+    world,
     addMessage,
     commandProcessor
   ]);

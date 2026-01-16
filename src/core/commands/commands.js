@@ -7,6 +7,9 @@ import { Command, CommandProcessor } from './CommandProcessor';
 import { GAME_MODES, GAME_MODE_NAMES } from '../../constants/gameMode';
 import { NoiseGenerators } from '../../utils/noise';
 import { getBiomeId, BIOME_IDS, BIOMES } from '../../utils/biomes';
+import { Mob } from '../entities/Mob';
+import { MobRegistry } from '../entities/MobRegistry';
+import { MOB_TYPES } from '../../constants/mobs';
 
 // === TELEPORT ===
 class TeleportCommand extends Command {
@@ -349,6 +352,174 @@ class DamageCommand extends Command {
   }
 }
 
+// === SPAWN MOB ===
+class SpawnCommand extends Command {
+  constructor() {
+    super('spawn', ['summon'], 'Spawn a mob at your location or specified coordinates');
+  }
+
+  execute(args, context) {
+    if (args.length === 0) {
+      const availableMobs = Object.values(MOB_TYPES).join(', ');
+      return {
+        success: false,
+        message: `Usage: /spawn <mob_type> [x] [y] [z]\nAvailable mobs: ${availableMobs}`,
+        type: 'error'
+      };
+    }
+
+    const mobType = args[0].toLowerCase();
+
+    // Проверяем, существует ли такой тип моба
+    if (!MobRegistry.exists(mobType)) {
+      const availableMobs = Object.values(MOB_TYPES).join(', ');
+      return {
+        success: false,
+        message: `Unknown mob type: ${mobType}\nAvailable: ${availableMobs}`,
+        type: 'error'
+      };
+    }
+
+    // Определяем координаты
+    let x, y, z;
+
+    if (args.length >= 4) {
+      // Координаты указаны
+      x = parseFloat(args[1]);
+      y = parseFloat(args[2]);
+      z = parseFloat(args[3]);
+
+      if (isNaN(x) || isNaN(y) || isNaN(z)) {
+        return {
+          success: false,
+          message: 'Invalid coordinates. Usage: /spawn <mob_type> [x] [y] [z]',
+          type: 'error'
+        };
+      }
+    } else {
+      // Используем позицию игрока + небольшое смещение впереди
+      const pos = context.playerPos;
+      const yaw = context.playerYaw || 0;
+      
+      // Спавним в 3 блоках впереди игрока
+      x = pos.x + Math.sin(yaw) * 3;
+      y = pos.y;
+      z = pos.z + Math.cos(yaw) * 3;
+    }
+
+    // Проверяем наличие EntityManager
+    if (!context.entityManager) {
+      return {
+        success: false,
+        message: 'EntityManager not available',
+        type: 'error'
+      };
+    }
+
+    // Ищем землю под указанными координатами
+    if (context.world) {
+      const groundY = this.findGroundY(context.world, Math.floor(x), Math.floor(y), Math.floor(z));
+      if (groundY !== null) {
+        y = groundY + 0.01; // Чуть выше земли чтобы не застрять
+      }
+    }
+
+    // Создаём и спавним моба
+    const mob = new Mob(x, y, z, mobType);
+    
+    // Ставим моба на землю сразу
+    mob.onGround = true;
+    mob.velocity.y = 0;
+
+    context.entityManager.spawn(mob);
+
+    const mobDef = MobRegistry.get(mobType);
+    const mobName = mobDef?.name || mobType;
+
+    return {
+      success: true,
+      message: `Spawned ${mobName} at ${x.toFixed(1)}, ${y.toFixed(1)}, ${z.toFixed(1)}`,
+      type: 'success'
+    };
+  }
+
+  getUsage() {
+    return '/spawn <mob_type> [x] [y] [z]';
+  }
+
+  /**
+   * Найти землю под указанными координатами
+   */
+  findGroundY(world, x, startY, z) {
+    // Ищем сверху вниз твёрдый блок, начиная на 20 блоков выше
+    const searchStart = Math.min(startY + 20, 255);
+    
+    console.log(`[SpawnCommand] Finding ground at ${x}, ${z} from Y=${searchStart}`);
+    
+    for (let y = searchStart; y >= 0; y--) {
+      const blockBelow = world.getBlock(x, y - 1, z);
+      const blockAt = world.getBlock(x, y, z);
+      
+      // Если блок под нами твёрдый, а текущий — воздух/проходимый
+      if (blockBelow && blockBelow !== 0 && (!blockAt || blockAt === 0)) {
+        console.log(`[SpawnCommand] Found ground at Y=${y}, block below: ${blockBelow}, block at: ${blockAt}`);
+        return y;
+      }
+    }
+    
+    console.log(`[SpawnCommand] No ground found!`);
+    return null;
+  }
+}
+
+// === KILL MOBS ===
+class KillMobsCommand extends Command {
+  constructor() {
+    super('killmobs', ['killall'], 'Kill all mobs or mobs of specific type');
+  }
+
+  execute(args, context) {
+    if (!context.entityManager) {
+      return {
+        success: false,
+        message: 'EntityManager not available',
+        type: 'error'
+      };
+    }
+
+    const targetType = args.length > 0 ? args[0].toLowerCase() : null;
+    
+    // Получаем всех мобов
+    const mobs = context.entityManager.getAll().filter(e => e.mobType !== undefined);
+    
+    let killed = 0;
+    for (const mob of mobs) {
+      if (targetType === null || mob.mobType === targetType) {
+        mob.kill();
+        killed++;
+      }
+    }
+
+    if (killed === 0) {
+      return {
+        success: true,
+        message: targetType ? `No ${targetType} mobs found` : 'No mobs to kill',
+        type: 'info'
+      };
+    }
+
+    return {
+      success: true,
+      message: `Killed ${killed} mob(s)`,
+      type: 'success'
+    };
+  }
+
+  getUsage() {
+    return '/killmobs [mob_type]';
+  }
+}
+
 // === LOCATE BIOME ===
 class LocateBiomeCommand extends Command {
   constructor() {
@@ -517,6 +688,8 @@ export function createCommandProcessor() {
   processor.register(new HealthCommand());
   processor.register(new HealCommand());
   processor.register(new DamageCommand());
+  processor.register(new SpawnCommand());
+  processor.register(new KillMobsCommand());
   processor.register(new LocateBiomeCommand());
 
   // Help должен быть последним, т.к. ему нужен processor
@@ -537,6 +710,8 @@ export {
   HealthCommand,
   HealCommand,
   DamageCommand,
+  SpawnCommand,
+  KillMobsCommand,
   LocateBiomeCommand,
   HelpCommand
 };

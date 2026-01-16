@@ -125,6 +125,7 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
   } = useChatCommands({
     worldInfo,
     playerPos,
+    playerYaw,
     setGameMode,
     noclipMode,
     setNoclipMode,
@@ -133,7 +134,9 @@ const Game = ({ worldInfo, initialChunks, initialPlayerPos, onSaveWorld, onExitT
     setIsFlying,
     setSpeedMultiplier,
     teleportTo,
-    player: playerInstanceRef.current
+    player: playerInstanceRef.current,
+    entityManager,
+    world: worldRef.current
   });
 
   // === INVENTORY MANAGEMENT ===
