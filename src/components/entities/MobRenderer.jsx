@@ -62,6 +62,8 @@ function loadTexture(path) {
  * Создаёт бокс для шерсти на голове овцы (БЕЗ лицевой грани!).
  * Шерсть покрывает голову сверху и с боков, но морда остаётся открытой.
  * UV layout стандартный Minecraft для бокса width×height×depth.
+ * 
+ * Vanilla sheep head: width=6, height=6, depth=8
  */
 function createSheepWoolHeadBox(
   width,
@@ -220,7 +222,7 @@ function createMinecraftBox(
     return { u0, u1, v0, v1 };
   }
 
-  // Minecraft “net”
+  // Minecraft "net"
   const UV_TOP = rectUV(texU + depth, texV, width, depth);
   const UV_BOTTOM = rectUV(texU + depth + width, texV, width, depth);
   const UV_RIGHT = rectUV(texU, texV + depth, depth, height);
@@ -345,8 +347,8 @@ function createMinecraftBox(
 /**
  * Компонент овцы - близко к Minecraft
  *
- * Vanilla sheep:
- * - Head: 6×6×6, UV (0,0)
+ * Vanilla sheep (из исходников Minecraft):
+ * - Head: width=6, height=6, depth=8, UV (0,0) — морда вытянута вперёд!
  * - Body: 8×16×6, UV (28,8), ротация тела +90° по X
  * - Legs: 4×12×4, UV (0,16)
  */
@@ -365,10 +367,12 @@ const SheepMesh = ({ mob }) => {
   const furTexture = useMemo(() => loadTexture(MOB_TEXTURES.sheep_fur), []);
 
   // Геометрии
-  // Голова овцы: размер 6x6x6, стандартный Minecraft UV layout
-  // UV начинается с (0,0): TOP(6,0), BOTTOM(12,0), RIGHT(0,6), FRONT(6,6), LEFT(12,6), BACK(18,6)
+  // Голова овцы: размер 6×6×8 (width=6, height=6, depth=8)
+  // UV начинается с (0,0): 
+  // - TOP(8,0,6,8), BOTTOM(14,0,6,8)
+  // - RIGHT(0,8,8,6), FRONT(8,8,6,6), LEFT(14,8,8,6), BACK(22,8,6,6)
   const headGeometry = useMemo(
-    () => createMinecraftBox(6, 6, 6, 0, 0, TEX_W, TEX_H, SCALE, 0),
+    () => createMinecraftBox(6, 6, 8, 0, 0, TEX_W, TEX_H, SCALE, 0),
     []
   );
 
@@ -383,9 +387,11 @@ const SheepMesh = ({ mob }) => {
   );
 
   const WOOL_INFLATE = 0.5;
-  // Шерсть на голове - размер 6x6x6
+  // Шерсть на голове - размер 6×6×6 (короче чем голова 6×6×8!)
+  // Это создаёт эффект "морда выглядывает из шерсти"
+  // Используем полный бокс (все 6 граней), но сдвигаем назад
   const woolHeadGeometry = useMemo(
-    () => createSheepWoolHeadBox(6, 6, 6, 0, 0, TEX_W, TEX_H, SCALE, WOOL_INFLATE),
+    () => createMinecraftBox(6, 6, 6, 0, 0, TEX_W, TEX_H, SCALE, WOOL_INFLATE),
     []
   );
   const woolBodyGeometry = useMemo(
@@ -429,7 +435,7 @@ const SheepMesh = ({ mob }) => {
     []
   );
 
-  // Цвета для “hurt flash” без аллокаций
+  // Цвета для "hurt flash" без аллокаций
   const emissiveOff = useMemo(() => new THREE.Color(0x000000), []);
   const emissiveOn = useMemo(() => new THREE.Color(0x330000), []);
 
@@ -449,10 +455,15 @@ const SheepMesh = ({ mob }) => {
   const BODY_Y = LEG_H + BODY_THICK_Y / 2;
   const BODY_Z = 2 * SCALE;
 
-  const HEAD = 6 * SCALE;
+  // Голова теперь имеет depth=8, поэтому корректируем позицию
+  const HEAD_DEPTH = 8 * SCALE;
+  const HEAD_HEIGHT = 6 * SCALE;
+  const WOOL_HEAD_DEPTH = 6 * SCALE; // Шерсть на голове короче (6 вместо 8)
   const BODY_HALF_LEN_Z = (16 * SCALE) / 2;
-  const HEAD_Z = BODY_Z + BODY_HALF_LEN_Z + HEAD / 2 - 1 * SCALE;
-  const HEAD_Y = BODY_Y + BODY_THICK_Y / 2 - HEAD / 2 + 2 * SCALE;
+  const HEAD_Z = BODY_Z + BODY_HALF_LEN_Z + HEAD_DEPTH / 2 - 1 * SCALE;
+  const HEAD_Y = BODY_Y + BODY_THICK_Y / 2 - HEAD_HEIGHT / 2 + 2 * SCALE;
+  // Шерсть сдвинута назад, чтобы морда выглядывала из шерсти
+  const WOOL_HEAD_Z = HEAD_Z - (HEAD_DEPTH - WOOL_HEAD_DEPTH) / 2;
 
   const walkAnimRef = useRef(0);
 
@@ -531,7 +542,8 @@ const SheepMesh = ({ mob }) => {
 
       {/* Голова - кожа и шерсть */}
       <mesh geometry={headGeometry} material={skinMaterial} position={[0, HEAD_Y, HEAD_Z]} />
-      <mesh geometry={woolHeadGeometry} material={woolMaterial} position={[0, HEAD_Y, HEAD_Z]} />
+      {/* Шерсть головы сдвинута назад - морда выглядывает */}
+      <mesh geometry={woolHeadGeometry} material={woolMaterial} position={[0, HEAD_Y, WOOL_HEAD_Z]} />
 
       {/* Ноги */}
       <group ref={legFLRef} position={[-LEG_X, LEG_H, LEG_Z_FRONT]}>
