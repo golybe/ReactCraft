@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Анализ UV текстуры овцы Minecraft</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #4fc3f7;
+        }
+        h2 {
+            color: #81c784;
+            margin-top: 30px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .texture-container {
+            display: flex;
+            gap: 40px;
+            flex-wrap: wrap;
+        }
+        .texture-box {
+            background: #16213e;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        .canvas-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+        canvas {
+            border: 2px solid #4fc3f7;
+            image-rendering: pixelated;
+            background: repeating-linear-gradient(
+                45deg,
+                #222 0px,
+                #222 10px,
+                #333 10px,
+                #333 20px
+            );
+        }
+        .info {
+            margin-top: 20px;
+            padding: 15px;
+            background: #0f3460;
+            border-radius: 5px;
+            font-family: 'Consolas', monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+        }
+        .legend {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            background: #0f3460;
+            border-radius: 4px;
+        }
+        .color-box {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+        }
+        #coords {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.8);
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+        .face-preview {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        .face-card {
+            background: #0f3460;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .face-card canvas {
+            border: 1px solid #4fc3f7;
+        }
+        .face-card h4 {
+            margin: 5px 0;
+            color: #ffd54f;
+        }
+        .minecraft-uv {
+            margin-top: 30px;
+            padding: 20px;
+            background: #16213e;
+            border-radius: 8px;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 15px;
+        }
+        th, td {
+            border: 1px solid #4fc3f7;
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background: #0f3460;
+        }
+        .highlight {
+            color: #ffd54f;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🐑 Анализ UV текстуры овцы Minecraft</h1>
+        
+        <div id="coords">X: 0, Y: 0</div>
+        
+        <div class="texture-container">
+            <div class="texture-box">
+                <h2>Текстура sheep.png (64×32, scale 8x)</h2>
+                <div class="canvas-wrapper">
+                    <canvas id="textureCanvas" width="512" height="256"></canvas>
+                </div>
+                <div class="info" id="textureInfo">Загрузка...</div>
+            </div>
+        </div>
+        
+        <div class="minecraft-uv">
+            <h2>📐 Стандартный Minecraft UV Layout для головы 6×6×6</h2>
+            <p>Координаты начинаются с (0,0) - верхний левый угол текстуры.</p>
+            <p>Для бокса размером <span class="highlight">width=6, height=6, depth=6</span> с texU=0, texV=0:</p>
+            
+            <table>
+                <tr>
+                    <th>Грань</th>
+                    <th>X начало</th>
+                    <th>Y начало</th>
+                    <th>Ширина</th>
+                    <th>Высота</th>
+                    <th>Формула X</th>
+                    <th>Формула Y</th>
+                </tr>
+                <tr>
+                    <td>TOP</td>
+                    <td>6</td>
+                    <td>0</td>
+                    <td>6</td>
+                    <td>6</td>
+                    <td>texU + depth</td>
+                    <td>texV</td>
+                </tr>
+                <tr>
+                    <td>BOTTOM</td>
+                    <td>12</td>
+                    <td>0</td>
+                    <td>6</td>
+                    <td>6</td>
+                    <td>texU + depth + width</td>
+                    <td>texV</td>
+                </tr>
+                <tr>
+                    <td>RIGHT</td>
+                    <td>0</td>
+                    <td>6</td>
+                    <td>6</td>
+                    <td>6</td>
+                    <td>texU</td>
+                    <td>texV + depth</td>
+                </tr>
+                <tr style="background: #1a5f3d;">
+                    <td><strong>FRONT (Лицо!)</strong></td>
+                    <td>6</td>
+                    <td>6</td>
+                    <td>6</td>
+                    <td>6</td>
+                    <td>texU + depth</td>
+                    <td>texV + depth</td>
+                </tr>
+                <tr>
+                    <td>LEFT</td>
+                    <td>12</td>
+                    <td>6</td>
+                    <td>6</td>
+                    <td>6</td>
+                    <td>texU + depth + width</td>
+                    <td>texV + depth</td>
+                </tr>
+                <tr>
+                    <td>BACK</td>
+                    <td>18</td>
+                    <td>6</td>
+                    <td>6</td>
+                    <td>6</td>
+                    <td>texU + depth*2 + width</td>
+                    <td>texV + depth</td>
+                </tr>
+            </table>
+        </div>
+        
+        <h2>🎨 Области текстуры с разметкой</h2>
+        <div class="texture-box">
+            <canvas id="annotatedCanvas" width="512" height="256"></canvas>
+        </div>
+        
+        <h2>👁️ Извлечённые грани головы (стандартный UV)</h2>
+        <div class="face-preview" id="facePreview"></div>
+        
+        <h2>📊 Сравнение текущего кода vs правильного</h2>
+        <div class="info">
+<strong>ТЕКУЩИЙ КОД (createSheepHeadBox):</strong>
+- UV_RIGHT  = rectUV(texU, texV + depth, depth, height)         → (0, 6, 6, 6) ✓
+- UV_FRONT  = rectUV(texU + depth, texV + depth, 12, height)    → (6, 6, 12, 6) ❌ НЕПРАВИЛЬНО! Ширина 12 вместо 6
+- UV_LEFT   = rectUV(texU + depth + 12, texV + depth, depth, height) → (18, 6, 6, 6) ❌ Сдвинуто!
+- UV_BACK   = rectUV(texU + depth + 12 + depth, texV + depth, width, height) → (24, 6, 6, 6) ❌ Сдвинуто!
+- UV_TOP    = rectUV(texU + depth, texV, 12, depth)             → (6, 0, 12, 6) ❌ НЕПРАВИЛЬНО! Ширина 12 вместо 6
+- UV_BOTTOM = rectUV(texU + depth + 12, texV, depth, depth)     → (18, 0, 6, 6) ❌ Сдвинуто!
+
+<strong>ПРАВИЛЬНЫЙ UV (стандартный Minecraft box 6×6×6):</strong>
+- UV_TOP    = rectUV(6, 0, 6, 6)     → верх головы
+- UV_BOTTOM = rectUV(12, 0, 6, 6)    → низ головы  
+- UV_RIGHT  = rectUV(0, 6, 6, 6)     → правая сторона
+- UV_FRONT  = rectUV(6, 6, 6, 6)     → <span style="color: #4caf50; font-weight: bold;">ЛИЦО (глаза!)</span>
+- UV_LEFT   = rectUV(12, 6, 6, 6)    → левая сторона
+- UV_BACK   = rectUV(18, 6, 6, 6)    → затылок
+        </div>
+    </div>
+
+    <script>
+        const SCALE = 8;
+        const TEX_W = 64;
+        const TEX_H = 32;
+        
+        // Загрузка текстуры
+        const img = new Image();
+        img.src = '../public/textures/entity/sheep.png';
+        
+        img.onload = () => {
+            drawTexture();
+            drawAnnotated();
+            extractFaces();
+        };
+        
+        img.onerror = () => {
+            document.getElementById('textureInfo').textContent = 
+                'Ошибка загрузки! Попробуйте открыть через локальный сервер (python -m http.server)';
+        };
+        
+        function drawTexture() {
+            const canvas = document.getElementById('textureCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(img, 0, 0, TEX_W * SCALE, TEX_H * SCALE);
+            
+            document.getElementById('textureInfo').textContent = 
+                `Размер: ${img.width}×${img.height}\nОжидаемый размер: 64×32`;
+                
+            // Отслеживание курсора
+            canvas.addEventListener('mousemove', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const x = Math.floor((e.clientX - rect.left) / SCALE);
+                const y = Math.floor((e.clientY - rect.top) / SCALE);
+                document.getElementById('coords').textContent = `X: ${x}, Y: ${y}`;
+            });
+        }
+        
+        function drawAnnotated() {
+            const canvas = document.getElementById('annotatedCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(img, 0, 0, TEX_W * SCALE, TEX_H * SCALE);
+            
+            // Области головы (6×6×6 бокс)
+            const headAreas = [
+                { x: 0, y: 0, w: 6, h: 6, label: 'Unused?', color: 'rgba(100,100,100,0.5)' },
+                { x: 6, y: 0, w: 6, h: 6, label: 'TOP', color: 'rgba(0,255,0,0.4)' },
+                { x: 12, y: 0, w: 6, h: 6, label: 'BOTTOM', color: 'rgba(255,0,255,0.4)' },
+                { x: 0, y: 6, w: 6, h: 6, label: 'RIGHT', color: 'rgba(255,0,0,0.4)' },
+                { x: 6, y: 6, w: 6, h: 6, label: 'FRONT\n(ЛИЦО)', color: 'rgba(0,255,255,0.5)' },
+                { x: 12, y: 6, w: 6, h: 6, label: 'LEFT', color: 'rgba(255,255,0,0.4)' },
+                { x: 18, y: 6, w: 6, h: 6, label: 'BACK', color: 'rgba(0,0,255,0.4)' },
+            ];
+            
+            headAreas.forEach(area => {
+                ctx.fillStyle = area.color;
+                ctx.fillRect(area.x * SCALE, area.y * SCALE, area.w * SCALE, area.h * SCALE);
+                
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(area.x * SCALE, area.y * SCALE, area.w * SCALE, area.h * SCALE);
+                
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 12px Arial';
+                ctx.textAlign = 'center';
+                const lines = area.label.split('\n');
+                lines.forEach((line, i) => {
+                    ctx.fillText(line, (area.x + area.w/2) * SCALE, (area.y + area.h/2) * SCALE + i * 14);
+                });
+            });
+            
+            // Тело
+            ctx.fillStyle = 'rgba(255,165,0,0.3)';
+            ctx.fillRect(28 * SCALE, 8 * SCALE, 24 * SCALE, 16 * SCALE);
+            ctx.strokeStyle = '#ff9800';
+            ctx.strokeRect(28 * SCALE, 8 * SCALE, 24 * SCALE, 16 * SCALE);
+            ctx.fillStyle = '#fff';
+            ctx.fillText('BODY', 40 * SCALE, 16 * SCALE);
+            
+            // Ноги
+            ctx.fillStyle = 'rgba(139,69,19,0.3)';
+            ctx.fillRect(0 * SCALE, 16 * SCALE, 16 * SCALE, 16 * SCALE);
+            ctx.strokeStyle = '#8b4513';
+            ctx.strokeRect(0 * SCALE, 16 * SCALE, 16 * SCALE, 16 * SCALE);
+            ctx.fillStyle = '#fff';
+            ctx.fillText('LEG', 8 * SCALE, 24 * SCALE);
+        }
+        
+        function extractFaces() {
+            const container = document.getElementById('facePreview');
+            
+            // Правильные UV для головы 6×6×6
+            const faces = [
+                { name: 'TOP', x: 6, y: 0, w: 6, h: 6, desc: 'Верх головы' },
+                { name: 'BOTTOM', x: 12, y: 0, w: 6, h: 6, desc: 'Низ головы' },
+                { name: 'RIGHT', x: 0, y: 6, w: 6, h: 6, desc: 'Правая сторона' },
+                { name: 'FRONT', x: 6, y: 6, w: 6, h: 6, desc: 'ЛИЦО (глаза!)' },
+                { name: 'LEFT', x: 12, y: 6, w: 6, h: 6, desc: 'Левая сторона' },
+                { name: 'BACK', x: 18, y: 6, w: 6, h: 6, desc: 'Затылок' },
+            ];
+            
+            faces.forEach(face => {
+                const card = document.createElement('div');
+                card.className = 'face-card';
+                
+                const canvas = document.createElement('canvas');
+                canvas.width = face.w * SCALE;
+                canvas.height = face.h * SCALE;
+                
+                const ctx = canvas.getContext('2d');
+                ctx.imageSmoothingEnabled = false;
+                ctx.drawImage(img, 
+                    face.x, face.y, face.w, face.h,  // Source
+                    0, 0, face.w * SCALE, face.h * SCALE  // Dest
+                );
+                
+                card.innerHTML = `<h4>${face.name}</h4>`;
+                card.appendChild(canvas);
+                card.innerHTML += `<p style="margin:5px 0;font-size:12px;color:#aaa">(${face.x}, ${face.y}) ${face.w}×${face.h}</p>`;
+                card.innerHTML += `<p style="margin:0;font-size:11px;color:#81c784">${face.desc}</p>`;
+                
+                container.appendChild(card);
+            });
+        }
+    </script>
+</body>
+</html>

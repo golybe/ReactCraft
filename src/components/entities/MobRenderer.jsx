@@ -59,6 +59,127 @@ function loadTexture(path) {
 }
 
 /**
+ * Создаёт бокс для шерсти на голове овцы (БЕЗ лицевой грани!).
+ * Шерсть покрывает голову сверху и с боков, но морда остаётся открытой.
+ * UV layout стандартный Minecraft для бокса width×height×depth.
+ */
+function createSheepWoolHeadBox(
+  width,
+  height,
+  depth,
+  texU,
+  texV,
+  texWidth,
+  texHeight,
+  scale = 1 / 16,
+  inflate = 0
+) {
+  const hw = (width / 2 + inflate) * scale;
+  const hh = (height / 2 + inflate) * scale;
+  const hd = (depth / 2 + inflate) * scale;
+
+  const positions = [];
+  const normals = [];
+  const uvs = [];
+  const indices = [];
+
+  const U = (px) => px / texWidth;
+  const V = (py) => 1 - py / texHeight;
+  const INSET = 0.001;
+
+  function rectUV(px, py, wpx, hpx) {
+    const u0 = U(px + INSET);
+    const u1 = U(px + wpx - INSET);
+    const v0 = V(py + INSET);
+    const v1 = V(py + hpx - INSET);
+    return { u0, u1, v0, v1 };
+  }
+
+  // Стандартный Minecraft UV layout для бокса width×height×depth
+  // TOP:    (texU + depth, texV, width, depth)
+  // BOTTOM: (texU + depth + width, texV, width, depth)
+  // RIGHT:  (texU, texV + depth, depth, height)
+  // FRONT:  (texU + depth, texV + depth, width, height) - пропускаем для шерсти!
+  // LEFT:   (texU + depth + width, texV + depth, depth, height)
+  // BACK:   (texU + depth*2 + width, texV + depth, width, height)
+
+  const UV_TOP = rectUV(texU + depth, texV, width, depth);
+  const UV_BOTTOM = rectUV(texU + depth + width, texV, width, depth);
+  const UV_RIGHT = rectUV(texU, texV + depth, depth, height);
+  const UV_LEFT = rectUV(texU + depth + width, texV + depth, depth, height);
+  const UV_BACK = rectUV(texU + depth * 2 + width, texV + depth, width, height);
+
+  let base = 0;
+
+  function addFace(corners, normal, uvRect, opts = {}) {
+    let { u0, u1, v0, v1 } = uvRect;
+    if (opts.flipU) [u0, u1] = [u1, u0];
+    if (opts.flipV) [v0, v1] = [v1, v0];
+
+    const faceUV = [[u0, v0], [u1, v0], [u1, v1], [u0, v1]];
+
+    for (let i = 0; i < 4; i++) {
+      const [x, y, z] = corners[i];
+      positions.push(x, y, z);
+      normals.push(normal[0], normal[1], normal[2]);
+      uvs.push(faceUV[i][0], faceUV[i][1]);
+    }
+
+    indices.push(base + 0, base + 1, base + 2, base + 0, base + 2, base + 3);
+    base += 4;
+  }
+
+  // BACK (-Z) - шерсть на затылке
+  addFace(
+    [[+hw, +hh, -hd], [-hw, +hh, -hd], [-hw, -hh, -hd], [+hw, -hh, -hd]],
+    [0, 0, -1],
+    UV_BACK,
+    { flipU: true }
+  );
+
+  // RIGHT (+X) - шерсть на правой стороне
+  addFace(
+    [[+hw, +hh, -hd], [+hw, +hh, +hd], [+hw, -hh, +hd], [+hw, -hh, -hd]],
+    [1, 0, 0],
+    UV_RIGHT
+  );
+
+  // LEFT (-X) - шерсть на левой стороне
+  addFace(
+    [[-hw, +hh, +hd], [-hw, +hh, -hd], [-hw, -hh, -hd], [-hw, -hh, +hd]],
+    [-1, 0, 0],
+    UV_LEFT
+  );
+
+  // TOP (+Y) - шерсть сверху головы
+  addFace(
+    [[-hw, +hh, -hd], [+hw, +hh, -hd], [+hw, +hh, +hd], [-hw, +hh, +hd]],
+    [0, 1, 0],
+    UV_TOP
+  );
+
+  // BOTTOM (-Y) - шерсть снизу головы
+  addFace(
+    [[-hw, -hh, +hd], [+hw, -hh, +hd], [+hw, -hh, -hd], [-hw, -hh, -hd]],
+    [0, -1, 0],
+    UV_BOTTOM,
+    { flipU: true }
+  );
+
+  // FRONT (+Z) отсутствует - морда остаётся открытой!
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setIndex(indices);
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
+
+  return geometry;
+}
+
+/**
  * Minecraft UV layout (как ModelRenderer.addBox).
  * width/height/depth — в "пикселях модели".
  * scale обычно 1/16.
@@ -136,7 +257,7 @@ function createMinecraftBox(
 
   // Оси: X вправо, Y вверх, Z вперёд
 
-  // FRONT (+Z) — используем UV_BACK чтобы морда была снаружи
+  // FRONT (+Z)
   addFace(
     [
       [-hw, +hh, +hd],
@@ -145,10 +266,10 @@ function createMinecraftBox(
       [-hw, -hh, +hd],
     ],
     [0, 0, 1],
-    UV_BACK
+    UV_FRONT
   );
 
-  // BACK (-Z) — используем UV_FRONT, переворачиваем по U
+  // BACK (-Z) — используем UV_BACK, переворачиваем по U
   addFace(
     [
       [+hw, +hh, -hd],
@@ -157,7 +278,7 @@ function createMinecraftBox(
       [+hw, -hh, -hd],
     ],
     [0, 0, -1],
-    UV_FRONT,
+    UV_BACK,
     { flipU: true }
   );
 
@@ -244,6 +365,8 @@ const SheepMesh = ({ mob }) => {
   const furTexture = useMemo(() => loadTexture(MOB_TEXTURES.sheep_fur), []);
 
   // Геометрии
+  // Голова овцы: размер 6x6x6, стандартный Minecraft UV layout
+  // UV начинается с (0,0): TOP(6,0), BOTTOM(12,0), RIGHT(0,6), FRONT(6,6), LEFT(12,6), BACK(18,6)
   const headGeometry = useMemo(
     () => createMinecraftBox(6, 6, 6, 0, 0, TEX_W, TEX_H, SCALE, 0),
     []
@@ -260,8 +383,9 @@ const SheepMesh = ({ mob }) => {
   );
 
   const WOOL_INFLATE = 0.5;
+  // Шерсть на голове - размер 6x6x6
   const woolHeadGeometry = useMemo(
-    () => createMinecraftBox(6, 6, 6, 0, 0, TEX_W, TEX_H, SCALE, WOOL_INFLATE),
+    () => createSheepWoolHeadBox(6, 6, 6, 0, 0, TEX_W, TEX_H, SCALE, WOOL_INFLATE),
     []
   );
   const woolBodyGeometry = useMemo(
@@ -405,7 +529,7 @@ const SheepMesh = ({ mob }) => {
         rotation={[Math.PI / 2, 0, 0]}
       />
 
-      {/* Голова */}
+      {/* Голова - кожа и шерсть */}
       <mesh geometry={headGeometry} material={skinMaterial} position={[0, HEAD_Y, HEAD_Z]} />
       <mesh geometry={woolHeadGeometry} material={woolMaterial} position={[0, HEAD_Y, HEAD_Z]} />
 

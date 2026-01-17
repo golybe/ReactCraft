@@ -21,7 +21,9 @@
       "Bash(tree /f \"C:\\\\tests\\\\glmtest2\\\\src\")",
       "Bash(tree:*)",
       "Bash(curl:*)",
-      "Bash(node scripts/download_textures.cjs:*)"
+      "Bash(node scripts/download_textures.cjs:*)",
+      "Bash(python:*)",
+      "Bash(node:*)"
     ]
   }
 }
