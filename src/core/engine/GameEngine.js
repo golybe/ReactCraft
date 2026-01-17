@@ -127,7 +127,7 @@ export class GameEngine {
    * @returns {Mob|null} - созданный моб или null при ошибке
    */
   spawnMob(mobType, x, y, z) {
-    if (!MobRegistry.exists(mobType)) {
+    if (!MobRegistry.has(mobType)) {
       console.error(`[GameEngine] Unknown mob type: ${mobType}`);
       return null;
     }

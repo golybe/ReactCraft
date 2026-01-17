@@ -371,7 +371,7 @@ class SpawnCommand extends Command {
     const mobType = args[0].toLowerCase();
 
     // Проверяем, существует ли такой тип моба
-    if (!MobRegistry.exists(mobType)) {
+    if (!MobRegistry.has(mobType)) {
       const availableMobs = Object.values(MOB_TYPES).join(', ');
       return {
         success: false,
