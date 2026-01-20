@@ -88,17 +88,6 @@ export class GoalSelector {
    * Обновление целей (вызывается каждый тик)
    */
   tick(deltaTime) {
-    // Debug: раз в 60 тиков показываем состояние
-    this._debugCounter = (this._debugCounter || 0) + 1;
-    if (this._debugCounter >= 60) {
-      this._debugCounter = 0;
-      const activeNames = [...this.activeGoals].map(g => g.constructor.name).join(', ');
-      const lockedFlags = [...this.lockedFlags].join(', ');
-      if (activeNames || lockedFlags) {
-        console.log(`[GoalSelector] Active: [${activeNames}], Locked: [${lockedFlags}]`);
-      }
-    }
-
     // Проверяем какие цели можно запустить
     for (const { priority, goal } of this.availableGoals) {
       const isRunning = this.activeGoals.has(goal);
@@ -106,7 +95,6 @@ export class GoalSelector {
       if (isRunning) {
         // Проверяем можно ли продолжать
         if (!goal.canContinueToUse()) {
-          console.log(`[GoalSelector] Stopping: ${goal.constructor.name}`);
           goal.stop();
           this.activeGoals.delete(goal);
           this.unlockFlags(goal);
@@ -131,13 +119,11 @@ export class GoalSelector {
           }
           // Останавливаем вытесненные цели
           for (const stopGoal of goalsToStop) {
-            console.log(`[GoalSelector] Interrupting: ${stopGoal.constructor.name} (priority ${this.getPriority(stopGoal)}) for ${goal.constructor.name} (priority ${newPriority})`);
             stopGoal.stop();
             this.activeGoals.delete(stopGoal);
             this.unlockFlags(stopGoal);
           }
           
-          console.log(`[GoalSelector] Starting: ${goal.constructor.name}`);
           goal.start();
           this.activeGoals.add(goal);
           this.lockFlags(goal);

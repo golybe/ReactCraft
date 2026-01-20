@@ -59,18 +59,6 @@ export class MobNavigation {
    * Обновление навигации
    */
   tick(deltaTime) {
-    // Debug
-    this._debugTick = (this._debugTick || 0) + 1;
-    if (this._debugTick >= 60) {
-      this._debugTick = 0;
-      if (this.isNavigating) {
-        const dx = this.targetX - this.mob.position.x;
-        const dz = this.targetZ - this.mob.position.z;
-        const dist = Math.sqrt(dx*dx + dz*dz).toFixed(2);
-        console.log(`[Navigation] Moving to (${this.targetX.toFixed(1)}, ${this.targetZ.toFixed(1)}), dist=${dist}, vel=(${this.mob.velocity.x.toFixed(2)}, ${this.mob.velocity.z.toFixed(2)})`);
-      }
-    }
-
     // Целевая скорость
     let targetVelX = 0;
     let targetVelZ = 0;
@@ -123,9 +111,10 @@ export class MobNavigation {
     this.mob.velocity.x = this.smoothVelX;
     this.mob.velocity.z = this.smoothVelZ;
     
-    // Обнуляем очень маленькие значения чтобы избежать микродрожания
-    if (Math.abs(this.smoothVelX) < 0.01) this.mob.velocity.x = 0;
-    if (Math.abs(this.smoothVelZ) < 0.01) this.mob.velocity.z = 0;
+    if (!this.isNavigating) {
+      if (Math.abs(this.mob.velocity.x) < 0.02) this.mob.velocity.x = 0;
+      if (Math.abs(this.mob.velocity.z) < 0.02) this.mob.velocity.z = 0;
+    }
   }
 
   /**

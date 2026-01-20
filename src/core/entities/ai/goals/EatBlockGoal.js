@@ -45,12 +45,12 @@ export class EatBlockGoal extends Goal {
       return false;
     }
     
-    // Шанс начать есть (5% за тик когда стоим на траве)
-    if (Math.random() > 0.05) {
+    // Шанс начать есть (уменьшили шанс до 0.5% за тик, было 5%)
+    // Это примерно раз в 10 секунд если стоим на траве
+    if (Math.random() > 0.005) {
       return false;
     }
     
-    console.log('[EatBlockGoal] Овца начинает есть траву!');
     return true;
   }
 
@@ -68,15 +68,16 @@ export class EatBlockGoal extends Goal {
     // Начинаем анимацию
     this.mob.isEating = true;
     this.mob.eatingProgress = 0;
-    console.log('[EatBlockGoal] Начинаем есть, время:', this.eatingTime);
+    this.mob.headShake = 0;
   }
 
   stop() {
-    console.log('[EatBlockGoal] Закончили есть, hasEaten:', this.hasEaten);
     this.eatingTime = 0;
-    this.cooldown = this.cooldownTime + Math.floor(Math.random() * 200); // 30-40 секунд
+    // Увеличили кулдаун до 60-120 секунд (было 30-40)
+    this.cooldown = 1200 + Math.floor(Math.random() * 1200); 
     this.mob.isEating = false;
     this.mob.eatingProgress = 0;
+    this.mob.headShake = 0;
     this.mob.isStuck = false; // Сбрасываем флаг застревания
   }
 
@@ -86,7 +87,16 @@ export class EatBlockGoal extends Goal {
     this.eatingTime -= deltaTime * 20; // 20 тиков в секунду
     
     // Прогресс анимации (0 -> 1)
-    this.mob.eatingProgress = Math.min(1, 1 - (this.eatingTime / this.maxEatingTime));
+    // Добавим подергивание головы
+    // eatingTime меняется от 40 до 0
+    // Мы хотим 5 подергиваний за 2 секунды
+    // phase = (40 - eatingTime) / 4 -> 0..10
+    // sin(phase * PI) -> 5 пиков
+    const timePassed = this.maxEatingTime - this.eatingTime;
+    const progress = Math.max(0, Math.min(1, timePassed / this.maxEatingTime));
+    const envelope = Math.sin(progress * Math.PI);
+    this.mob.eatingProgress = progress;
+    this.mob.headShake = Math.sin(timePassed * 1.3) * 0.08 * envelope;
     
     // Держим моба на месте пока ест
     this.mob.velocity.x = 0;
@@ -96,7 +106,6 @@ export class EatBlockGoal extends Goal {
     if (this.eatingTime <= 0 && !this.hasEaten) {
       this.hasEaten = true;
       this.eatGrass();
-      console.log('[EatBlockGoal] Трава съедена!');
     }
   }
 
@@ -104,8 +113,7 @@ export class EatBlockGoal extends Goal {
    * Проверяет есть ли трава под ногами овцы
    */
   hasGrassBelow() {
-    const chunks = this.mob.context?.chunks;
-    if (!chunks) {
+    if (!this.mob.context?.chunks) {
       return false;
     }
     
@@ -114,12 +122,7 @@ export class EatBlockGoal extends Goal {
     const y = Math.floor(this.mob.position.y - 0.1);
     const z = Math.floor(this.mob.position.z);
     
-    const block = this.getBlock(x, y, z);
-    
-    // Debug: раз в 100 тиков показываем что под ногами
-    if (Math.random() < 0.01) {
-      console.log(`[EatBlockGoal] pos.y=${this.mob.position.y.toFixed(2)}, blockY=${y}, block=${block}, GRASS=${BLOCK_GRASS}`);
-    }
+    const block = this.mob.getBlock(this.mob.context.chunks, x, y, z);
     
     return block === BLOCK_GRASS;
   }
@@ -134,7 +137,7 @@ export class EatBlockGoal extends Goal {
     const y = Math.floor(this.mob.position.y - 0.1); // Блок под ногами
     const z = Math.floor(this.mob.position.z);
     
-    const block = this.getBlock(x, y, z);
+    const block = this.mob.getBlock(this.mob.context.chunks, x, y, z);
     if (block === BLOCK_GRASS) {
       // Меняем блок на землю
       if (this.onBlockChange) {
@@ -148,39 +151,5 @@ export class EatBlockGoal extends Goal {
         this.mob.isSheared = false;
       }
     }
-  }
-
-  /**
-   * Получает блок по координатам
-   */
-  getBlock(x, y, z) {
-    const chunks = this.mob.context?.chunks;
-    if (!chunks) return 0;
-    
-    const chunkSize = 16;
-    const chunkX = Math.floor(x / chunkSize);
-    const chunkZ = Math.floor(z / chunkSize);
-    const chunkKey = `${chunkX},${chunkZ}`;
-    
-    const chunk = chunks[chunkKey];
-    if (!chunk) return 0;
-    
-    // Используем метод getBlock как в Mob.js
-    if (typeof chunk.getBlock === 'function') {
-      const localX = ((x % chunkSize) + chunkSize) % chunkSize;
-      const localZ = ((z % chunkSize) + chunkSize) % chunkSize;
-      return chunk.getBlock(localX, y, localZ);
-    }
-    
-    // Fallback для старого формата
-    if (chunk.blocks) {
-      const localX = ((x % chunkSize) + chunkSize) % chunkSize;
-      const localZ = ((z % chunkSize) + chunkSize) % chunkSize;
-      if (y < 0 || y >= 256) return 0;
-      const index = localX + localZ * chunkSize + y * chunkSize * chunkSize;
-      return chunk.blocks[index] || 0;
-    }
-    
-    return 0;
   }
 }

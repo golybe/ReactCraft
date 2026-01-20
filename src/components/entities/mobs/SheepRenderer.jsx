@@ -21,6 +21,7 @@ const SheepRenderer = ({ mob }) => {
   
   // Плавный угол наклона головы
   const headPitchRef = useRef(0);
+  const headYawRef = useRef(0);
 
   // Получаем модель овцы (singleton)
   const model = useMemo(() => MobRegistry.getModel('sheep'), []);
@@ -50,15 +51,27 @@ const SheepRenderer = ({ mob }) => {
       legBR: legBRRef.current,
     });
     
-    // Анимация головы (еда)
+    const normalizeAngle = (angle) => {
+      while (angle > Math.PI) angle -= Math.PI * 2;
+      while (angle < -Math.PI) angle += Math.PI * 2;
+      return angle;
+    };
+
+    // Анимация головы
     if (headRef.current) {
-      // Целевой угол: 0 = нормально, ~70° вниз когда ест
-      const targetPitch = mob.isEating ? Math.PI * 0.4 : 0;
-      
-      // Плавная интерполяция
-      headPitchRef.current += (targetPitch - headPitchRef.current) * 0.1;
-      
-      // Применяем поворот
+      const targetYaw = mob.rotation?.headYaw || 0;
+      const lookPitch = mob.rotation?.headPitch || 0;
+      const eatPitch = mob.isEating ? (Math.PI * 0.45 + (mob.headShake || 0)) : null;
+      const targetPitch = eatPitch !== null ? eatPitch : lookPitch;
+
+      const yawAlpha = 1 - Math.exp(-10 * delta);
+      const pitchAlpha = 1 - Math.exp(-12 * delta);
+
+      const yawDiff = normalizeAngle(targetYaw - headYawRef.current);
+      headYawRef.current = normalizeAngle(headYawRef.current + yawDiff * yawAlpha);
+      headPitchRef.current += (targetPitch - headPitchRef.current) * pitchAlpha;
+
+      headRef.current.rotation.y = headYawRef.current;
       headRef.current.rotation.x = headPitchRef.current;
     }
 

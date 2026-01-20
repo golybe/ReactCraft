@@ -5,6 +5,7 @@
  * Они лишь изредка решают куда-то пойти.
  */
 import { Goal } from '../Goal';
+import { BLOCK_TYPES, isSolid } from '../../../../constants/blocks';
 
 export class WaterAvoidingRandomStrollGoal extends Goal {
   constructor(mob, speedModifier = 1.0) {
@@ -127,11 +128,45 @@ export class WaterAvoidingRandomStrollGoal extends Goal {
    * Проверяет безопасность позиции (нет воды, есть земля)
    */
   isPositionSafe(x, z) {
-    // TODO: Проверить наличие воды
-    // TODO: Проверить что есть твёрдый блок под ногами
-    // TODO: Проверить что нет обрыва
+    if (!this.mob.context?.chunks) return true; // Если чанков нет, считаем безопасным (fallback)
+
+    const chunks = this.mob.context.chunks;
+    const floorY = Math.floor(this.mob.position.y);
+    const blockX = Math.floor(x);
+    const blockZ = Math.floor(z);
+
+    // 1. Проверяем блок в самой точке (ноги)
+    const blockAtLegs = this.mob.getBlock(chunks, blockX, floorY, blockZ);
+    if (blockAtLegs === BLOCK_TYPES.WATER || blockAtLegs === BLOCK_TYPES.LAVA) {
+      return false; // Вода или лава
+    }
     
-    // Пока просто возвращаем true
+    // Если блок в ногах твердый, значит мы застряли в блоке? 
+    // Обычно моб занимает 2 блока высоты. Проверим ноги и голову?
+    // Для движения нам нужно чтобы в ногах было пусто (или трава/цветы)
+    if (isSolid(blockAtLegs)) {
+        return false; // Застрянем
+    }
+
+    // 2. Проверяем блок под ногами (на чем стоять)
+    const blockBelow = this.mob.getBlock(chunks, blockX, floorY - 1, blockZ);
+    
+    // Должен быть твердый блок
+    if (!isSolid(blockBelow)) {
+        // Если под ногами воздух/вода - это плохо.
+        // Но может мы спускаемся на 1 блок?
+        // Проверим блок еще ниже (y-2)
+        const blockBelow2 = this.mob.getBlock(chunks, blockX, floorY - 2, blockZ);
+        if (!isSolid(blockBelow2)) {
+             return false; // Слишком глубоко падать (> 1 блока)
+        }
+    }
+    
+    // Если под ногами вода/лава - тоже нельзя
+    if (blockBelow === BLOCK_TYPES.WATER || blockBelow === BLOCK_TYPES.LAVA) {
+        return false;
+    }
+
     return true;
   }
 }

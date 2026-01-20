@@ -25,16 +25,6 @@ import {
   EatBlockGoal
 } from './ai';
 
-// Состояния AI моба (для совместимости)
-export const MobState = {
-  IDLE: 'idle',       // Стоит на месте
-  WANDER: 'wander',   // Бродит случайно
-  CHASE: 'chase',     // Преследует цель
-  ATTACK: 'attack',   // Атакует
-  FLEE: 'flee',       // Убегает
-  DEAD: 'dead'        // Мёртв
-};
-
 export class Mob extends LivingEntity {
   constructor(x = 0, y = 0, z = 0, mobType) {
     // Получаем определение моба из реестра
@@ -90,17 +80,10 @@ export class Mob extends LivingEntity {
     // Время последнего урона (для PanicGoal)
     this.lastDamageTimestamp = 0;
     
-    // === Устаревшие поля (для совместимости) ===
-    this.state = MobState.IDLE;
+    // Цель
     this.target = null;
-    this.targetPosition = null;
-    this.thinkTimer = 0;
-    this.wanderTimer = 0;
-    this.attackCooldown = 0;
     this.aggroTimer = 0;
-    this.path = [];
-    this.pathIndex = 0;
-    this.pathUpdateTimer = 0;
+    this.attackCooldown = 0;
 
     // Физика
     this.gravity = MOB_PHYSICS.GRAVITY;
@@ -171,7 +154,6 @@ export class Mob extends LivingEntity {
    */
   update(deltaTime, chunks, context = {}) {
     if (this.isDead) {
-      this.state = MobState.DEAD;
       return;
     }
 
@@ -185,12 +167,9 @@ export class Mob extends LivingEntity {
     this.updateAnimations(deltaTime);
 
     // === НОВАЯ СИСТЕМА AI ===
-    // Обновляем контроллеры
-    this.lookController.tick(deltaTime);
-    this.navigation.tick(deltaTime);
-    
-    // Обновляем цели
     this.goalSelector.tick(deltaTime);
+    this.navigation.tick(deltaTime);
+    this.lookController.tick(deltaTime);
 
     // Применяем физику
     this.applyPhysics(deltaTime, chunks);
@@ -236,195 +215,6 @@ export class Mob extends LivingEntity {
     } else {
       this.walkAnimation = 0;
     }
-  }
-
-  /**
-   * AI мышление - принятие решений
-   * Заглушка для будущей реализации AI
-   */
-  think(context) {
-    // Базовая логика - заглушка
-    // В будущем здесь будет:
-    // - Поиск игрока
-    // - Выбор состояния
-    // - Построение пути
-
-    const player = context.player;
-
-    if (!player) {
-      // Нет игрока - просто бродим
-      if (this.state !== MobState.WANDER && this.state !== MobState.IDLE) {
-        this.state = MobState.IDLE;
-      }
-      return;
-    }
-
-    // Проверяем расстояние до игрока
-    const dx = player.position.x - this.position.x;
-    const dy = player.position.y - this.position.y;
-    const dz = player.position.z - this.position.z;
-    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
-    if (this.hostile && distance <= this.detectionRange) {
-      // Враждебный моб видит игрока
-      this.target = player;
-      this.aggroTimer = MOB_AI.AGGRO_DURATION;
-
-      if (distance <= this.attackRange) {
-        this.state = MobState.ATTACK;
-      } else {
-        this.state = MobState.CHASE;
-      }
-    } else if (this.aggroTimer > 0 && this.target) {
-      // Помним о цели какое-то время
-      this.state = MobState.CHASE;
-    } else {
-      // Не видим цель — мирное поведение
-      this.target = null;
-
-      // Таймер для смены состояния
-      this.wanderTimer += MOB_AI.THINK_INTERVAL;
-      
-      // Случайный интервал между MIN и MAX
-      if (!this.nextWanderTime) {
-        this.nextWanderTime = MOB_AI.WANDER_INTERVAL_MIN + 
-          Math.random() * (MOB_AI.WANDER_INTERVAL_MAX - MOB_AI.WANDER_INTERVAL_MIN);
-      }
-
-      if (this.wanderTimer >= this.nextWanderTime) {
-        this.wanderTimer = 0;
-        this.nextWanderTime = null; // Сбросить для нового случайного времени
-
-        // Шанс остаться стоять или начать движение
-        if (this.state === MobState.IDLE) {
-          // Стояли — теперь идём
-          this.state = MobState.WANDER;
-          
-          // Выбираем случайную точку для брождения
-          const angle = Math.random() * Math.PI * 2;
-          const dist = 2 + Math.random() * (MOB_AI.WANDER_RADIUS - 2);
-          this.targetPosition = {
-            x: this.position.x + Math.cos(angle) * dist,
-            z: this.position.z + Math.sin(angle) * dist
-          };
-        } else {
-          // Шли — теперь шанс остановиться или продолжить
-          if (Math.random() < MOB_AI.IDLE_CHANCE) {
-            this.state = MobState.IDLE;
-          } else {
-            // Выбираем новую точку и продолжаем
-            const angle = Math.random() * Math.PI * 2;
-            const dist = 2 + Math.random() * (MOB_AI.WANDER_RADIUS - 2);
-            this.targetPosition = {
-              x: this.position.x + Math.cos(angle) * dist,
-              z: this.position.z + Math.sin(angle) * dist
-            };
-          }
-        }
-      }
-    }
-  }
-
-  /**
-   * Выполнение действий на основе состояния
-   * Заглушка для будущей реализации AI
-   */
-  executeState(deltaTime, chunks, context) {
-    switch (this.state) {
-      case MobState.IDLE:
-        // Стоим на месте
-        this.velocity.x = 0;
-        this.velocity.z = 0;
-        break;
-
-      case MobState.WANDER:
-        // Идём к случайной точке
-        if (this.targetPosition) {
-          this.moveTowards(this.targetPosition.x, this.targetPosition.z, deltaTime);
-        }
-        break;
-
-      case MobState.CHASE:
-        // Преследуем цель
-        if (this.target) {
-          this.moveTowards(this.target.position.x, this.target.position.z, deltaTime);
-        }
-        break;
-
-      case MobState.ATTACK:
-        // Атакуем цель
-        this.velocity.x = 0;
-        this.velocity.z = 0;
-
-        if (this.target && this.attackCooldown <= 0) {
-          this.attack(this.target);
-          this.attackCooldown = MOB_AI.ATTACK_COOLDOWN;
-        }
-        break;
-
-      case MobState.FLEE:
-        // Убегаем от цели
-        if (this.target) {
-          this.moveAway(this.target.position.x, this.target.position.z, deltaTime);
-        }
-        break;
-
-      case MobState.DEAD:
-        this.velocity.x = 0;
-        this.velocity.z = 0;
-        break;
-    }
-  }
-
-  /**
-   * Движение к точке
-   */
-  moveTowards(targetX, targetZ, deltaTime) {
-    const dx = targetX - this.position.x;
-    const dz = targetZ - this.position.z;
-    const distance = Math.sqrt(dx * dx + dz * dz);
-
-    if (distance < 0.5) {
-      // Достигли цели
-      this.velocity.x = 0;
-      this.velocity.z = 0;
-      return;
-    }
-
-    // Направление к цели
-    const dirX = dx / distance;
-    const dirZ = dz / distance;
-
-    // Устанавливаем скорость
-    this.velocity.x = dirX * this.moveSpeed;
-    this.velocity.z = dirZ * this.moveSpeed;
-
-    // Поворачиваем моба к цели (смотрит в направлении движения)
-    this.rotation.yaw = Math.atan2(dirX, dirZ);
-  }
-
-  /**
-   * Движение от точки
-   */
-  moveAway(targetX, targetZ, deltaTime) {
-    const dx = this.position.x - targetX;
-    const dz = this.position.z - targetZ;
-    const distance = Math.sqrt(dx * dx + dz * dz);
-
-    if (distance < 0.1) {
-      // Слишком близко, выбираем случайное направление
-      const angle = Math.random() * Math.PI * 2;
-      this.velocity.x = Math.cos(angle) * this.moveSpeed;
-      this.velocity.z = Math.sin(angle) * this.moveSpeed;
-      return;
-    }
-
-    // Направление от цели
-    const dirX = dx / distance;
-    const dirZ = dz / distance;
-
-    this.velocity.x = dirX * this.moveSpeed;
-    this.velocity.z = dirZ * this.moveSpeed;
   }
 
   /**
@@ -742,7 +532,7 @@ export class Mob extends LivingEntity {
       data.mobType
     );
     mob.health = data.health;
-    mob.rotation = { ...data.rotation };
+    mob.rotation = { yaw: 0, pitch: 0, headYaw: 0, headPitch: 0, ...data.rotation };
     return mob;
   }
 }

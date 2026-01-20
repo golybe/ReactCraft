@@ -7,7 +7,7 @@ export class Entity {
   constructor(x = 0, y = 0, z = 0) {
     this.position = new THREE.Vector3(x, y, z);
     this.velocity = new THREE.Vector3(0, 0, 0);
-    this.rotation = { yaw: 0, pitch: 0 };
+    this.rotation = { yaw: 0, pitch: 0, headYaw: 0, headPitch: 0 };
     
     // Размеры для коллизий
     this.width = 0.6;

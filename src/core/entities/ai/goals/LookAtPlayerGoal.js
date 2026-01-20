@@ -12,9 +12,10 @@ export class LookAtPlayerGoal extends Goal {
     this.mob = mob;
     this.lookDistance = lookDistance;
     this.flags.add('LOOK');
+    this.flags.add('MOVE');
     
     this.lookAt = null;
-    this.lookTime = 0;
+    this.lookTimeLeft = 0;
     
     // Кулдаун между взглядами (чтобы не пялиться постоянно)
     this.cooldown = 0;
@@ -38,6 +39,9 @@ export class LookAtPlayerGoal extends Goal {
     if (distSq > this.lookDistance * this.lookDistance) {
       return false;
     }
+
+    if (this.mob.isEating) return false;
+    if (this.mob.navigation?.isNavigating) return false;
     
     // 0.5% шанс начать смотреть (редко!)
     if (Math.random() < 0.005) {
@@ -50,7 +54,7 @@ export class LookAtPlayerGoal extends Goal {
 
   canContinueToUse() {
     if (!this.lookAt) return false;
-    if (this.lookTime <= 0) return false;
+    if (this.lookTimeLeft <= 0) return false;
     
     const dx = this.lookAt.position.x - this.mob.position.x;
     const dz = this.lookAt.position.z - this.mob.position.z;
@@ -60,25 +64,30 @@ export class LookAtPlayerGoal extends Goal {
   }
 
   start() {
-    // Смотрим 1-2 секунды (не долго!)
-    this.lookTime = 20 + Math.floor(Math.random() * 20);
+    this.lookTimeLeft = 3 + Math.random();
+    this.mob.navigation?.stop();
+    this.mob.velocity.x = 0;
+    this.mob.velocity.z = 0;
   }
 
   stop() {
     this.lookAt = null;
-    this.lookTime = 0;
-    // Кулдаун 3-6 секунд перед следующим взглядом
-    this.cooldown = 60 + Math.floor(Math.random() * 60);
+    this.lookTimeLeft = 0;
+    // Кулдаун 5-10 секунд перед следующим взглядом
+    this.cooldown = 100 + Math.floor(Math.random() * 100);
   }
 
   tick(deltaTime) {
-    this.lookTime--;
+    this.lookTimeLeft -= deltaTime;
+    this.mob.velocity.x = 0;
+    this.mob.velocity.z = 0;
     
     if (this.lookAt) {
       this.mob.lookController?.lookAt(
         this.lookAt.position.x,
         this.lookAt.position.y + 1.6,
-        this.lookAt.position.z
+        this.lookAt.position.z,
+        3.0
       );
     }
   }

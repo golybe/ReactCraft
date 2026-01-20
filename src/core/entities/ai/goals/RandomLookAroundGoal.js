@@ -14,38 +14,31 @@ export class RandomLookAroundGoal extends Goal {
     this.targetYaw = 0;
     
     // Время до следующего поворота
-    this.lookTime = 0;
-    this.maxLookTime = 0;
+    this.lookTimeLeft = 0;
   }
 
   canUse() {
-    // 2% шанс каждый тик начать смотреть в случайном направлении
+    if (this.mob.isEating) return false;
+    if (this.mob.navigation?.isNavigating) return false;
     return Math.random() < 0.02;
   }
 
   canContinueToUse() {
-    return this.lookTime > 0;
+    return this.lookTimeLeft > 0;
   }
 
   start() {
-    // Выбираем случайное направление
-    const deltaYaw = (Math.random() - 0.5) * Math.PI; // ±90 градусов
-    this.targetYaw = this.mob.rotation.yaw + deltaYaw;
-    
-    // Время на поворот (40-80 тиков = 2-4 секунды)
-    this.maxLookTime = 40 + Math.floor(Math.random() * 40);
-    this.lookTime = this.maxLookTime;
+    const deltaYaw = (Math.random() - 0.5) * 1.2;
+    this.targetYaw = deltaYaw;
+    this.lookTimeLeft = 0.8 + Math.random() * 1.6;
   }
 
   stop() {
-    this.lookTime = 0;
+    this.lookTimeLeft = 0;
   }
 
   tick(deltaTime) {
-    this.lookTime--;
-    
-    // Плавно поворачиваем к целевому углу
-    const turnSpeed = 2.0 * deltaTime; // радиан/сек
-    this.mob.lookController?.setLookRotation(this.targetYaw, 0, turnSpeed);
+    this.lookTimeLeft -= deltaTime;
+    this.mob.lookController?.setHeadRotation(this.targetYaw, 0, 2.0);
   }
 }
