@@ -116,6 +116,17 @@ export const GameCanvas = ({
   isEating,
   eatingProgress
 }) => {
+  // Внутренняя ссылка на игрока для передачи мобам
+  const playerRefInternal = React.useRef(null);
+  
+  // Обёртка над onPlayerRef для сохранения внутренней ссылки
+  const handlePlayerRef = React.useCallback((player) => {
+    playerRefInternal.current = player;
+    if (onPlayerRef) {
+      onPlayerRef(player);
+    }
+  }, [onPlayerRef]);
+
   return (
     <Canvas
       camera={{ position: [0, SEA_LEVEL + 12, 0], fov: 75 }}
@@ -181,7 +192,7 @@ export const GameCanvas = ({
             isDead={isDead}
             teleportPos={teleportPos}
             onDeath={onPlayerDeath}
-            onPlayerRef={onPlayerRef}
+            onPlayerRef={handlePlayerRef}
           />
           <BlockHighlight chunks={chunks} />
 
@@ -206,7 +217,12 @@ export const GameCanvas = ({
 
           {/* Рендеринг мобов */}
           {entityManager && (
-            <MobsRenderer entityManager={entityManager} />
+            <MobsRenderer 
+              entityManager={entityManager} 
+              chunks={chunks}
+              playerRef={playerRefInternal}
+              chunkManager={chunkManager}
+            />
           )}
 
           {/* Рендеринг падающих блоков */}

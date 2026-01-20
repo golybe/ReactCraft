@@ -1,12 +1,31 @@
 /**
  * Mob - базовый класс для всех мобов
  * Наследуется от LivingEntity, добавляет базовую логику мобов
+ * 
+ * Использует систему целей (Goals) как в Minecraft:
+ * - GoalSelector управляет приоритетами целей
+ * - Navigation отвечает за движение
+ * - LookController за плавный поворот
  */
 import { LivingEntity, DamageSource } from './LivingEntity';
 import { MobRegistry } from './MobRegistry';
 import { MOB_AI, MOB_PHYSICS } from '../../constants/mobs';
+import { CHUNK_SIZE, WORLD_HEIGHT } from '../../constants/world';
+import { isSolid } from '../../constants/blocks';
 
-// Состояния AI моба
+// AI система
+import { 
+  GoalSelector, 
+  MobNavigation, 
+  LookController,
+  WaterAvoidingRandomStrollGoal,
+  RandomLookAroundGoal,
+  LookAtPlayerGoal,
+  PanicGoal,
+  EatBlockGoal
+} from './ai';
+
+// Состояния AI моба (для совместимости)
 export const MobState = {
   IDLE: 'idle',       // Стоит на месте
   WANDER: 'wander',   // Бродит случайно
@@ -49,19 +68,37 @@ export class Mob extends LivingEntity {
       this.hostile = true;
     }
 
-    // AI состояние
+    // === НОВАЯ СИСТЕМА AI (как в Minecraft) ===
+    
+    // Контроллеры
+    this.navigation = new MobNavigation(this);
+    this.lookController = new LookController(this);
+    
+    // Селектор целей
+    this.goalSelector = new GoalSelector(this);
+    
+    // Регистрируем цели для мирных мобов
+    if (!this.hostile) {
+      this.registerPassiveMobGoals();
+    } else {
+      this.registerHostileMobGoals();
+    }
+    
+    // Контекст AI (игрок, мир и т.д.)
+    this.context = null;
+    
+    // Время последнего урона (для PanicGoal)
+    this.lastDamageTimestamp = 0;
+    
+    // === Устаревшие поля (для совместимости) ===
     this.state = MobState.IDLE;
-    this.target = null;           // Целевая сущность
-    this.targetPosition = null;   // Целевая позиция (для wander)
-
-    // Таймеры AI
+    this.target = null;
+    this.targetPosition = null;
     this.thinkTimer = 0;
     this.wanderTimer = 0;
     this.attackCooldown = 0;
     this.aggroTimer = 0;
-
-    // Навигация
-    this.path = [];               // Путь к цели
+    this.path = [];
     this.pathIndex = 0;
     this.pathUpdateTimer = 0;
 
@@ -73,9 +110,53 @@ export class Mob extends LivingEntity {
     // Анимация
     this.walkAnimation = 0;
     this.hurtAnimation = 0;
+    
+    // Анимация еды (для овец)
+    this.isEating = false;
+    this.eatingProgress = 0; // 0-1
+    
+    // Состояние шерсти (для овец)
+    this.isSheared = false;
 
     // PhysicsEngine для коллизий (будет установлен извне)
     this.physicsEngine = null;
+  }
+
+  /**
+   * Регистрация целей для мирных мобов (овцы, коровы, свиньи)
+   */
+  registerPassiveMobGoals() {
+    // Приоритеты (меньше = важнее):
+    // 1 - Паника при уроне
+    // 4 - Есть траву (только овцы)
+    // 5 - Случайное блуждание  
+    // 6 - Смотреть на игрока
+    // 7 - Случайно оглядываться
+    
+    this.goalSelector.addGoal(1, new PanicGoal(this, 1.25));
+    
+    // Овцы едят траву!
+    if (this.mobType === 'sheep') {
+      this.goalSelector.addGoal(4, new EatBlockGoal(this));
+    }
+    
+    this.goalSelector.addGoal(5, new WaterAvoidingRandomStrollGoal(this, 1.0));
+    this.goalSelector.addGoal(6, new LookAtPlayerGoal(this, 6.0));
+    this.goalSelector.addGoal(7, new RandomLookAroundGoal(this));
+  }
+
+  /**
+   * Регистрация целей для враждебных мобов
+   */
+  registerHostileMobGoals() {
+    // TODO: Добавить цели для враждебных мобов
+    // - MeleeAttackGoal
+    // - NearestAttackableTargetGoal
+    // - etc.
+    
+    // Пока используем базовое поведение
+    this.goalSelector.addGoal(5, new WaterAvoidingRandomStrollGoal(this, 1.0));
+    this.goalSelector.addGoal(7, new RandomLookAroundGoal(this));
   }
 
   /**
@@ -94,21 +175,22 @@ export class Mob extends LivingEntity {
       return;
     }
 
+    // Сохраняем контекст для целей
+    this.context = context;
+
     // Обновляем таймеры
     this.updateTimers(deltaTime);
 
     // Обновляем анимации
     this.updateAnimations(deltaTime);
 
-    // AI мышление (с интервалом для оптимизации)
-    this.thinkTimer += deltaTime;
-    if (this.thinkTimer >= MOB_AI.THINK_INTERVAL) {
-      this.think(context);
-      this.thinkTimer = 0;
-    }
-
-    // Выполняем действия на основе состояния
-    this.executeState(deltaTime, chunks, context);
+    // === НОВАЯ СИСТЕМА AI ===
+    // Обновляем контроллеры
+    this.lookController.tick(deltaTime);
+    this.navigation.tick(deltaTime);
+    
+    // Обновляем цели
+    this.goalSelector.tick(deltaTime);
 
     // Применяем физику
     this.applyPhysics(deltaTime, chunks);
@@ -197,23 +279,47 @@ export class Mob extends LivingEntity {
       // Помним о цели какое-то время
       this.state = MobState.CHASE;
     } else {
-      // Не видим цель
+      // Не видим цель — мирное поведение
       this.target = null;
 
-      // Случайно переключаемся между IDLE и WANDER
+      // Таймер для смены состояния
       this.wanderTimer += MOB_AI.THINK_INTERVAL;
-      if (this.wanderTimer >= MOB_AI.WANDER_INTERVAL) {
-        this.wanderTimer = 0;
-        this.state = this.state === MobState.IDLE ? MobState.WANDER : MobState.IDLE;
+      
+      // Случайный интервал между MIN и MAX
+      if (!this.nextWanderTime) {
+        this.nextWanderTime = MOB_AI.WANDER_INTERVAL_MIN + 
+          Math.random() * (MOB_AI.WANDER_INTERVAL_MAX - MOB_AI.WANDER_INTERVAL_MIN);
+      }
 
-        // Выбираем случайную точку для брождения
-        if (this.state === MobState.WANDER) {
+      if (this.wanderTimer >= this.nextWanderTime) {
+        this.wanderTimer = 0;
+        this.nextWanderTime = null; // Сбросить для нового случайного времени
+
+        // Шанс остаться стоять или начать движение
+        if (this.state === MobState.IDLE) {
+          // Стояли — теперь идём
+          this.state = MobState.WANDER;
+          
+          // Выбираем случайную точку для брождения
           const angle = Math.random() * Math.PI * 2;
-          const dist = Math.random() * MOB_AI.WANDER_RADIUS;
+          const dist = 2 + Math.random() * (MOB_AI.WANDER_RADIUS - 2);
           this.targetPosition = {
             x: this.position.x + Math.cos(angle) * dist,
             z: this.position.z + Math.sin(angle) * dist
           };
+        } else {
+          // Шли — теперь шанс остановиться или продолжить
+          if (Math.random() < MOB_AI.IDLE_CHANCE) {
+            this.state = MobState.IDLE;
+          } else {
+            // Выбираем новую точку и продолжаем
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 2 + Math.random() * (MOB_AI.WANDER_RADIUS - 2);
+            this.targetPosition = {
+              x: this.position.x + Math.cos(angle) * dist,
+              z: this.position.z + Math.sin(angle) * dist
+            };
+          }
         }
       }
     }
@@ -293,8 +399,8 @@ export class Mob extends LivingEntity {
     this.velocity.x = dirX * this.moveSpeed;
     this.velocity.z = dirZ * this.moveSpeed;
 
-    // Поворачиваем моба к цели
-    this.rotation.yaw = Math.atan2(-dx, -dz);
+    // Поворачиваем моба к цели (смотрит в направлении движения)
+    this.rotation.yaw = Math.atan2(dirX, dirZ);
   }
 
   /**
@@ -333,8 +439,85 @@ export class Mob extends LivingEntity {
   }
 
   /**
-   * Применение физики
-   * Упрощенная версия - в будущем использовать PhysicsEngine
+   * Получить блок из chunks по мировым координатам
+   */
+  getBlock(chunks, worldX, worldY, worldZ) {
+    if (worldY < 0 || worldY >= WORLD_HEIGHT) return 0;
+    
+    const chunkX = Math.floor(worldX / CHUNK_SIZE);
+    const chunkZ = Math.floor(worldZ / CHUNK_SIZE);
+    const key = `${chunkX},${chunkZ}`;
+    const chunk = chunks?.[key];
+    
+    if (!chunk) return 0;
+    
+    const localX = ((Math.floor(worldX) % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+    const localZ = ((Math.floor(worldZ) % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+    
+    return chunk.getBlock(localX, Math.floor(worldY), localZ);
+  }
+
+  /**
+   * Проверка коллизии AABB моба с блоками мира
+   */
+  checkCollision(chunks, x, y, z) {
+    const hw = this.width / 2;
+    const hd = this.width / 2; // Мобы обычно квадратные в горизонтали
+    
+    // Проверяем все блоки в AABB моба
+    const minX = Math.floor(x - hw);
+    const maxX = Math.floor(x + hw);
+    const minY = Math.floor(y);
+    const maxY = Math.floor(y + this.height);
+    const minZ = Math.floor(z - hd);
+    const maxZ = Math.floor(z + hd);
+    
+    for (let bx = minX; bx <= maxX; bx++) {
+      for (let by = minY; by <= maxY; by++) {
+        for (let bz = minZ; bz <= maxZ; bz++) {
+          const block = this.getBlock(chunks, bx, by, bz);
+          if (isSolid(block)) {
+            return true;
+          }
+        }
+      }
+    }
+    
+    return false;
+  }
+
+  /**
+   * Найти Y позицию земли под мобом
+   */
+  findGroundY(chunks, x, z) {
+    const hw = this.width / 2;
+    let groundY = Math.floor(this.position.y);
+    
+    // Ищем землю вниз
+    for (let y = groundY; y >= 0; y--) {
+      // Проверяем все блоки под мобом
+      let hasGround = false;
+      for (let bx = Math.floor(x - hw); bx <= Math.floor(x + hw); bx++) {
+        for (let bz = Math.floor(z - hw); bz <= Math.floor(z + hw); bz++) {
+          const block = this.getBlock(chunks, bx, y, bz);
+          if (isSolid(block)) {
+            hasGround = true;
+            break;
+          }
+        }
+        if (hasGround) break;
+      }
+      
+      if (hasGround) {
+        return y + 1; // Стоим на блоке
+      }
+    }
+    
+    return 0;
+  }
+
+  /**
+   * Применение физики с коллизиями через chunks
    */
   applyPhysics(deltaTime, chunks) {
     const dt = Math.min(deltaTime, 0.05);
@@ -352,61 +535,109 @@ export class Mob extends LivingEntity {
     const newY = this.position.y + this.velocity.y * dt;
     const newZ = this.position.z + this.velocity.z * dt;
 
-    // Простая проверка коллизий через PhysicsEngine (если есть)
-    if (this.physicsEngine) {
-      // Горизонтальное движение
-      if (!this.physicsEngine.checkCollision(this, newX, this.position.y, this.position.z)) {
+    // Коллизии через chunks
+    if (chunks) {
+      let movedX = false;
+      let movedZ = false;
+      
+      // Движение по X
+      if (!this.checkCollision(chunks, newX, this.position.y, this.position.z)) {
         this.position.x = newX;
-      } else {
+        movedX = true;
+      } else if (this.onGround) {
+        // Пробуем step up по X — проверяем что не влезем в блок СВЕРХУ
+        const stepY = this.position.y + 1.0;
+        // Проверяем и новую позицию И путь подъёма
+        const canStepUp = !this.checkCollision(chunks, newX, stepY, this.position.z) &&
+                          !this.checkCollision(chunks, this.position.x, stepY, this.position.z);
+        if (canStepUp) {
+          this.position.x = newX;
+          this.position.y = stepY;
+          movedX = true;
+        }
+      }
+      
+      if (!movedX && Math.abs(this.velocity.x) > 0.01) {
         this.velocity.x = 0;
+        this.isStuck = true;
       }
 
-      if (!this.physicsEngine.checkCollision(this, this.position.x, this.position.y, newZ)) {
+      // Движение по Z
+      if (!this.checkCollision(chunks, this.position.x, this.position.y, newZ)) {
         this.position.z = newZ;
-      } else {
+        movedZ = true;
+      } else if (this.onGround) {
+        // Пробуем step up по Z
+        const stepY = this.position.y + 1.0;
+        const canStepUp = !this.checkCollision(chunks, this.position.x, stepY, newZ) &&
+                          !this.checkCollision(chunks, this.position.x, stepY, this.position.z);
+        if (canStepUp) {
+          this.position.z = newZ;
+          this.position.y = stepY;
+          movedZ = true;
+        }
+      }
+      
+      if (!movedZ && Math.abs(this.velocity.z) > 0.01) {
         this.velocity.z = 0;
+        this.isStuck = true;
+      }
+      
+      // Если двигались успешно — не застряли
+      if (movedX || movedZ) {
+        this.isStuck = false;
+      }
+      
+      // ЗАЩИТА: если застряли в блоке — выталкиваем вверх
+      if (this.checkCollision(chunks, this.position.x, this.position.y, this.position.z)) {
+        // Ищем свободное место вверх
+        for (let tryY = this.position.y; tryY < this.position.y + 3; tryY += 0.5) {
+          if (!this.checkCollision(chunks, this.position.x, tryY, this.position.z)) {
+            this.position.y = tryY;
+            break;
+          }
+        }
       }
 
       // Вертикальное движение
-      if (!this.physicsEngine.checkCollision(this, this.position.x, newY, this.position.z)) {
+      if (!this.checkCollision(chunks, this.position.x, newY, this.position.z)) {
         this.position.y = newY;
         this.onGround = false;
       } else {
         if (this.velocity.y < 0) {
+          // Падаем - нашли землю
           this.onGround = true;
-          this.position.y = this.physicsEngine.findGroundY(
-            this,
-            this.position.x,
-            this.position.y,
-            this.position.z
-          );
+          this.position.y = this.findGroundY(chunks, this.position.x, this.position.z);
         }
         this.velocity.y = 0;
       }
     } else {
-      // Без PhysicsEngine просто применяем скорость
+      // Без chunks просто применяем скорость (fallback)
       this.position.x = newX;
       this.position.y = newY;
       this.position.z = newZ;
+    }
 
-      // Защита от падения в пустоту
-      if (this.position.y < -20) {
-        this.die(DamageSource.VOID);
-      }
+    // Защита от падения в пустоту
+    if (this.position.y < -20) {
+      this.die(DamageSource.VOID);
     }
   }
 
   /**
-   * Переопределение получения урона для анимации
+   * Переопределение получения урона для анимации и паники
    */
   damage(amount, source = DamageSource.GENERIC, attacker = null) {
     const damaged = super.damage(amount, source, attacker);
 
     if (damaged) {
+      // Запоминаем время урона для PanicGoal
+      this.lastDamageTimestamp = performance.now();
+      
       // Запускаем анимацию получения урона
       this.hurtAnimation = 1.0;
 
-      // Если атакован игроком - агрессируем на него
+      // Если атакован игроком - агрессируем на него (для враждебных мобов)
       if (attacker && this.hostile) {
         this.target = attacker;
         this.aggroTimer = MOB_AI.AGGRO_DURATION;

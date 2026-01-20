@@ -77,6 +77,13 @@ export class World {
   }
 
   /**
+   * Getter для доступа к chunks (для совместимости)
+   */
+  get chunks() {
+    return this.chunkManager.chunks;
+  }
+
+  /**
    * Получить блок в мировых координатах
    */
   getBlock(x, y, z) {

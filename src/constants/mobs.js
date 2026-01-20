@@ -30,15 +30,17 @@ export const MOB_PHYSICS = {
   GRAVITY: 20,
   MAX_FALL_SPEED: 50,
   GROUND_CHECK_DIST: 0.1,
-  STEP_HEIGHT: 0.5 // Мобы могут подниматься на полблока
+  STEP_HEIGHT: 1.0 // Мобы поднимаются на 1 блок
 };
 
-// Константы AI мобов
+// Константы AI мобов (близко к Minecraft)
 export const MOB_AI = {
-  THINK_INTERVAL: 0.25, // Как часто моб принимает решения (сек)
-  PATH_UPDATE_INTERVAL: 1.0, // Как часто обновляется путь
-  WANDER_RADIUS: 10, // Радиус случайных блужданий
-  WANDER_INTERVAL: 5.0, // Интервал между сменой направления
+  THINK_INTERVAL: 0.05, // Как часто моб принимает решения (сек) — чаще = плавнее
+  PATH_UPDATE_INTERVAL: 0.5, // Как часто обновляется путь
+  WANDER_RADIUS: 5, // Радиус случайных блужданий (в блоках)
+  WANDER_INTERVAL_MIN: 1.0, // Минимальное время между сменой направления
+  WANDER_INTERVAL_MAX: 4.0, // Максимальное время
+  IDLE_CHANCE: 0.3, // Шанс остаться стоять вместо движения
   AGGRO_DURATION: 10.0, // Время агрессии после потери цели
   ATTACK_COOLDOWN: 1.0 // Кулдаун атаки
 };
@@ -174,7 +176,7 @@ export function registerDefaultMobs() {
     id: MOB_TYPES.SHEEP,
     name: 'Sheep',
     maxHealth: 8,
-    moveSpeed: 2.3,
+    moveSpeed: 1.0, // Овцы ходят медленно! (было 2.3)
     attackDamage: 0,
     attackRange: 0,
     detectionRange: 0,

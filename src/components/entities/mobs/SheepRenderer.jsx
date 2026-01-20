@@ -13,10 +13,14 @@ import { MobRegistry } from '../../../core/entities/MobRegistry';
  */
 const SheepRenderer = ({ mob }) => {
   const groupRef = useRef();
+  const headRef = useRef(); // Группа для головы (анимация еды)
   const legFLRef = useRef();
   const legFRRef = useRef();
   const legBLRef = useRef();
   const legBRRef = useRef();
+  
+  // Плавный угол наклона головы
+  const headPitchRef = useRef(0);
 
   // Получаем модель овцы (singleton)
   const model = useMemo(() => MobRegistry.getModel('sheep'), []);
@@ -38,13 +42,25 @@ const SheepRenderer = ({ mob }) => {
     groupRef.current.position.set(mob.position.x, mob.position.y, mob.position.z);
     groupRef.current.rotation.y = mob.rotation?.yaw || 0;
 
-    // Анимация модели
+    // Анимация модели (ноги)
     model.animate(mob, delta, {
       legFL: legFLRef.current,
       legFR: legFRRef.current,
       legBL: legBLRef.current,
       legBR: legBRRef.current,
     });
+    
+    // Анимация головы (еда)
+    if (headRef.current) {
+      // Целевой угол: 0 = нормально, ~70° вниз когда ест
+      const targetPitch = mob.isEating ? Math.PI * 0.4 : 0;
+      
+      // Плавная интерполяция
+      headPitchRef.current += (targetPitch - headPitchRef.current) * 0.1;
+      
+      // Применяем поворот
+      headRef.current.rotation.x = headPitchRef.current;
+    }
 
     // Смерть
     if (mob.isDead) {
@@ -91,19 +107,29 @@ const SheepRenderer = ({ mob }) => {
         rotation={[Math.PI / 2, 0, 0]}
       />
 
-      {/* Голова (кожа) */}
-      <mesh
-        geometry={geometries.head}
-        material={materials.skin}
+      {/* Голова (группа для анимации еды) */}
+      <group 
+        ref={headRef} 
         position={[0, positions.head.y, positions.head.z]}
-      />
+      >
+        {/* Точка вращения — задняя часть головы */}
+        <group position={[0, 0, -positions.head.z * 0.3]}>
+          {/* Голова (кожа) */}
+          <mesh
+            geometry={geometries.head}
+            material={materials.skin}
+            position={[0, 0, positions.head.z * 0.3]}
+          />
 
-      {/* Голова (шерсть) - сдвинута назад */}
-      <mesh
-        geometry={geometries.woolHead}
-        material={materials.wool}
-        position={[0, positions.woolHead.y, positions.woolHead.z]}
-      />
+          {/* Голова (шерсть) - сдвинута назад */}
+          <mesh
+            geometry={geometries.woolHead}
+            material={!mob.isSheared ? materials.wool : null}
+            position={[0, 0, positions.woolHead.z - positions.head.z + positions.head.z * 0.3]}
+            visible={!mob.isSheared}
+          />
+        </group>
+      </group>
 
       {/* Передняя левая нога */}
       <group ref={legFLRef} position={[positions.legFL.x, positions.legFL.y, positions.legFL.z]}>

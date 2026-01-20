@@ -48,11 +48,12 @@ const MobMesh = ({ mob }) => {
  * Менеджер рендеринга всех мобов
  * 
  * Добавляет свет на отдельном layer (1), чтобы не влиять на мир.
- * Автоматически обновляет список мобов из entityManager.
+ * Обновляет AI и физику мобов каждый кадр.
  */
-export const MobsRenderer = ({ entityManager }) => {
+export const MobsRenderer = ({ entityManager, chunks, playerRef, chunkManager }) => {
   const [mobs, setMobs] = useState([]);
   const lastCountRef = useRef(0);
+  const lastTimeRef = useRef(performance.now());
   const { camera } = useThree();
 
   // Камера видит и мир (layer 0), и мобов (layer 1)
@@ -60,10 +61,32 @@ export const MobsRenderer = ({ entityManager }) => {
     camera.layers.enable(1);
   }, [camera]);
 
-  // Обновление списка мобов
+  // Обновление мобов (AI, физика) и списка
   useFrame(() => {
     if (!entityManager) return;
 
+    // Рассчитываем delta time
+    const now = performance.now();
+    const deltaTime = (now - lastTimeRef.current) / 1000;
+    lastTimeRef.current = now;
+
+    // Функция для изменения блоков (овцы едят траву)
+    const setBlock = (x, y, z, blockId) => {
+      if (chunkManager && chunkManager.setBlock) {
+        chunkManager.setBlock(x, y, z, blockId);
+      }
+    };
+
+    // Обновляем AI и физику мобов
+    const context = {
+      player: playerRef?.current || null,
+      playerPos: playerRef?.current?.position || null,
+      chunks: chunks,
+      setBlock: setBlock,
+    };
+    entityManager.update(deltaTime, chunks, context);
+
+    // Обновляем список мобов для рендеринга
     const allMobs = entityManager.getAll().filter((entity) => entity.mobType !== undefined);
     
     // Обновляем только при изменении количества

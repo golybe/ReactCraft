@@ -194,21 +194,48 @@ export class QuadrupedModel extends MobModel {
   }
 
   /**
-   * Анимация ходьбы для четвероногих
+   * Анимация ходьбы для четвероногих (как в Minecraft)
+   * 
+   * В Minecraft анимация ног плавная и медленная,
+   * особенно у мирных мобов типа овец.
    */
   animateWalk(speed, delta, refs) {
-    if (speed > 0.01) {
-      this.animationTime += delta * 8;
-    } else {
-      this.animationTime *= 0.9;
+    // Инициализация при первом вызове
+    if (this.smoothSpeed === undefined) {
+      this.smoothSpeed = 0;
+      this.targetSwing = 0;
+      this.currentSwing = 0;
     }
-
-    const swing = Math.sin(this.animationTime) * 0.6;
-
-    if (refs.legFL) refs.legFL.rotation.x = swing;
-    if (refs.legFR) refs.legFR.rotation.x = -swing;
-    if (refs.legBL) refs.legBL.rotation.x = -swing;
-    if (refs.legBR) refs.legBR.rotation.x = swing;
+    
+    // Плавное изменение скорости
+    const speedLerpFactor = 0.08; // Медленнее = плавнее
+    this.smoothSpeed += (speed - this.smoothSpeed) * speedLerpFactor;
+    
+    // Порог для определения движения
+    const isMoving = this.smoothSpeed > 0.15;
+    
+    if (isMoving) {
+      // Медленная частота шагов (овцы ходят неторопливо)
+      this.animationTime += delta * 4;
+    }
+    
+    // Целевой угол качания
+    if (isMoving) {
+      // Небольшая амплитуда (~25 градусов) — овцы не машут ногами сильно
+      this.targetSwing = Math.sin(this.animationTime) * 0.4;
+    } else {
+      this.targetSwing = 0;
+    }
+    
+    // Очень плавная интерполяция угла
+    const swingLerpFactor = 0.1;
+    this.currentSwing += (this.targetSwing - this.currentSwing) * swingLerpFactor;
+    
+    // Применяем к ногам
+    if (refs.legFL) refs.legFL.rotation.x = this.currentSwing;
+    if (refs.legFR) refs.legFR.rotation.x = -this.currentSwing;
+    if (refs.legBL) refs.legBL.rotation.x = -this.currentSwing;
+    if (refs.legBR) refs.legBR.rotation.x = this.currentSwing;
   }
 }
 
